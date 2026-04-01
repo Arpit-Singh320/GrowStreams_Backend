@@ -154,7 +154,7 @@ router.get('/config', (req, res) => {
   res.json({
     campaignStartDate: process.env.CAMPAIGN_START_DATE || null,
     campaignEndDate: process.env.CAMPAIGN_END_DATE || null,
-    poolUSDC: parseFloat(process.env.CAMPAIGN_POOL_USDC || '500'),
+    poolUSDC: parseFloat(process.env.CAMPAIGN_POOL_USDC || '100'),
     scoreThreshold: parseInt(process.env.SCORE_THRESHOLD || '70', 10),
     xpTiers: {
       oss: {

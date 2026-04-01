@@ -131,7 +131,7 @@ export default function CampaignPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">
           <DollarSign className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
-          <p className="text-2xl font-bold text-emerald-400">${config?.poolUSDC || 500}</p>
+          <p className="text-2xl font-bold text-emerald-400">${config?.poolUSDC || 100}</p>
           <p className="text-[10px] text-provn-muted uppercase tracking-wider">Prize Pool</p>
         </div>
         <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">
@@ -354,7 +354,7 @@ export default function CampaignPage() {
         <h2 className="text-lg font-semibold">Payout Formula</h2>
         <div className="bg-provn-bg/50 rounded-xl p-4 text-center">
           <p className="text-lg font-mono text-emerald-400">
-            Your USDC = (Your XP / Total XP) &times; ${config?.poolUSDC || 500} Pool
+            Your USDC = (Your XP / Total XP) &times; ${config?.poolUSDC || 100} Pool
           </p>
         </div>
         <p className="text-sm text-provn-muted text-center">

@@ -193,7 +193,7 @@ export async function getLeaderboard(page = 1, limit = 50, track = null) {
   );
   const totalXP = parseInt(totalXPRow?.total || '0', 10);
 
-  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '500');
+  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '100');
 
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
@@ -282,7 +282,7 @@ export async function getParticipantStats(wallet) {
   );
   const totalXP = parseInt(totalXPRow?.total || '0', 10);
 
-  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '500');
+  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '100');
   const estimatedUSDC = totalXP > 0
     ? Math.round((participant.total_xp / totalXP) * poolUSDC * 100) / 100
     : 0;
@@ -325,7 +325,7 @@ export async function calculatePayout(wallet) {
   );
   const totalXP = parseInt(totalXPRow?.total || '0', 10);
 
-  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '500');
+  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '100');
   const payout = totalXP > 0
     ? Math.round((participant.total_xp / totalXP) * poolUSDC * 100) / 100
     : 0;
@@ -351,7 +351,7 @@ export async function calculateAllPayouts() {
   );
 
   const totalXP = participants.reduce((sum, p) => sum + p.total_xp, 0);
-  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '500');
+  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '100');
 
   const payouts = participants.map((p, i) => ({
     rank: i + 1,
