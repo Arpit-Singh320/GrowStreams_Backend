@@ -121,7 +121,7 @@ export default function CampaignPage() {
             <Trophy className="w-8 h-8 text-emerald-400" />
           </div>
         </div>
-        <h1 className="text-3xl font-bold">GrowStreams Campaign</h1>
+        <h1 className="text-3xl font-bold">Vara x GrowStreams Challenge</h1>
         <p className="text-provn-muted max-w-lg mx-auto">
           Earn XP and USDC rewards by contributing code or creating content about GrowStreams.
         </p>
