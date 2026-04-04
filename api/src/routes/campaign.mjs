@@ -252,10 +252,10 @@ router.post('/poll-tweets', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
-// DELETE /api/campaign/participants/cleanup (admin only)
+// POST /api/campaign/participants/cleanup (admin only)
 // Remove mock/test participants and all their related data
 // ---------------------------------------------------------------------------
-router.delete('/participants/cleanup', async (req, res, next) => {
+router.post('/participants/cleanup', async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     const adminSecret = process.env.ADMIN_SECRET;
