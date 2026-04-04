@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { runDailyXP } from './daily-xp.mjs';
 import { runSnapshot } from './leaderboard-snapshot.mjs';
 import { runReevaluate } from './x-reevaluate.mjs';
-import { pollRecentTweets } from '../services/x-agent.mjs';
+import { pollRecentTweets, pollRegisteredUsers } from '../services/x-agent.mjs';
 
 export function initCrons() {
   // Daily XP accumulation — midnight UTC
@@ -41,9 +41,19 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
+  // Poll registered users' timelines — every 30 minutes
+  cron.schedule('*/30 * * * *', async () => {
+    try {
+      await pollRegisteredUsers();
+    } catch (err) {
+      console.error(`[cron] x-user-poll failed: ${err.message}`);
+    }
+  }, { timezone: 'UTC' });
+
   console.log('[cron] Campaign jobs scheduled:');
   console.log('[cron]   daily-xp:    0 0 * * *   (midnight UTC)');
   console.log('[cron]   snapshot:    5 0 * * *   (00:05 UTC)');
   console.log('[cron]   x-reeval:    0 */6 * * * (every 6h)');
   console.log('[cron]   x-poll:      */15 * * * * (every 15min)');
+  console.log('[cron]   x-user-poll: */30 * * * * (every 30min)');
 }

@@ -49,7 +49,15 @@ function isCampaignActive() {
   const now = new Date();
 
   if (start && new Date(start) > now) return false;
-  if (end && new Date(end) < now) return false;
+  if (end) {
+    // Treat end date as end-of-day (23:59:59.999 UTC) so the campaign is active on its final day
+    const endOfDay = new Date(end);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+    if (endOfDay < now) {
+      console.log(`[x-agent] Campaign ended on ${end}, skipping`);
+      return false;
+    }
+  }
   return true;
 }
 

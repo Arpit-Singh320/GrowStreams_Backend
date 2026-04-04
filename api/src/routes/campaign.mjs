@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { queryOne } from '../services/db.mjs';
+import { query, queryOne, queryAll } from '../services/db.mjs';
 import {
   awardXP,
   getLeaderboard,
@@ -248,6 +248,74 @@ router.post('/poll-tweets', async (req, res, next) => {
     await pollRecentTweets();
     await pollRegisteredUsers();
     res.json({ success: true, message: 'Poll completed (search + user timelines)' });
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/campaign/participants/cleanup (admin only)
+// Remove mock/test participants and all their related data
+// ---------------------------------------------------------------------------
+router.delete('/participants/cleanup', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const adminSecret = process.env.ADMIN_SECRET;
+
+    if (!adminSecret) {
+      return res.status(500).json({ error: 'ADMIN_SECRET not configured on server' });
+    }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing Authorization header: Bearer <ADMIN_SECRET>' });
+    }
+    if (authHeader.slice(7) !== adminSecret) {
+      return res.status(401).json({ error: 'Invalid admin secret' });
+    }
+
+    // Accept a list of display_names or wallets to remove
+    const { display_names, wallets } = req.body;
+    if ((!display_names || !display_names.length) && (!wallets || !wallets.length)) {
+      return res.status(400).json({ error: 'Provide display_names or wallets array to remove' });
+    }
+
+    // Find matching participants
+    let participants = [];
+    if (display_names?.length) {
+      const placeholders = display_names.map((_, i) => `$${i + 1}`).join(',');
+      const rows = await queryAll(
+        `SELECT wallet, display_name FROM participants WHERE display_name IN (${placeholders})`,
+        display_names
+      );
+      participants.push(...rows);
+    }
+    if (wallets?.length) {
+      const offset = participants.length ? display_names.length : 0;
+      const placeholders = wallets.map((_, i) => `$${i + 1}`).join(',');
+      const rows = await queryAll(
+        `SELECT wallet, display_name FROM participants WHERE wallet IN (${placeholders})`,
+        wallets
+      );
+      participants.push(...rows);
+    }
+
+    // Deduplicate by wallet
+    const uniqueWallets = [...new Set(participants.map(p => p.wallet))];
+
+    if (!uniqueWallets.length) {
+      return res.json({ removed: 0, message: 'No matching participants found' });
+    }
+
+    const ph = uniqueWallets.map((_, i) => `$${i + 1}`).join(',');
+
+    // Delete in correct FK order
+    await query(`DELETE FROM daily_snapshots WHERE wallet IN (${ph})`, uniqueWallets);
+    await query(`DELETE FROM xp_events WHERE wallet IN (${ph})`, uniqueWallets);
+    await query(`DELETE FROM contributions WHERE wallet IN (${ph})`, uniqueWallets);
+    await query(`DELETE FROM participants WHERE wallet IN (${ph})`, uniqueWallets);
+
+    console.log(`[campaign] Cleaned up ${uniqueWallets.length} mock participants: ${participants.map(p => p.display_name).join(', ')}`);
+    res.json({
+      removed: uniqueWallets.length,
+      participants: participants.map(p => ({ wallet: p.wallet, displayName: p.display_name })),
+    });
   } catch (err) { next(err); }
 });
 
