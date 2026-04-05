@@ -370,6 +370,101 @@ router.post('/force-reeval', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/campaign/reprocess-prs (admin only)
+// Retroactively process all open PRs that were missed before webhook was configured
+// ---------------------------------------------------------------------------
+router.post('/reprocess-prs', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const adminSecret = process.env.ADMIN_SECRET;
+
+    if (!adminSecret) {
+      return res.status(500).json({ error: 'ADMIN_SECRET not configured on server' });
+    }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing Authorization header: Bearer <ADMIN_SECRET>' });
+    }
+    if (authHeader.slice(7) !== adminSecret) {
+      return res.status(401).json({ error: 'Invalid admin secret' });
+    }
+
+    // Import GitHub agent handlers
+    const { handlePROpened } = await import('../services/github-agent.mjs');
+    
+    // Fetch all open PRs from GitHub
+    const token = process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_TOKEN;
+    if (!token) {
+      return res.status(500).json({ error: 'GitHub token not configured' });
+    }
+
+    const owner = process.env.GITHUB_REPO_OWNER || 'BlockXAI';
+    const repo = process.env.GITHUB_REPO_NAME || 'GrowStreams_Backend';
+    
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'GrowStreams-Bot/1.0',
+    };
+
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?state=open&per_page=100`, {
+      headers
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+    }
+
+    const allPRs = await response.json();
+    console.log(`[campaign] Found ${allPRs.length} open PRs`);
+
+    // Get list of already processed PRs from database
+    const processedPRs = await queryAll(
+      `SELECT DISTINCT pr_number FROM contributions WHERE track = 'OSS' AND pr_number IS NOT NULL`
+    );
+    const processedPRNumbers = new Set(processedPRs.map(p => p.pr_number));
+
+    // Filter to only unprocessed PRs
+    const unprocessedPRs = allPRs.filter(pr => !processedPRNumbers.has(pr.number));
+    console.log(`[campaign] ${unprocessedPRs.length} PRs need processing`);
+
+    const results = [];
+    for (const pr of unprocessedPRs) {
+      try {
+        console.log(`[campaign] Reprocessing PR #${pr.number} by @${pr.user.login}`);
+        
+        // Simulate webhook payload
+        const payload = {
+          action: 'opened',
+          pull_request: pr,
+          repository: {
+            name: repo,
+            owner: { login: owner }
+          }
+        };
+
+        await handlePROpened(payload);
+        results.push({ pr: pr.number, author: pr.user.login, status: 'processed' });
+      } catch (err) {
+        console.error(`[campaign] Failed to reprocess PR #${pr.number}: ${err.message}`);
+        results.push({ pr: pr.number, author: pr.user.login, status: 'failed', error: err.message });
+      }
+    }
+
+    res.json({
+      totalPRs: allPRs.length,
+      alreadyProcessed: processedPRNumbers.size,
+      reprocessed: unprocessedPRs.length,
+      results
+    });
+
+  } catch (err) { 
+    console.error('[campaign] reprocess-prs error:', err);
+    next(err); 
+  }
+});
+
+// ---------------------------------------------------------------------------
 // POST /api/campaign/participants/cleanup (admin only)
 // Remove mock/test participants and all their related data
 // ---------------------------------------------------------------------------
