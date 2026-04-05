@@ -251,6 +251,68 @@ router.post('/poll-tweets', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/campaign/reprocess-failed — reprocess contributions that failed to get XP (admin)
+router.post('/reprocess-failed', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const adminSecret = process.env.ADMIN_SECRET;
+
+    if (!adminSecret) {
+      return res.status(500).json({ error: 'ADMIN_SECRET not configured on server' });
+    }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing Authorization header: Bearer <ADMIN_SECRET>' });
+    }
+    if (authHeader.slice(7) !== adminSecret) {
+      return res.status(401).json({ error: 'Invalid admin secret' });
+    }
+
+    // Find all contributions with xp_awarded = 0 or status = REJECTED/PENDING_REEVAL
+    const failedContributions = await queryAll(
+      `SELECT c.*, p.wallet, p.x_handle 
+       FROM contributions c
+       JOIN participants p ON c.wallet = p.wallet
+       WHERE c.track = 'CONTENT' 
+       AND c.tweet_id IS NOT NULL
+       AND (c.xp_awarded = 0 OR c.status IN ('REJECTED', 'PENDING_REEVAL'))
+       ORDER BY c.submitted_at DESC`
+    );
+
+    if (!failedContributions.length) {
+      return res.json({ reprocessed: 0, message: 'No failed contributions found' });
+    }
+
+    console.log(`[campaign] Reprocessing ${failedContributions.length} failed contributions`);
+
+    // Delete these contributions so they can be re-processed
+    const tweetIds = failedContributions.map(c => c.tweet_id);
+    const placeholders = tweetIds.map((_, i) => `$${i + 1}`).join(',');
+    await query(`DELETE FROM contributions WHERE tweet_id IN (${placeholders})`, tweetIds);
+
+    // Also delete associated XP events (if any)
+    const contributionIds = failedContributions.map(c => c.id);
+    if (contributionIds.length) {
+      const ph2 = contributionIds.map((_, i) => `$${i + 1}`).join(',');
+      await query(`DELETE FROM xp_events WHERE contribution_id IN (${ph2})`, contributionIds);
+    }
+
+    // Trigger re-polling
+    const { pollRegisteredUsers } = await import('../services/x-agent.mjs');
+    await pollRegisteredUsers();
+
+    res.json({
+      reprocessed: failedContributions.length,
+      tweets: failedContributions.map(c => ({
+        tweetId: c.tweet_id,
+        user: c.x_handle || c.wallet.slice(0, 12),
+        previousStatus: c.status,
+        previousXP: c.xp_awarded
+      })),
+      message: 'Failed contributions deleted and re-polling triggered'
+    });
+  } catch (err) { next(err); }
+});
+
 // ---------------------------------------------------------------------------
 // POST /api/campaign/participants/cleanup (admin only)
 // Remove mock/test participants and all their related data
