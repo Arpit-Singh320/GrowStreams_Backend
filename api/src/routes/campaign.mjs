@@ -313,6 +313,62 @@ router.post('/reprocess-failed', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/campaign/force-reeval — force immediate re-evaluation of PENDING_REEVAL tweets (admin)
+router.post('/force-reeval', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const adminSecret = process.env.ADMIN_SECRET;
+
+    if (!adminSecret) {
+      return res.status(500).json({ error: 'ADMIN_SECRET not configured on server' });
+    }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing Authorization header: Bearer <ADMIN_SECRET>' });
+    }
+    if (authHeader.slice(7) !== adminSecret) {
+      return res.status(401).json({ error: 'Invalid admin secret' });
+    }
+
+    // Find all PENDING_REEVAL contributions
+    const pendingContributions = await queryAll(
+      `SELECT c.*, p.wallet 
+       FROM contributions c
+       JOIN participants p ON c.wallet = p.wallet
+       WHERE c.track = 'CONTENT' 
+       AND c.tweet_id IS NOT NULL
+       AND c.status = 'PENDING_REEVAL'
+       ORDER BY c.submitted_at DESC`
+    );
+
+    if (!pendingContributions.length) {
+      return res.json({ reevaluated: 0, message: 'No pending contributions found' });
+    }
+
+    console.log(`[campaign] Force re-evaluating ${pendingContributions.length} pending contributions`);
+
+    // Trigger re-evaluation for each
+    const { reevaluateTweet } = await import('../services/x-agent.mjs');
+    const results = [];
+
+    for (const c of pendingContributions) {
+      try {
+        await reevaluateTweet(c.id, c.tweet_id, c.wallet);
+        results.push({ tweetId: c.tweet_id, status: 'reevaluated' });
+      } catch (err) {
+        console.error(`[campaign] Failed to re-evaluate ${c.tweet_id}: ${err.message}`);
+        results.push({ tweetId: c.tweet_id, status: 'failed', error: err.message });
+      }
+    }
+
+    res.json({
+      reevaluated: results.filter(r => r.status === 'reevaluated').length,
+      failed: results.filter(r => r.status === 'failed').length,
+      results,
+      message: 'Force re-evaluation completed'
+    });
+  } catch (err) { next(err); }
+});
+
 // ---------------------------------------------------------------------------
 // POST /api/campaign/participants/cleanup (admin only)
 // Remove mock/test participants and all their related data
