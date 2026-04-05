@@ -77,22 +77,34 @@ router.post('/github', async (req, res) => {
 
   // Route to handler
   try {
+    console.log(`[webhook] Processing event: ${event}, delivery: ${deliveryId}`);
+    
     if (event === 'pull_request') {
       const action = payload.action;
       const merged = payload.pull_request?.merged;
+      const prNumber = payload.pull_request?.number;
+      const author = payload.pull_request?.user?.login;
 
-      console.log(`[webhook] pull_request.${action} #${payload.pull_request?.number} (merged=${merged})`);
+      console.log(`[webhook] pull_request.${action} #${prNumber} by @${author} (merged=${merged})`);
 
       if (action === 'opened') {
+        console.log(`[webhook] Calling handlePROpened for PR #${prNumber}`);
         await handlePROpened(payload);
+        console.log(`[webhook] handlePROpened completed for PR #${prNumber}`);
       } else if (action === 'synchronize') {
+        console.log(`[webhook] Calling handlePRSynchronized for PR #${prNumber}`);
         await handlePRSynchronized(payload);
+        console.log(`[webhook] handlePRSynchronized completed for PR #${prNumber}`);
       } else if (action === 'closed' && merged) {
+        console.log(`[webhook] Calling handlePRMerged for PR #${prNumber}`);
         await handlePRMerged(payload);
+        console.log(`[webhook] handlePRMerged completed for PR #${prNumber}`);
       } else if (action === 'closed' && !merged) {
+        console.log(`[webhook] Calling handlePRClosed for PR #${prNumber}`);
         await handlePRClosed(payload);
+        console.log(`[webhook] handlePRClosed completed for PR #${prNumber}`);
       } else {
-        console.log(`[webhook] Ignoring pull_request.${action}`);
+        console.log(`[webhook] Ignoring pull_request.${action} for PR #${prNumber}`);
       }
     } else if (event === 'ping') {
       console.log('[webhook] Ping received, webhook configured correctly');
@@ -100,7 +112,8 @@ router.post('/github', async (req, res) => {
       console.log(`[webhook] Ignoring event: ${event}`);
     }
   } catch (err) {
-    console.error(`[webhook] Handler error for ${event}: ${err.message}`);
+    console.error(`[webhook] Handler error for ${event}:`, err);
+    console.error(`[webhook] Error stack:`, err.stack);
   }
 });
 
