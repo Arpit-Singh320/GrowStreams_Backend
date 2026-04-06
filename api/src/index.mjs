@@ -20,6 +20,7 @@ import campaignRouter from './routes/campaign.mjs';
 import webhooksRouter from './routes/webhooks.mjs';
 import leaderboardRouter from './routes/leaderboard.mjs';
 import usersRouter from './routes/users.mjs';
+import tokensRouter from './routes/tokens.mjs';
 import { startStream as startXStream, pollRecentTweets } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
 
@@ -47,12 +48,13 @@ app.use('/api/campaign', campaignRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/tokens', tokensRouter);
 
 app.get('/', (req, res) => {
   res.json({
-    name: 'GrowStreams V2 API',
-    version: '2.0.0',
-    description: 'Money streaming infrastructure for Vara Network — like Superfluid, but for Polkadot/Vara',
+    name: 'GrowStreams V3 API',
+    version: '3.0.0',
+    description: 'Stablecoin streaming infrastructure for Vara Network — multi-token support for USDC, USDT, WETH, WBTC, VARA',
     docs: {
       health: 'GET /health',
       streams: {
@@ -64,7 +66,8 @@ app.get('/', (req, res) => {
         getBuffer: 'GET /api/streams/:id/buffer',
         bySender: 'GET /api/streams/sender/:address',
         byReceiver: 'GET /api/streams/receiver/:address',
-        create: 'POST /api/streams { receiver, token, flowRate, initialDeposit, mode? }',
+        createV3: 'POST /api/streams/create { receiver, symbol, amount, interval, initialDeposit, mode? }',
+        createRaw: 'POST /api/streams { receiver, token, flowRate, initialDeposit, mode? }',
         update: 'PUT /api/streams/:id { flowRate, mode? }',
         pause: 'POST /api/streams/:id/pause',
         resume: 'POST /api/streams/:id/resume',
@@ -78,8 +81,11 @@ app.get('/', (req, res) => {
         paused: 'GET /api/vault/paused',
         balance: 'GET /api/vault/balance/:owner/:token',
         allocation: 'GET /api/vault/allocation/:streamId',
-        deposit: 'POST /api/vault/deposit { token, amount, mode? }',
-        withdraw: 'POST /api/vault/withdraw { token, amount, mode? }',
+        balances: 'GET /api/vault/balances/:wallet',
+        depositToken: 'POST /api/vault/deposit-token { symbol, amount, mode? }',
+        withdrawToken: 'POST /api/vault/withdraw-token { symbol, amount, mode? }',
+        depositRaw: 'POST /api/vault/deposit { token, amount, mode? }',
+        withdrawRaw: 'POST /api/vault/withdraw { token, amount, mode? }',
         depositNative: 'POST /api/vault/deposit-native { amount, mode? }',
         withdrawNative: 'POST /api/vault/withdraw-native { amount, mode? }',
         pause: 'POST /api/vault/pause',
@@ -94,6 +100,18 @@ app.get('/', (req, res) => {
         update: 'PUT /api/splits/:id { recipients, mode? }',
         delete: 'DELETE /api/splits/:id',
         distribute: 'POST /api/splits/:id/distribute { token, amount, mode? }',
+      },
+      tokens: {
+        list: 'GET /api/tokens',
+        stablecoins: 'GET /api/tokens/stablecoins',
+        prices: 'GET /api/tokens/prices',
+        getToken: 'GET /api/tokens/:symbol',
+        resolve: 'GET /api/tokens/:symbol/resolve',
+        vaultBalance: 'GET /api/tokens/:symbol/vault-balance/:wallet',
+        allVaultBalances: 'GET /api/tokens/vault-balances/:wallet',
+        approve: 'POST /api/tokens/:symbol/approve { spender, amount }',
+        convert: 'POST /api/tokens/convert { symbol, amount, direction }',
+        flowRate: 'POST /api/tokens/flow-rate { symbol, amount, interval }',
       },
       permissions: {
         check: 'GET /api/permissions/check/:granter/:grantee/:scope',

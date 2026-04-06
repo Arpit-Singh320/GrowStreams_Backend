@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { query, command, encodePayload } from '../sails-client.mjs';
+import { getTokenBySymbol, getTokenByVaraAddress, resolveTokenAddress } from '../config/tokens.mjs';
+import { toBaseUnits, toDisplayUnits, flowRateBreakdown, toPerSecondRate } from '../utils/decimals.mjs';
 
 const router = Router();
 const C = 'streamCore';
@@ -70,7 +72,31 @@ router.get('/:id', async (req, res, next) => {
     const id = BigInt(req.params.id);
     const result = await query(C, 'GetStream', id);
     if (!result) return res.status(404).json({ error: 'Stream not found' });
-    res.json(serializeDeep(result));
+
+    const serialized = serializeDeep(result);
+
+    // Enrich with token metadata if available
+    const tokenAddr = serialized.token || serialized.Token;
+    const tokenMeta = tokenAddr ? getTokenByVaraAddress(tokenAddr) : null;
+
+    if (tokenMeta) {
+      serialized.tokenMeta = {
+        symbol: tokenMeta.symbol,
+        displaySymbol: tokenMeta.displaySymbol,
+        name: tokenMeta.name,
+        decimals: tokenMeta.decimals,
+        icon: tokenMeta.icon,
+      };
+      const d = tokenMeta.decimals;
+      serialized.display = {
+        deposited: toDisplayUnits(serialized.deposited || '0', d),
+        withdrawn: toDisplayUnits(serialized.withdrawn || '0', d),
+        streamed: toDisplayUnits(serialized.streamed || '0', d),
+        flowRate: flowRateBreakdown(serialized.flow_rate || serialized.flowRate || '0', d),
+      };
+    }
+
+    res.json(serialized);
   } catch (err) { next(err); }
 });
 
@@ -78,7 +104,20 @@ router.get('/:id/balance', async (req, res, next) => {
   try {
     const id = BigInt(req.params.id);
     const result = await query(C, 'GetWithdrawableBalance', id);
-    res.json({ streamId: Number(id), withdrawable: toBigIntStr(result) });
+    const raw = toBigIntStr(result);
+
+    // Try to enrich with display amount
+    let display = null;
+    try {
+      const stream = await query(C, 'GetStream', id);
+      const tokenAddr = stream?.token || stream?.Token;
+      const tokenMeta = tokenAddr ? getTokenByVaraAddress(typeof tokenAddr === 'object' ? tokenAddr.toString() : tokenAddr) : null;
+      if (tokenMeta) {
+        display = { amount: toDisplayUnits(raw, tokenMeta.decimals), symbol: tokenMeta.displaySymbol };
+      }
+    } catch { /* enrichment is best-effort */ }
+
+    res.json({ streamId: Number(id), withdrawable: raw, display });
   } catch (err) { next(err); }
 });
 
@@ -86,7 +125,66 @@ router.get('/:id/buffer', async (req, res, next) => {
   try {
     const id = BigInt(req.params.id);
     const result = await query(C, 'GetRemainingBuffer', id);
-    res.json({ streamId: Number(id), remainingBuffer: toBigIntStr(result) });
+    const raw = toBigIntStr(result);
+
+    let display = null;
+    try {
+      const stream = await query(C, 'GetStream', id);
+      const tokenAddr = stream?.token || stream?.Token;
+      const tokenMeta = tokenAddr ? getTokenByVaraAddress(typeof tokenAddr === 'object' ? tokenAddr.toString() : tokenAddr) : null;
+      if (tokenMeta) {
+        display = { amount: toDisplayUnits(raw, tokenMeta.decimals), symbol: tokenMeta.displaySymbol };
+      }
+    } catch { /* enrichment is best-effort */ }
+
+    res.json({ streamId: Number(id), remainingBuffer: raw, display });
+  } catch (err) { next(err); }
+});
+
+// POST /api/streams/create — create stream with symbol + human-readable amounts
+router.post('/create', async (req, res, next) => {
+  try {
+    const { receiver, symbol, amount, interval, initialDeposit, mode } = req.body;
+    if (!receiver || !symbol || !amount || !interval || !initialDeposit) {
+      return res.status(400).json({
+        error: 'Missing: receiver, symbol, amount, interval (second|minute|hour|day|month), initialDeposit',
+      });
+    }
+
+    const token = getTokenBySymbol(symbol);
+    if (!token) return res.status(404).json({ error: `Unknown token: ${symbol}` });
+
+    const perSecondRate = toPerSecondRate(amount, token.decimals, interval);
+    if (perSecondRate <= 0n) {
+      return res.status(400).json({ error: 'Flow rate too low — results in 0 per second' });
+    }
+
+    const rawDeposit = toBaseUnits(initialDeposit, token.decimals);
+    const tokenAddr = toActorId(token.vara);
+    const receiverAddr = toActorId(receiver);
+
+    if (mode === 'payload') {
+      const payload = encodePayload(C, 'CreateStream', receiverAddr, tokenAddr, perSecondRate, rawDeposit);
+      return res.json({
+        payload,
+        token: token.symbol,
+        flowRatePerSecond: perSecondRate.toString(),
+        flowRateBreakdown: flowRateBreakdown(perSecondRate, token.decimals),
+        rawDeposit: rawDeposit.toString(),
+        displayDeposit: initialDeposit,
+      });
+    }
+
+    const { result, blockHash } = await command(C, 'CreateStream', receiverAddr, tokenAddr, perSecondRate, rawDeposit);
+    res.status(201).json({
+      streamId: typeof result === 'bigint' ? result.toString() : result,
+      token: token.symbol,
+      flowRatePerSecond: perSecondRate.toString(),
+      flowRateBreakdown: flowRateBreakdown(perSecondRate, token.decimals),
+      rawDeposit: rawDeposit.toString(),
+      displayDeposit: initialDeposit,
+      blockHash,
+    });
   } catch (err) { next(err); }
 });
 

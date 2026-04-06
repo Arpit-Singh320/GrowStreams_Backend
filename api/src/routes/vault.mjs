@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import { query, command, encodePayload } from '../sails-client.mjs';
+import { getTokenBySymbol, resolveTokenAddress, getAllTokens } from '../config/tokens.mjs';
+import { toBaseUnits, toDisplayUnits } from '../utils/decimals.mjs';
+import { getAllVaultBalances } from '../services/token-service.mjs';
 
 const router = Router();
 const C = 'tokenVault';
@@ -60,6 +63,64 @@ router.get('/allocation/:streamId', async (req, res, next) => {
     const id = BigInt(req.params.streamId);
     const result = await query(C, 'GetStreamAllocation', id);
     res.json({ streamId: Number(id), allocated: toBigIntStr(result) });
+  } catch (err) { next(err); }
+});
+
+// GET /api/vault/balances/:wallet — all token balances in the vault
+router.get('/balances/:wallet', async (req, res, next) => {
+  try {
+    const balances = await getAllVaultBalances(req.params.wallet);
+    res.json({ wallet: req.params.wallet, balances });
+  } catch (err) { next(err); }
+});
+
+// POST /api/vault/deposit-token — deposit with symbol + human-readable amount
+router.post('/deposit-token', async (req, res, next) => {
+  try {
+    const { symbol, amount, mode } = req.body;
+    if (!symbol || !amount) return res.status(400).json({ error: 'Missing: symbol, amount' });
+
+    const token = getTokenBySymbol(symbol);
+    if (!token) return res.status(404).json({ error: `Unknown token: ${symbol}` });
+    if (token.category === 'native') return res.status(400).json({ error: 'Use /deposit-native for VARA' });
+
+    const rawAmount = toBaseUnits(amount, token.decimals);
+
+    if (mode === 'payload') {
+      return res.json({
+        payload: encodePayload(C, 'DepositTokens', token.vara, rawAmount),
+        token: token.symbol,
+        displayAmount: amount,
+        rawAmount: rawAmount.toString(),
+      });
+    }
+    const { result, blockHash } = await command(C, 'DepositTokens', token.vara, rawAmount);
+    res.status(201).json({ token: token.symbol, displayAmount: amount, rawAmount: rawAmount.toString(), blockHash });
+  } catch (err) { next(err); }
+});
+
+// POST /api/vault/withdraw-token — withdraw with symbol + human-readable amount
+router.post('/withdraw-token', async (req, res, next) => {
+  try {
+    const { symbol, amount, mode } = req.body;
+    if (!symbol || !amount) return res.status(400).json({ error: 'Missing: symbol, amount' });
+
+    const token = getTokenBySymbol(symbol);
+    if (!token) return res.status(404).json({ error: `Unknown token: ${symbol}` });
+    if (token.category === 'native') return res.status(400).json({ error: 'Use /withdraw-native for VARA' });
+
+    const rawAmount = toBaseUnits(amount, token.decimals);
+
+    if (mode === 'payload') {
+      return res.json({
+        payload: encodePayload(C, 'WithdrawTokens', token.vara, rawAmount),
+        token: token.symbol,
+        displayAmount: amount,
+        rawAmount: rawAmount.toString(),
+      });
+    }
+    const { result, blockHash } = await command(C, 'WithdrawTokens', token.vara, rawAmount);
+    res.json({ token: token.symbol, displayAmount: amount, rawAmount: rawAmount.toString(), blockHash });
   } catch (err) { next(err); }
 });
 
