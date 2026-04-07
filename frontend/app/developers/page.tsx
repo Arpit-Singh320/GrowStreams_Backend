@@ -253,7 +253,7 @@ export default function DevelopersPage() {
               SDK Reference
             </a>
             <a
-              href="https://github.com/growstreams"
+              href="https://github.com/BlockXAI/GrowStreams_Backend"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-provn-text border border-provn-border rounded-xl hover:border-provn-muted transition-all"
@@ -541,7 +541,7 @@ export default function DevelopersPage() {
                 icon: FileCode,
                 title: "Example Projects",
                 description: "Starter templates for payroll, bounties, subscriptions, and more.",
-                href: "https://github.com/growstreams",
+                href: "https://github.com/BlockXAI/GrowStreams_Backend",
                 cta: "View on GitHub",
               },
               {

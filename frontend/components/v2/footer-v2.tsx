@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { Github, Twitter, ArrowUpRight, Mail, MessageCircle, Shield, Zap } from "lucide-react"
+import { Github, Twitter, ArrowUpRight, MessageCircle, Shield, Zap, Send } from "lucide-react"
 import { MagnetButton } from "@/components/v2/magnet-button"
 
 const footerLinks: Record<string, { label: string; href: string; external?: boolean }[]> = {
@@ -25,10 +25,9 @@ const footerLinks: Record<string, { label: string; href: string; external?: bool
     { label: "Quickstart", href: "/developers#quickstart" },
   ],
   Community: [
-    { label: "Twitter / X", href: "https://twitter.com/growstreams", external: true },
-    { label: "GitHub", href: "https://github.com/growstreams", external: true },
-    { label: "Telegram", href: "https://t.me/growstreams", external: true },
-    { label: "Contact Us", href: "mailto:hello@growstreams.io", external: true },
+    { label: "Twitter / X", href: "https://x.com/GrowwStreams", external: true },
+    { label: "GitHub", href: "https://github.com/BlockXAI/GrowStreams_Backend", external: true },
+    { label: "Telegram", href: "https://t.me/hypervara", external: true },
   ],
 }
 
@@ -70,7 +69,7 @@ export function FooterV2() {
             <div className="flex gap-3 mt-4">
               <MagnetButton strength={0.2} radius={100}>
                 <a
-                  href="https://twitter.com/growstreams"
+                  href="https://x.com/GrowwStreams"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2.5 rounded-lg bg-provn-surface hover:bg-provn-surface-2 text-provn-muted hover:text-provn-text transition-colors block"
@@ -80,7 +79,7 @@ export function FooterV2() {
               </MagnetButton>
               <MagnetButton strength={0.2} radius={100}>
                 <a
-                  href="https://github.com/growstreams"
+                  href="https://github.com/BlockXAI/GrowStreams_Backend"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2.5 rounded-lg bg-provn-surface hover:bg-provn-surface-2 text-provn-muted hover:text-provn-text transition-colors block"
@@ -90,10 +89,12 @@ export function FooterV2() {
               </MagnetButton>
               <MagnetButton strength={0.2} radius={100}>
                 <a
-                  href="mailto:hello@growstreams.io"
+                  href="https://t.me/hypervara"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="p-2.5 rounded-lg bg-provn-surface hover:bg-provn-surface-2 text-provn-muted hover:text-provn-text transition-colors block"
                 >
-                  <Mail className="w-4 h-4" />
+                  <Send className="w-4 h-4" />
                 </a>
               </MagnetButton>
             </div>
@@ -138,8 +139,6 @@ export function FooterV2() {
             </p>
             <div className="flex items-center gap-4 text-xs text-provn-muted">
               <Link href="/protocol#security" className="hover:text-provn-text transition-colors">Security</Link>
-              <span className="text-provn-border">·</span>
-              <a href="mailto:hello@growstreams.io" className="hover:text-provn-text transition-colors">Contact</a>
             </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-provn-muted">
