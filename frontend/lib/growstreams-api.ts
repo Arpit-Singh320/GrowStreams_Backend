@@ -97,6 +97,50 @@ export interface BindingData {
   updated_at: number;
 }
 
+export interface TokenMeta {
+  symbol: string;
+  displaySymbol: string;
+  name: string;
+  decimals: number;
+  category: string;
+  icon: string;
+  vara: string;
+  eth: string | null;
+  priceUSD: number | null;
+}
+
+export interface TokenVaultBalance {
+  token: string;
+  displaySymbol: string;
+  owner: string;
+  totalDeposited: string;
+  totalAllocated: string;
+  available: string;
+  rawTotalDeposited: string;
+  rawTotalAllocated: string;
+  rawAvailable: string;
+  decimals: number;
+}
+
+export interface FlowRateBreakdown {
+  perSecond: string;
+  perMinute: string;
+  perHour: string;
+  perDay: string;
+  perMonth: string;
+}
+
+export interface StreamV3Result {
+  streamId?: string;
+  token: string;
+  flowRatePerSecond: string;
+  flowRateBreakdown: FlowRateBreakdown;
+  rawDeposit: string;
+  displayDeposit: string;
+  blockHash?: string;
+  payload?: string;
+}
+
 export interface TxResult {
   result?: unknown;
   blockHash: string;
@@ -239,6 +283,41 @@ export const api = {
       del<{ removed: string; total: number }>(`/api/grow-token/admin/whitelist/${address}`),
     setFaucetMode: (mode: string) =>
       post<{ mode: string }>('/api/grow-token/admin/faucet-mode', { mode } as Record<string, unknown>),
+  },
+
+  tokens: {
+    list: () => get<{ tokens: TokenMeta[] }>('/api/tokens'),
+    stablecoins: () => get<{ tokens: TokenMeta[] }>('/api/tokens/stablecoins'),
+    prices: () => get<{ prices: Record<string, number | null> }>('/api/tokens/prices'),
+    get: (symbol: string) => get<TokenMeta>(`/api/tokens/${symbol}`),
+    resolve: (symbol: string) => get<{ symbol: string; varaAddress: string }>(`/api/tokens/${symbol}/resolve`),
+    vaultBalance: (symbol: string, wallet: string) => get<TokenVaultBalance>(`/api/tokens/${symbol}/vault-balance/${wallet}`),
+    allVaultBalances: (wallet: string) => get<{ wallet: string; balances: TokenVaultBalance[] }>(`/api/tokens/vault-balances/${wallet}`),
+    approve: (symbol: string, params: { spender: string; amount: string }) =>
+      post<{ programId: string; service: string; method: string; args: string[]; token: string; displayAmount: string; rawAmount: string; decimals: number }>(
+        `/api/tokens/${symbol}/approve`, params as unknown as Record<string, unknown>
+      ),
+    convert: (params: { symbol: string; amount: string; direction: 'toBase' | 'toDisplay' }) =>
+      post<{ symbol: string; input: string; baseUnits?: string; displayUnits?: string; decimals: number }>(
+        '/api/tokens/convert', params as unknown as Record<string, unknown>
+      ),
+    flowRate: (params: { symbol: string; amount: string; interval: string }) =>
+      post<{ symbol: string; perSecondRaw: string; breakdown: FlowRateBreakdown }>(
+        '/api/tokens/flow-rate', params as unknown as Record<string, unknown>
+      ),
+  },
+
+  vaultV3: {
+    balances: (wallet: string) => get<{ wallet: string; balances: TokenVaultBalance[] }>(`/api/vault/balances/${wallet}`),
+    depositToken: (params: { symbol: string; amount: string; mode?: string }) =>
+      post<TxResult | PayloadResult>('/api/vault/deposit-token', params as unknown as Record<string, unknown>),
+    withdrawToken: (params: { symbol: string; amount: string; mode?: string }) =>
+      post<TxResult | PayloadResult>('/api/vault/withdraw-token', params as unknown as Record<string, unknown>),
+  },
+
+  streamsV3: {
+    create: (params: { receiver: string; symbol: string; amount: string; interval: string; initialDeposit: string; mode?: string }) =>
+      post<StreamV3Result | PayloadResult>('/api/streams/create', params as unknown as Record<string, unknown>),
   },
 
   campaign: {

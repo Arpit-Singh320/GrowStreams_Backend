@@ -207,6 +207,33 @@ export function useVaultActions() {
   return { depositTokens, withdrawTokens, depositNative, withdrawNative, loading, error };
 }
 
+export function useVaultActionsV3() {
+  const { signAndSend, loading, error } = useGearSign();
+
+  const depositToken = async (symbol: string, amount: string) => {
+    const res = await gsApi.vaultV3.depositToken({ symbol, amount, mode: 'payload' });
+    return signAndSend('tokenVault', getPayload(res));
+  };
+
+  const withdrawToken = async (symbol: string, amount: string) => {
+    const res = await gsApi.vaultV3.withdrawToken({ symbol, amount, mode: 'payload' });
+    return signAndSend('tokenVault', getPayload(res));
+  };
+
+  return { depositToken, withdrawToken, loading, error };
+}
+
+export function useStreamActionsV3() {
+  const { signAndSend, loading, error, account } = useGearSign();
+
+  const createStream = async (receiver: string, symbol: string, amount: string, interval: string, initialDeposit: string) => {
+    const res = await gsApi.streamsV3.create({ receiver: toHex(receiver), symbol, amount, interval, initialDeposit, mode: 'payload' });
+    return signAndSend('streamCore', getPayload(res));
+  };
+
+  return { createStream, loading, error, account };
+}
+
 export function useSplitsActions() {
   const { signAndSend, loading, error } = useGearSign();
 
