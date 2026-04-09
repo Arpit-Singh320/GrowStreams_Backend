@@ -20,6 +20,8 @@ import campaignRouter from './routes/campaign.mjs';
 import webhooksRouter from './routes/webhooks.mjs';
 import leaderboardRouter from './routes/leaderboard.mjs';
 import usersRouter from './routes/users.mjs';
+import tokensRouter from './routes/tokens.mjs';
+import bridgeRouter from './routes/bridge.mjs';
 import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
 
@@ -47,13 +49,28 @@ app.use('/api/campaign', campaignRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/tokens', tokensRouter);
+app.use('/api/bridge', bridgeRouter);
 
 app.get('/', (req, res) => {
   res.json({
-    name: 'GrowStreams V2 API',
-    version: '2.0.0',
+    name: 'GrowStreams V3 API',
+    version: '3.0.0',
     description: 'Money streaming infrastructure for Vara Network — like Superfluid, but for Polkadot/Vara',
     docs: {
+      tokens: {
+        list: 'GET /api/tokens',
+        stablecoins: 'GET /api/tokens/stablecoins',
+        addresses: 'GET /api/tokens/addresses',
+        getToken: 'GET /api/tokens/:symbol',
+        balance: 'GET /api/tokens/:symbol/balance/:wallet',
+        allBalances: 'GET /api/tokens/balances/:wallet',
+        allowance: 'GET /api/tokens/:symbol/allowance/:owner/:spender',
+        approve: 'POST /api/tokens/:symbol/approve { spender, amount }',
+        convert: 'POST /api/tokens/:symbol/convert { amount, direction }',
+        flowRate: 'POST /api/tokens/:symbol/flow-rate { amount, fromInterval, toInterval }',
+        resolve: 'GET /api/tokens/:symbol/resolve',
+      },
       health: 'GET /health',
       streams: {
         config: 'GET /api/streams/config',
@@ -62,6 +79,9 @@ app.get('/', (req, res) => {
         getStream: 'GET /api/streams/:id',
         getBalance: 'GET /api/streams/:id/balance',
         getBuffer: 'GET /api/streams/:id/buffer',
+        history: 'GET /api/streams/history/:wallet?limit=&offset=&eventType=&token=',
+        stats: 'GET /api/streams/stats/:wallet',
+        events: 'GET /api/streams/events/:streamId',
         bySender: 'GET /api/streams/sender/:address',
         byReceiver: 'GET /api/streams/receiver/:address',
         create: 'POST /api/streams { receiver, token, flowRate, initialDeposit, mode? }',
@@ -76,7 +96,9 @@ app.get('/', (req, res) => {
       vault: {
         config: 'GET /api/vault/config',
         paused: 'GET /api/vault/paused',
-        balance: 'GET /api/vault/balance/:owner/:token',
+        history: 'GET /api/vault/history/:wallet?limit=&offset=&eventType=&token=',
+        balance: 'GET /api/vault/balance/:owner/:token (accepts symbol or address)',
+        balances: 'GET /api/vault/balances/:wallet (all token vault balances)',
         allocation: 'GET /api/vault/allocation/:streamId',
         deposit: 'POST /api/vault/deposit { token, amount, mode? }',
         withdraw: 'POST /api/vault/withdraw { token, amount, mode? }',
@@ -154,6 +176,18 @@ app.get('/', (req, res) => {
         stats: 'GET /api/leaderboard/stats',
         participant: 'GET /api/leaderboard/:wallet',
       },
+      bridge: {
+        info: 'GET /api/bridge/info',
+        routes: 'GET /api/bridge/routes',
+        routeForToken: 'GET /api/bridge/routes/:token',
+        estimate: 'POST /api/bridge/estimate { token, amount, direction? }',
+        initiate: 'POST /api/bridge/initiate { wallet, token, amount, direction?, sourceTxHash? }',
+        updateStatus: 'PUT /api/bridge/status/:id { status, destinationTxHash?, confirmations? }',
+        getTransaction: 'GET /api/bridge/tx/:id',
+        getByTxHash: 'GET /api/bridge/status/:txHash',
+        history: 'GET /api/bridge/history/:wallet?limit=&offset=&status=&token=',
+        stats: 'GET /api/bridge/stats/:wallet',
+      },
       _note: 'POST routes accept { mode: "payload" } to return encoded payload for client-side wallet signing instead of server-side execution.',
     },
   });
@@ -177,7 +211,7 @@ async function start() {
 
     await connect();
     app.listen(PORT, '0.0.0.0', async () => {
-      console.log(`[api] GrowStreams V2 API listening on port ${PORT}`);
+      console.log(`[api] GrowStreams V3 API listening on port ${PORT}`);
       console.log(`[api] http://localhost:${PORT}`);
 
       // Start campaign cron jobs

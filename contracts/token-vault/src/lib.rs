@@ -6,6 +6,26 @@ use sails_rs::{
     prelude::*,
 };
 use gstd::msg as gstd_msg;
+use gstd::exec;
+
+/// A u256 value encoded as 32 bytes LE for VFT interop.
+/// VFT contracts expect u256 (SCALE = 32 bytes LE) but vault uses u128 internally.
+#[derive(Clone, Copy)]
+struct VftU256([u8; 32]);
+
+impl VftU256 {
+    fn from_u128(val: u128) -> Self {
+        let mut buf = [0u8; 32];
+        buf[..16].copy_from_slice(&val.to_le_bytes());
+        Self(buf)
+    }
+}
+
+impl Encode for VftU256 {
+    fn encode_to<T: parity_scale_codec::Output + ?Sized>(&self, dest: &mut T) {
+        dest.write(&self.0);
+    }
+}
 
 fn encode_call(service: &str, method: &str, args: impl Encode) -> Vec<u8> {
     let mut payload = Vec::new();
@@ -112,7 +132,7 @@ impl VaultService {
 impl VaultService {
     // ---- Commands ----
 
-    pub fn deposit_tokens(&mut self, token: ActorId, amount: u128) {
+    pub async fn deposit_tokens(&mut self, token: ActorId, amount: u128) {
         let state = TokenVaultState::get();
         assert!(!state.config.paused, "Vault is paused");
         assert!(amount > 0, "Amount must be > 0");
@@ -121,14 +141,25 @@ impl VaultService {
         let caller = msg::source();
 
         // Pull tokens from caller via VFT transfer_from(caller, vault, amount)
-        let vault_id = gstd::exec::program_id();
+        let vault_id = exec::program_id();
+        let amount_u256 = VftU256::from_u128(amount);
         let payload = encode_call(
-            "VftService",
+            "Vft",
             "TransferFrom",
-            (caller, vault_id, amount),
+            (caller, vault_id, amount_u256),
         );
-        gstd_msg::send_bytes_with_gas(token, payload, 5_000_000_000, 0)
-            .expect("VFT transfer_from failed");
+        let reply = gstd_msg::send_bytes_for_reply(token, payload, 0, 0)
+            .expect("failed to send VFT TransferFrom")
+            .await
+            .expect("VFT TransferFrom failed");
+
+        // Decode the reply: VFT returns SCALE-encoded service+method prefix + bool
+        let reply_bytes: &[u8] = reply.as_slice();
+        // The last byte of a successful reply should decode to `true`
+        assert!(
+            !reply_bytes.is_empty() && *reply_bytes.last().unwrap() == 1,
+            "VFT TransferFrom returned false — check approval"
+        );
 
         let balance = state.get_or_create_balance(caller, token);
         balance.total_deposited = balance.total_deposited.saturating_add(amount);
@@ -149,7 +180,7 @@ impl VaultService {
         balance.available = balance.available.saturating_add(value);
     }
 
-    pub fn withdraw_tokens(&mut self, token: ActorId, amount: u128) {
+    pub async fn withdraw_tokens(&mut self, token: ActorId, amount: u128) {
         let state = TokenVaultState::get();
         assert!(!state.config.paused, "Vault is paused");
         assert!(token != ActorId::zero(), "Use withdraw_native for VARA");
@@ -161,13 +192,23 @@ impl VaultService {
         balance.available = balance.available.saturating_sub(amount);
 
         // Send tokens to caller via VFT transfer(caller, amount)
+        let amount_u256 = VftU256::from_u128(amount);
         let payload = encode_call(
-            "VftService",
+            "Vft",
             "Transfer",
-            (caller, amount),
+            (caller, amount_u256),
         );
-        gstd_msg::send_bytes_with_gas(token, payload, 5_000_000_000, 0)
-            .expect("VFT transfer failed");
+        let reply = gstd_msg::send_bytes_for_reply(token, payload, 0, 0)
+            .expect("failed to send VFT Transfer")
+            .await
+            .expect("VFT Transfer failed");
+
+        let reply_bytes: &[u8] = reply.as_slice();
+        // If VFT transfer failed, revert the balance change
+        if reply_bytes.is_empty() || *reply_bytes.last().unwrap() != 1 {
+            balance.available = balance.available.saturating_add(amount);
+            panic!("VFT Transfer returned false");
+        }
     }
 
     pub fn withdraw_native(&mut self, amount: u128) {
@@ -236,7 +277,7 @@ impl VaultService {
         balance.available = balance.available.saturating_add(amount);
     }
 
-    pub fn transfer_to_receiver(
+    pub async fn transfer_to_receiver(
         &mut self,
         token: ActorId,
         receiver: ActorId,
@@ -258,16 +299,25 @@ impl VaultService {
         *alloc = alloc.saturating_sub(amount);
 
         if token == ActorId::zero() {
-            msg::send(receiver, b"", amount).expect("Failed to send native VARA");
+            msg::send(receiver, b"\x00", amount).expect("Failed to send native VARA");
         } else {
             // Send tokens to receiver via VFT transfer(receiver, amount)
+            let amount_u256 = VftU256::from_u128(amount);
             let payload = encode_call(
-                "VftService",
+                "Vft",
                 "Transfer",
-                (receiver, amount),
+                (receiver, amount_u256),
             );
-            gstd_msg::send_bytes_with_gas(token, payload, 5_000_000_000, 0)
-                .expect("VFT transfer to receiver failed");
+            let reply = gstd_msg::send_bytes_for_reply(token, payload, 0, 0)
+                .expect("failed to send VFT Transfer")
+                .await
+                .expect("VFT Transfer to receiver failed");
+
+            let reply_bytes: &[u8] = reply.as_slice();
+            assert!(
+                !reply_bytes.is_empty() && *reply_bytes.last().unwrap() == 1,
+                "VFT Transfer to receiver returned false"
+            );
         }
     }
 

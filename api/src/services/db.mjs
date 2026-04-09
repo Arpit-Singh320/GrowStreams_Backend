@@ -138,6 +138,77 @@ export async function migrate() {
     );
   `);
 
+  // -----------------------------------------------------------------------
+  // V3: Stream & vault event history tables
+  // -----------------------------------------------------------------------
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS stream_events (
+      id            SERIAL PRIMARY KEY,
+      stream_id     TEXT NOT NULL,
+      event_type    TEXT NOT NULL CHECK (event_type IN (
+        'created', 'updated', 'paused', 'resumed', 'stopped',
+        'liquidated', 'deposit', 'withdraw'
+      )),
+      sender        TEXT,
+      receiver      TEXT,
+      token_address TEXT,
+      token_symbol  TEXT,
+      flow_rate     TEXT,
+      amount        TEXT,
+      block_hash    TEXT,
+      metadata      JSONB,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vault_events (
+      id            SERIAL PRIMARY KEY,
+      wallet        TEXT NOT NULL,
+      event_type    TEXT NOT NULL CHECK (event_type IN (
+        'deposit', 'withdraw', 'deposit_native', 'withdraw_native',
+        'allocate', 'release', 'transfer'
+      )),
+      token_address TEXT,
+      token_symbol  TEXT,
+      amount        TEXT,
+      amount_display TEXT,
+      stream_id     TEXT,
+      block_hash    TEXT,
+      metadata      JSONB,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  // -----------------------------------------------------------------------
+  // V3: Bridge transaction tracking
+  // -----------------------------------------------------------------------
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS bridge_transactions (
+      id                SERIAL PRIMARY KEY,
+      wallet            TEXT NOT NULL,
+      token_symbol      TEXT NOT NULL,
+      token_key         TEXT NOT NULL,
+      amount            TEXT NOT NULL,
+      amount_raw        TEXT NOT NULL DEFAULT '0',
+      direction         TEXT NOT NULL CHECK (direction IN ('ethToVara', 'varaToEth')),
+      source_tx_hash    TEXT,
+      destination_tx_hash TEXT,
+      source_chain      TEXT NOT NULL DEFAULT 'ethereum',
+      destination_chain TEXT NOT NULL DEFAULT 'vara',
+      fee               TEXT DEFAULT '0',
+      fee_raw           TEXT DEFAULT '0',
+      status            TEXT NOT NULL DEFAULT 'initiated' CHECK (status IN (
+        'initiated', 'source_confirmed', 'bridging',
+        'destination_confirmed', 'completed', 'failed'
+      )),
+      confirmations     INTEGER DEFAULT 0,
+      error             TEXT,
+      metadata          JSONB,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      completed_at      TIMESTAMPTZ
+    );
+  `);
+
   // Add user_id column to participants if it does not exist
   await p.query(`
     DO $$
@@ -175,6 +246,24 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_participants_user_id ON participants(user_id);
     CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_user_id);
     CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals(referred_user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_stream_events_stream_id ON stream_events(stream_id);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_sender ON stream_events(sender);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_receiver ON stream_events(receiver);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_token ON stream_events(token_address);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_type ON stream_events(event_type);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_created ON stream_events(created_at);
+    CREATE INDEX IF NOT EXISTS idx_vault_events_wallet ON vault_events(wallet);
+    CREATE INDEX IF NOT EXISTS idx_vault_events_token ON vault_events(token_address);
+    CREATE INDEX IF NOT EXISTS idx_vault_events_type ON vault_events(event_type);
+    CREATE INDEX IF NOT EXISTS idx_vault_events_created ON vault_events(created_at);
+
+    CREATE INDEX IF NOT EXISTS idx_bridge_tx_wallet ON bridge_transactions(wallet);
+    CREATE INDEX IF NOT EXISTS idx_bridge_tx_status ON bridge_transactions(status);
+    CREATE INDEX IF NOT EXISTS idx_bridge_tx_source ON bridge_transactions(source_tx_hash);
+    CREATE INDEX IF NOT EXISTS idx_bridge_tx_dest ON bridge_transactions(destination_tx_hash);
+    CREATE INDEX IF NOT EXISTS idx_bridge_tx_token ON bridge_transactions(token_key);
+    CREATE INDEX IF NOT EXISTS idx_bridge_tx_created ON bridge_transactions(created_at);
   `);
 
   console.log('[db] Migrations complete');

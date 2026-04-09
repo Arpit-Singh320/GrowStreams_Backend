@@ -5,7 +5,14 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.mjs",
-    "dev": "node --watch src/index.mjs"
+    "dev": "node --watch src/index.mjs",
+    "test": "node tests/run-all.mjs",
+    "test:unit": "node tests/unit/decimals.test.mjs && node tests/unit/tokens.test.mjs && node tests/unit/bridge-service.test.mjs",
+    "test:integration": "node tests/run-all.mjs --integration",
+    "test:decimals": "node tests/unit/decimals.test.mjs",
+    "test:tokens": "node tests/unit/tokens.test.mjs",
+    "test:bridge": "node tests/unit/bridge-service.test.mjs",
+    "test:api": "node tests/integration/api-v3.test.mjs"
   },
   "dependencies": {
     "@gear-js/api": "0.38.3",

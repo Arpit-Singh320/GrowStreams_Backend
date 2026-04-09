@@ -48,6 +48,16 @@ export interface StreamConfig {
   token_vault: string;
 }
 
+export interface TokenMeta {
+  key: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  icon: string;
+  category?: string;
+  isStablecoin?: boolean;
+}
+
 export interface StreamData {
   id: number;
   sender: string;
@@ -60,6 +70,10 @@ export interface StreamData {
   withdrawn: string;
   streamed: string;
   status: string;
+  tokenMeta?: TokenMeta;
+  flowRateDisplay?: string;
+  flowRatePerMonth?: string;
+  depositDisplay?: string;
 }
 
 export interface VaultBalance {
@@ -68,6 +82,89 @@ export interface VaultBalance {
   total_deposited: string;
   total_allocated: string;
   available: string;
+  tokenMeta?: TokenMeta;
+  total_deposited_display?: string;
+  total_allocated_display?: string;
+  available_display?: string;
+}
+
+export interface MultiTokenBalance {
+  key: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  icon: string;
+  category?: string;
+  isStablecoin?: boolean;
+  total_deposited: string;
+  total_allocated: string;
+  available: string;
+  total_deposited_display: string;
+  total_allocated_display: string;
+  available_display: string;
+  error?: string;
+}
+
+export interface TokenInfo {
+  key: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  vara: string;
+  eth: string | null;
+  icon: string;
+  category: string;
+  isStablecoin: boolean;
+  minBuffer: number;
+}
+
+export interface WalletBalance {
+  key: string;
+  symbol: string;
+  name: string;
+  icon: string;
+  balance: string;
+  balanceRaw: string;
+  decimals: number;
+  category?: string;
+  isStablecoin?: boolean;
+  vara?: string;
+  eth?: string | null;
+  error?: string;
+}
+
+export interface StreamEvent {
+  id: number;
+  stream_id: string;
+  event_type: string;
+  sender: string | null;
+  receiver: string | null;
+  token_address: string | null;
+  token_symbol: string | null;
+  flow_rate: string | null;
+  amount: string | null;
+  block_hash: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  tokenMeta?: TokenMeta;
+  amountDisplay?: string;
+  flowRateDisplay?: string;
+  flowRatePerMonth?: string;
+}
+
+export interface StreamStats {
+  wallet: string;
+  totalStreamsCreated: number;
+  tokens: {
+    symbol: string;
+    tokenAddress: string;
+    activeStreams?: number;
+    totalDeposited?: string;
+    totalDepositedDisplay?: string;
+    totalWithdrawn?: string;
+    totalWithdrawnDisplay?: string;
+    decimals?: number;
+  }[];
 }
 
 export interface SplitGroup {
@@ -97,6 +194,90 @@ export interface BindingData {
   updated_at: number;
 }
 
+export interface BridgeRoute {
+  token: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  icon: string;
+  category: string;
+  isStablecoin: boolean;
+  source: {
+    chain: string;
+    chainName: string;
+    address: string;
+    explorer?: string;
+  };
+  destination: {
+    chain: string;
+    chainName: string;
+    address: string;
+    explorer?: string;
+  };
+  bidirectional: boolean;
+}
+
+export interface BridgeInfo {
+  supported: boolean;
+  version: string;
+  chains: {
+    ethereum: { name: string; chainId: number; explorer: string; bridgeContract: string; blockTime: number };
+    vara: { name: string; chainId: string; explorer: string; bridgeContract: string; blockTime: number };
+  };
+  routes: BridgeRoute[];
+  routeCount: number;
+  fees: { percentBps: number; percentDisplay: string; minBps: number; maxBps: number };
+  timing: { estimatedMinutes: number; minConfirmations: number; maxConfirmations: number };
+  faucets: { vara: string; holesky: string };
+  guides: { bridging: string; testnetTokens: string };
+}
+
+export interface BridgeFeeEstimate {
+  token: string;
+  amount: string;
+  amountRaw: string;
+  fee: string;
+  feeRaw: string;
+  feePercent: string;
+  netAmount: string;
+  netAmountRaw: string;
+  direction: string;
+  estimatedTimeMinutes: number;
+  estimatedConfirmations: number;
+}
+
+export interface BridgeTransaction {
+  id: number;
+  wallet: string;
+  token_symbol: string;
+  token_key: string;
+  amount: string;
+  amount_raw: string;
+  direction: 'ethToVara' | 'varaToEth';
+  source_tx_hash: string | null;
+  destination_tx_hash: string | null;
+  source_chain: string;
+  destination_chain: string;
+  fee: string;
+  fee_raw: string;
+  status: 'initiated' | 'source_confirmed' | 'bridging' | 'destination_confirmed' | 'completed' | 'failed';
+  confirmations: number;
+  error: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  tokenMeta?: TokenMeta;
+}
+
+export interface BridgeStats {
+  wallet: string;
+  totalBridges: number;
+  completed: number;
+  failed: number;
+  pending: number;
+}
+
 export interface TxResult {
   result?: unknown;
   blockHash: string;
@@ -110,6 +291,24 @@ export interface PayloadResult {
 export const api = {
   health: () => get<HealthData>('/health'),
 
+  tokens: {
+    list: () => get<{ tokens: TokenInfo[]; count: number }>('/api/tokens'),
+    stablecoins: () => get<{ tokens: TokenInfo[]; count: number }>('/api/tokens/stablecoins'),
+    addresses: () => get<{ tokens: Record<string, { vara: string; eth: string | null }>; contracts: Record<string, string> }>('/api/tokens/addresses'),
+    get: (symbol: string) => get<TokenInfo>(`/api/tokens/${symbol}`),
+    balance: (symbol: string, wallet: string) => get<{ wallet: string; symbol: string; balance: string; balanceRaw: string; decimals: number }>(`/api/tokens/${symbol}/balance/${wallet}`),
+    allBalances: (wallet: string) => get<{ wallet: string; balances: WalletBalance[] }>(`/api/tokens/balances/${wallet}`),
+    allowance: (symbol: string, owner: string, spender: string) =>
+      get<{ owner: string; spender: string; symbol: string; allowance: string; allowanceRaw: string; decimals: number }>(`/api/tokens/${symbol}/allowance/${owner}/${spender}`),
+    approve: (symbol: string, params: { spender: string; amount?: string; amountRaw?: string }) =>
+      post<{ payload: string; programId: string; token: string; spender: string; amount: string }>(`/api/tokens/${symbol}/approve`, params as unknown as Record<string, unknown>),
+    convert: (symbol: string, params: { amount: string; direction?: 'toBase' | 'toDisplay' }) =>
+      post<Record<string, unknown>>(`/api/tokens/${symbol}/convert`, params as unknown as Record<string, unknown>),
+    flowRate: (symbol: string, params: { amount: string; fromInterval?: string; toInterval?: string }) =>
+      post<Record<string, unknown>>(`/api/tokens/${symbol}/flow-rate`, params as unknown as Record<string, unknown>),
+    resolve: (symbol: string) => get<{ input: string; varaAddress: string; symbol: string | null; decimals: number | null }>(`/api/tokens/${symbol}/resolve`),
+  },
+
   streams: {
     config: () => get<StreamConfig>('/api/streams/config'),
     total: () => get<{ total: string }>('/api/streams/total'),
@@ -119,6 +318,17 @@ export const api = {
     byReceiver: (addr: string) => get<{ receiver: string; streamIds: string[] }>(`/api/streams/receiver/${addr}`),
     balance: (id: number) => get<{ streamId: number; withdrawable: string }>(`/api/streams/${id}/balance`),
     buffer: (id: number) => get<{ streamId: number; remainingBuffer: string }>(`/api/streams/${id}/buffer`),
+    history: (wallet: string, params?: { limit?: number; offset?: number; eventType?: string; token?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.limit) q.set('limit', String(params.limit));
+      if (params?.offset) q.set('offset', String(params.offset));
+      if (params?.eventType) q.set('eventType', params.eventType);
+      if (params?.token) q.set('token', params.token);
+      const qs = q.toString();
+      return get<{ wallet: string; events: StreamEvent[]; total: number; limit: number; offset: number }>(`/api/streams/history/${wallet}${qs ? '?' + qs : ''}`);
+    },
+    stats: (wallet: string) => get<StreamStats>(`/api/streams/stats/${wallet}`),
+    events: (streamId: string | number) => get<{ streamId: string; events: StreamEvent[]; count: number }>(`/api/streams/events/${streamId}`),
 
     create: (params: { receiver: string; token: string; flowRate: string; initialDeposit: string; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/streams', params as unknown as Record<string, unknown>),
@@ -142,11 +352,21 @@ export const api = {
     config: () => get<Record<string, unknown>>('/api/vault/config'),
     paused: () => get<{ paused: boolean }>('/api/vault/paused'),
     balance: (owner: string, token: string) => get<VaultBalance>(`/api/vault/balance/${owner}/${token}`),
+    balances: (wallet: string) => get<{ wallet: string; balances: MultiTokenBalance[] }>(`/api/vault/balances/${wallet}`),
     allocation: (streamId: number) => get<{ streamId: number; allocated: string }>(`/api/vault/allocation/${streamId}`),
+    history: (wallet: string, params?: { limit?: number; offset?: number; eventType?: string; token?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.limit) q.set('limit', String(params.limit));
+      if (params?.offset) q.set('offset', String(params.offset));
+      if (params?.eventType) q.set('eventType', params.eventType);
+      if (params?.token) q.set('token', params.token);
+      const qs = q.toString();
+      return get<{ wallet: string; events: StreamEvent[]; total: number; limit: number; offset: number }>(`/api/vault/history/${wallet}${qs ? '?' + qs : ''}`);
+    },
 
-    deposit: (params: { token: string; amount: string; mode?: string }) =>
+    deposit: (params: { token: string; amount?: string; amountRaw?: string; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/vault/deposit', params as unknown as Record<string, unknown>),
-    withdraw: (params: { token: string; amount: string; mode?: string }) =>
+    withdraw: (params: { token: string; amount?: string; amountRaw?: string; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/vault/withdraw', params as unknown as Record<string, unknown>),
     depositNative: (params: { amount: string; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/vault/deposit-native', params as unknown as Record<string, unknown>),
@@ -260,6 +480,30 @@ export const api = {
       get<Record<string, unknown>>('/api/leaderboard/stats'),
     participantStats: (wallet: string) =>
       get<Record<string, unknown>>(`/api/leaderboard/${wallet}`),
+  },
+
+  bridge: {
+    info: () => get<BridgeInfo>('/api/bridge/info'),
+    routes: () => get<{ routes: BridgeRoute[]; count: number }>('/api/bridge/routes'),
+    routeForToken: (token: string) => get<BridgeRoute>(`/api/bridge/routes/${token}`),
+    estimate: (params: { token: string; amount: string; direction?: string }) =>
+      post<BridgeFeeEstimate>('/api/bridge/estimate', params as unknown as Record<string, unknown>),
+    initiate: (params: { wallet: string; token: string; amount: string; amountRaw?: string; direction?: string; sourceTxHash?: string; fee?: string; feeRaw?: string }) =>
+      post<{ transaction: BridgeTransaction }>('/api/bridge/initiate', params as unknown as Record<string, unknown>),
+    updateStatus: (id: number, params: { status: string; destinationTxHash?: string; confirmations?: number; error?: string }) =>
+      put<{ transaction: BridgeTransaction }>(`/api/bridge/status/${id}`, params as unknown as Record<string, unknown>),
+    getTransaction: (id: number) => get<{ transaction: BridgeTransaction }>(`/api/bridge/tx/${id}`),
+    getByTxHash: (txHash: string) => get<{ transaction: BridgeTransaction }>(`/api/bridge/status/${txHash}`),
+    history: (wallet: string, params?: { limit?: number; offset?: number; status?: string; token?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.limit) q.set('limit', String(params.limit));
+      if (params?.offset) q.set('offset', String(params.offset));
+      if (params?.status) q.set('status', params.status);
+      if (params?.token) q.set('token', params.token);
+      const qs = q.toString();
+      return get<{ wallet: string; transactions: BridgeTransaction[]; total: number; limit: number; offset: number }>(`/api/bridge/history/${wallet}${qs ? '?' + qs : ''}`);
+    },
+    stats: (wallet: string) => get<BridgeStats>(`/api/bridge/stats/${wallet}`),
   },
 
   identity: {

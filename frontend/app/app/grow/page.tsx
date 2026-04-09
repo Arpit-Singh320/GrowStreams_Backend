@@ -12,8 +12,8 @@ import {
   TrendingUp, Lock, ChevronRight, Settings, UserPlus, Trash2,
 } from 'lucide-react';
 
-const GROW_TOKEN_ID = '0x05a2a482f1a1a7ebf74643f3cc2099597dac81ff92535cbd647948febee8fe36';
-const VAULT_ID = '0x7e081c0f82e31e35d845d1932eb36c84bbbb50568eef3c209f7104fabb2c254b';
+const GROW_TOKEN_ID = '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf';
+const VAULT_ID = '0x97957dc484e56eb80703f63169a5cf0d12d850aae337788a416a22470a12166f';
 const DECIMALS = 12;
 const ONE_GROW = 1_000_000_000_000;
 
