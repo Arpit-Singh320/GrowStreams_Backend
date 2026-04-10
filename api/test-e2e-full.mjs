@@ -45,14 +45,14 @@ async function req(method, path, body, extraHeaders = {}) {
   return { status: res.status, ok: res.ok, data, headers: res.headers };
 }
 
-const GET    = (p, h)    => req('GET',    p, undefined, h);
-const POST   = (p, b, h) => req('POST',   p, b, h);
-const PUT    = (p, b)    => req('PUT',    p, b || {});
-const DELETE = (p)       => req('DELETE', p);
+const GET = (p, h) => req('GET', p, undefined, h);
+const POST = (p, b, h) => req('POST', p, b, h);
+const PUT = (p, b) => req('PUT', p, b || {});
+const DELETE = (p) => req('DELETE', p);
 
 function record(section, name, { pass, warn, skip }, detail = '', isKnownBug = false) {
   const icon = skip ? '⏭️ ' : warn ? '⚠️ ' : pass ? '✅' : '❌';
-  const tag  = skip ? 'SKIP' : warn ? 'WARN' : pass ? 'PASS' : 'FAIL';
+  const tag = skip ? 'SKIP' : warn ? 'WARN' : pass ? 'PASS' : 'FAIL';
   const note = isKnownBug ? ' [known server bug]' : '';
   console.log(`  ${icon} [${tag}] ${name}${detail ? ' — ' + detail : ''}${note}`);
   if (pass && !warn && !skip) passed++;
@@ -69,20 +69,20 @@ async function test(section, name, fn) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const ZERO_ACTOR       = '0x0000000000000000000000000000000000000000000000000000000000000000';
-const ZERO_ACTOR_1     = '0x0000000000000000000000000000000000000000000000000000000000000001';
-const ZERO_ACTOR_2     = '0x0000000000000000000000000000000000000000000000000000000000000002';
-const ZERO_ACTOR_42    = '0x0000000000000000000000000000000000000000000000000000000000000042';
-const GROW_TOKEN_ADDR  = '0x05a2a482f1a1a7ebf74643f3cc2099597dac81ff92535cbd647948febee8fe36';
+const ZERO_ACTOR = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const ZERO_ACTOR_1 = '0x0000000000000000000000000000000000000000000000000000000000000001';
+const ZERO_ACTOR_2 = '0x0000000000000000000000000000000000000000000000000000000000000002';
+const ZERO_ACTOR_42 = '0x0000000000000000000000000000000000000000000000000000000000000042';
+const GROW_TOKEN_ADDR = '0x05a2a482f1a1a7ebf74643f3cc2099597dac81ff92535cbd647948febee8fe36';
 const TOKEN_VAULT_ADDR = '0x7e081c0f82e31e35d845d1932eb36c84bbbb50568eef3c209f7104fabb2c254b';
-const TEST_WALLET      = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'; // real SS58, unregistered
-const V3_SYMBOL        = 'WUSDC'; // confirmed present in /api/tokens
+const TEST_WALLET = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'; // real SS58, unregistered
+const V3_SYMBOL = 'WUSDC'; // confirmed present in /api/tokens
 
 // ── Global state (populated during test run) ──────────────────────────────────
 let configAdminHex = ZERO_ACTOR_1; // Will be populated from /api/streams/config (32-byte hex)
-let growAdminAddr  = null;         // From /api/grow-token/meta
-let liveStreamId   = null;         // From GROW token flow section
-let liveGroupId    = null;         // From Splits section
+let growAdminAddr = null;         // From /api/grow-token/meta
+let liveStreamId = null;         // From GROW token flow section
+let liveGroupId = null;         // From Splits section
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 0: Health
@@ -925,9 +925,9 @@ async function testIdentity() {
   const TEST_ACTOR = '0x0000000000000000000000000000000000000000000000000000000000000099';
 
   for (const [label, path, check] of [
-    ['config', '/api/identity/config',  (r) => r.ok],
-    ['oracle', '/api/identity/oracle',  (r) => r.ok && !!r.data?.oracle],
-    ['total',  '/api/identity/total',   (r) => r.ok && r.data?.total != null],
+    ['config', '/api/identity/config', (r) => r.ok],
+    ['oracle', '/api/identity/oracle', (r) => r.ok && !!r.data?.oracle],
+    ['total', '/api/identity/total', (r) => r.ok && r.data?.total != null],
   ]) {
     await test(S, `GET /api/identity/${label}`, async () => {
       const r = await GET(path);
@@ -1025,11 +1025,11 @@ async function testCampaign() {
 
   // Validation cases (no side effects)
   for (const [body, label, expectStatus] of [
-    [{ track: 'OSS', github_handle: 'test' },     'missing wallet → 400', 400],
-    [{ wallet: TEST_WALLET, track: 'BADTRACK' },  'invalid track → 400',  400],
-    [{ wallet: TEST_WALLET, track: 'OSS' },       'OSS no github → 400',  400],
-    [{ wallet: TEST_WALLET, track: 'CONTENT' },   'CONTENT no x → 400',   400],
-    [{ wallet: TEST_WALLET, track: 'BOTH' },      'BOTH no handle → 400', 400],
+    [{ track: 'OSS', github_handle: 'test' }, 'missing wallet → 400', 400],
+    [{ wallet: TEST_WALLET, track: 'BADTRACK' }, 'invalid track → 400', 400],
+    [{ wallet: TEST_WALLET, track: 'OSS' }, 'OSS no github → 400', 400],
+    [{ wallet: TEST_WALLET, track: 'CONTENT' }, 'CONTENT no x → 400', 400],
+    [{ wallet: TEST_WALLET, track: 'BOTH' }, 'BOTH no handle → 400', 400],
   ]) {
     await test(S, `POST /api/campaign/register — ${label}`, async () => {
       const r = await POST('/api/campaign/register', body);
@@ -1158,7 +1158,7 @@ async function testSecurity() {
     const rejected = r.status === 400 || r.status === 422;
     record(S, 'XSS: <script> wallet rejected (not stored in DB)',
       { pass: rejected },
-      `status=${r.status} — should 400, got ${r.status}. logs confirmed: "[xp] Awarded XP to ${xssPayload.slice(0,20)}..."`);
+      `status=${r.status} — should 400, got ${r.status}. logs confirmed: "[xp] Awarded XP to ${xssPayload.slice(0, 20)}..."`);
   });
 }
 
@@ -1244,7 +1244,7 @@ async function main() {
 
   const failures = results.filter(r => r.tag === 'FAIL' && !r.isKnownBug);
   const warnings = results.filter(r => r.tag === 'WARN');
-  const bugs     = results.filter(r => r.isKnownBug);
+  const bugs = results.filter(r => r.isKnownBug);
 
   if (failures.length) {
     console.log('\n🔴 REAL FAILURES (need fixing in server code):');
