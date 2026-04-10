@@ -224,11 +224,10 @@ export function useVaultActionsV3() {
 }
 
 export function useStreamActionsV3() {
-  const { signAndSend, loading, error, account } = useGearSign();
+  const { loading, error, account } = useGearSign();
 
-  const createStream = async (receiver: string, symbol: string, amount: string, interval: string, initialDeposit: string) => {
-    const res = await gsApi.streamsV3.create({ receiver: toHex(receiver), symbol, amount, interval, initialDeposit, mode: 'payload' });
-    return signAndSend('streamCore', getPayload(res));
+  const createStream = async (_receiver: string, _symbol: string, _amount: string, _interval: string, _initialDeposit: string) => {
+    throw new Error('V3 streams not available in this deployment');
   };
 
   return { createStream, loading, error, account };
