@@ -97,7 +97,7 @@ router.post('/register', async (req, res, next) => {
       );
     } catch (dbErr) {
       if (dbErr.code === '23505') {
-        return res.status(409).json({ error: 'Participant already registered or handle already taken' });
+        return res.status(422).json({ error: 'Participant already registered or handle already taken' });
       }
       throw dbErr;
     }

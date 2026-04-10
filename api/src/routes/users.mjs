@@ -78,13 +78,24 @@ router.post('/register', async (req, res, next) => {
 router.get('/:wallet', async (req, res, next) => {
   try {
     const { wallet } = req.params;
+    if (!wallet || wallet.length < 10) {
+      return res.status(400).json({ error: 'Invalid wallet address' });
+    }
+
     const profile = await getUserProfile(wallet);
 
     if (!profile) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found', wallet });
     }
 
-    res.json(profile);
+    res.json({
+      wallet,
+      user: profile.user,
+      referralCount: profile.referralCount ?? 0,
+      totalXP: profile.totalXP ?? 0,
+      track: profile.track ?? null,
+      rank: profile.rank ?? null,
+    });
   } catch (err) { next(err); }
 });
 
@@ -94,19 +105,23 @@ router.get('/:wallet', async (req, res, next) => {
 router.get('/:wallet/referrals', async (req, res, next) => {
   try {
     const { wallet } = req.params;
+    if (!wallet || wallet.length < 10) {
+      return res.status(400).json({ error: 'Invalid wallet address' });
+    }
+
     const user = await getUserByWallet(wallet);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found', wallet });
     }
 
     const referrals = await getUserReferrals(user.id);
 
     res.json({
       wallet,
-      referral_code: user.referral_code,
-      referral_count: referrals.length,
-      referrals,
+      referral_code: user.referral_code || null,
+      referral_count: referrals?.length ?? 0,
+      referrals: referrals || [],
     });
   } catch (err) { next(err); }
 });

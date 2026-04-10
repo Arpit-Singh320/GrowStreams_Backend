@@ -144,45 +144,60 @@ router.get('/:id/buffer', async (req, res, next) => {
 // POST /api/streams/create — create stream with symbol + human-readable amounts
 router.post('/create', async (req, res, next) => {
   try {
-    const { receiver, symbol, amount, interval, initialDeposit, mode } = req.body;
-    if (!receiver || !symbol || !amount || !interval || !initialDeposit) {
+    const { receiver, symbol, token: tokenSymbol, amount, flowRate, interval, initialDeposit, deposit, mode } = req.body;
+    const effectiveSymbol = symbol || tokenSymbol;
+    const effectiveDeposit = initialDeposit || deposit;
+    const hasHumanReadable = effectiveSymbol && amount && interval && effectiveDeposit;
+    const hasRaw = effectiveSymbol && flowRate && effectiveDeposit;
+
+    if (!receiver) {
+      return res.status(400).json({ error: 'Missing required field: receiver' });
+    }
+    if (!hasHumanReadable && !hasRaw) {
       return res.status(400).json({
-        error: 'Missing: receiver, symbol, amount, interval (second|minute|hour|day|month), initialDeposit',
+        error: 'Missing fields. Provide: receiver, symbol, amount, interval, initialDeposit (human-readable) OR receiver, token/symbol, flowRate, initialDeposit (raw)',
       });
     }
 
-    const token = getTokenBySymbol(symbol);
-    if (!token) return res.status(404).json({ error: `Unknown token: ${symbol}` });
+    const tokenInfo = getTokenBySymbol(effectiveSymbol);
+    if (!tokenInfo) return res.status(404).json({ error: `Unknown token: ${effectiveSymbol}` });
 
-    const perSecondRate = toPerSecondRate(amount, token.decimals, interval);
-    if (perSecondRate <= 0n) {
-      return res.status(400).json({ error: 'Flow rate too low — results in 0 per second' });
+    let perSecondRate;
+    if (hasHumanReadable) {
+      perSecondRate = toPerSecondRate(amount, tokenInfo.decimals, interval);
+      if (perSecondRate <= 0n) {
+        return res.status(400).json({ error: 'Flow rate too low — results in 0 per second' });
+      }
+    } else {
+      perSecondRate = BigInt(flowRate);
     }
 
-    const rawDeposit = toBaseUnits(initialDeposit, token.decimals);
-    const tokenAddr = toActorId(token.vara);
+    const rawDeposit = hasHumanReadable
+      ? toBaseUnits(effectiveDeposit, tokenInfo.decimals)
+      : BigInt(effectiveDeposit);
+    const tokenAddr = toActorId(tokenInfo.vara);
     const receiverAddr = toActorId(receiver);
 
     if (mode === 'payload') {
       const payload = encodePayload(C, 'CreateStream', receiverAddr, tokenAddr, perSecondRate, rawDeposit);
       return res.json({
         payload,
-        token: token.symbol,
+        token: tokenInfo.symbol,
         flowRatePerSecond: perSecondRate.toString(),
-        flowRateBreakdown: flowRateBreakdown(perSecondRate, token.decimals),
+        flowRateBreakdown: flowRateBreakdown(perSecondRate, tokenInfo.decimals),
         rawDeposit: rawDeposit.toString(),
-        displayDeposit: initialDeposit,
+        displayDeposit: effectiveDeposit,
       });
     }
 
     const { result, blockHash } = await command(C, 'CreateStream', receiverAddr, tokenAddr, perSecondRate, rawDeposit);
     res.status(201).json({
       streamId: typeof result === 'bigint' ? result.toString() : result,
-      token: token.symbol,
+      token: tokenInfo.symbol,
       flowRatePerSecond: perSecondRate.toString(),
-      flowRateBreakdown: flowRateBreakdown(perSecondRate, token.decimals),
+      flowRateBreakdown: flowRateBreakdown(perSecondRate, tokenInfo.decimals),
       rawDeposit: rawDeposit.toString(),
-      displayDeposit: initialDeposit,
+      displayDeposit: effectiveDeposit,
       blockHash,
     });
   } catch (err) { next(err); }
