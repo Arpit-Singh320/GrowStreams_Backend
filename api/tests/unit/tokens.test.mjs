@@ -31,7 +31,7 @@ function assertEq(actual, expected, name) {
 console.log('\n=== Registry Integrity ===\n');
 
 const allKeys = Object.keys(SUPPORTED_TOKENS);
-assertEq(allKeys.length, 5, 'Exactly 5 tokens in registry');
+assertEq(allKeys.length, 6, 'Exactly 6 tokens in registry');
 assert(allKeys.includes('WUSDC'), 'Contains WUSDC');
 assert(allKeys.includes('WUSDT'), 'Contains WUSDT');
 assert(allKeys.includes('WETH'), 'Contains WETH');
@@ -155,7 +155,7 @@ assert(getTokenByEthAddress(null) === null, 'null → null');
 console.log('\n=== listTokens / listStablecoins ===\n');
 
 const all = listTokens();
-assertEq(all.length, 5, 'listTokens returns 5');
+assertEq(all.length, 6, 'listTokens returns 6');
 assert(all.every(t => t.key && t.symbol && t.decimals != null), 'All tokens have key, symbol, decimals');
 
 const stables = listStablecoins();

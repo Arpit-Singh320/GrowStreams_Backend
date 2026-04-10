@@ -150,7 +150,7 @@ assertEq(displayPerMonth, '98.496', 'USDC: 38 base/sec → 98.496/month (int los
 // WETH flow rate: 0.01 WETH per day
 const wethPerDay = flowRateFromInterval('0.01', 18, 'day');
 // 0.01 WETH = 10_000_000_000_000_000 base. / 86400 = 115740740740740 base/sec
-assertEq(wethPerDay, 115_740_740_740_740n, 'WETH: 0.01/day → 115740740740740 base/sec');
+assertEq(wethPerDay, 115_740_740_740n, 'WETH: 0.01/day → 115740740740 base/sec');
 
 // flowRateToBaseUnits and flowRateToDisplayUnits are aliases
 assertEq(flowRateToBaseUnits('0.001', 6), toBaseUnits('0.001', 6), 'flowRateToBaseUnits alias');

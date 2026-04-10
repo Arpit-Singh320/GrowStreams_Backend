@@ -7,6 +7,7 @@ import {
   calculateAllPayouts,
 } from '../services/xp-service.mjs';
 import { createUser, getUserByWallet } from '../services/user-service.mjs';
+import { isValidWallet, sanitizeText } from '../utils/validation.mjs';
 
 const router = Router();
 
@@ -54,19 +55,24 @@ router.post('/register', async (req, res, next) => {
 
     const { wallet, github_handle, x_handle, track, referral_code } = req.body;
 
-    if (!wallet) {
-      return res.status(400).json({ error: 'Missing required field: wallet' });
+    if (!wallet || !isValidWallet(wallet)) {
+      return res.status(400).json({ error: 'Invalid or missing wallet address' });
     }
+    
+    // Sanitize handles to prevent XSS
+    const cleanGithub = sanitizeText(github_handle);
+    const cleanX = sanitizeText(x_handle);
+
     if (!track || !['OSS', 'CONTENT', 'BOTH'].includes(track)) {
       return res.status(400).json({ error: 'Invalid track. Must be OSS, CONTENT, or BOTH' });
     }
-    if (track === 'OSS' && !github_handle) {
+    if (track === 'OSS' && !cleanGithub) {
       return res.status(400).json({ error: 'github_handle is required for OSS track' });
     }
-    if (track === 'CONTENT' && !x_handle) {
+    if (track === 'CONTENT' && !cleanX) {
       return res.status(400).json({ error: 'x_handle is required for CONTENT track' });
     }
-    if (track === 'BOTH' && !github_handle && !x_handle) {
+    if (track === 'BOTH' && !cleanGithub && !cleanX) {
       return res.status(400).json({ error: 'At least one handle (github or x) is required for BOTH track' });
     }
 
@@ -74,7 +80,7 @@ router.post('/register', async (req, res, next) => {
     let user = await getUserByWallet(wallet);
     if (!user) {
       try {
-        user = await createUser(wallet, github_handle, x_handle, referral_code || null);
+        user = await createUser(wallet, cleanGithub, cleanX, referral_code || null);
       } catch (userErr) {
         if (userErr.status === 409) {
           user = userErr.user; // already exists, reuse
@@ -86,14 +92,14 @@ router.post('/register', async (req, res, next) => {
       }
     }
 
-    const display_name = github_handle || x_handle || wallet.slice(0, 12);
+    const display_name = sanitizeText(cleanGithub || cleanX || wallet.slice(0, 12));
 
     let data;
     try {
       data = await queryOne(
         `INSERT INTO participants (wallet, github_handle, x_handle, display_name, track, user_id)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [wallet, github_handle || null, x_handle || null, display_name, track, user ? user.id : null]
+        [wallet, cleanGithub || null, cleanX || null, display_name, track, user ? user.id : null]
       );
     } catch (dbErr) {
       if (dbErr.code === '23505') {
@@ -114,6 +120,7 @@ router.get('/participant/:wallet', async (req, res, next) => {
   try {
     const { wallet } = req.params;
     const stats = await getParticipantStats(wallet);
+    if (!stats) return res.status(404).json({ error: `Participant not found: ${wallet}` });
     res.json(stats);
   } catch (err) { next(err); }
 });

@@ -98,6 +98,7 @@ router.get('/:wallet', async (req, res, next) => {
   try {
     const { wallet } = req.params;
     const stats = await getParticipantStats(wallet);
+    if (!stats) return res.status(404).json({ error: `Participant not found: ${wallet}` });
     res.json(stats);
   } catch (err) { next(err); }
 });

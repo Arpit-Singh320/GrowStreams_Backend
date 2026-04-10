@@ -267,7 +267,7 @@ export async function getParticipantStats(wallet) {
   const participant = await queryOne(
     `SELECT * FROM participants WHERE wallet = $1`, [wallet]
   );
-  if (!participant) throw new Error(`[xp] Participant not found: ${wallet}`);
+  if (!participant) return null;
 
   const contributions = await queryAll(
     `SELECT * FROM contributions WHERE wallet = $1 ORDER BY submitted_at DESC`, [wallet]

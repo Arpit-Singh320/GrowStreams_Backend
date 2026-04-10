@@ -65,6 +65,21 @@ function parseU256(val) {
   return s || '0';
 }
 
+/**
+ * Pad a hex address to 32 bytes (64 chars) if it's shorter (e.g. 20-byte EVM address).
+ * Gear actor_id is always 32 bytes.
+ */
+function padTo32Bytes(address) {
+  if (!address || typeof address !== 'string') return address;
+  if (!address.startsWith('0x')) return address;
+  const hex = address.slice(2);
+  if (hex.length === 64) return address;
+  if (hex.length < 64) {
+    return '0x' + hex.padStart(64, '0');
+  }
+  return address;
+}
+
 async function getParser() {
   if (!parser) {
     parser = await SailsIdlParser.new();
@@ -122,7 +137,9 @@ export async function getVftBalance(tokenSymbol, walletAddress) {
   if (!service) throw new Error('VFT service not found in IDL');
 
   const origin = walletAddress || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
-  const raw = await service.queries.BalanceOf(origin, null, null, walletAddress);
+  // Pad EVM/short hex addresses to 32-bytes for actor_id compatibility
+  const paddedWallet = padTo32Bytes(walletAddress);
+  const raw = await service.queries.BalanceOf(origin, null, null, paddedWallet);
 
   const rawStr = parseU256(raw);
   return {
@@ -164,7 +181,9 @@ export async function getVftAllowance(tokenSymbol, ownerAddress, spenderAddress)
   const sails = await getVftInstance(tok.vara);
   const service = getVftService(sails);
   const origin = ownerAddress || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
-  const raw = await service.queries.Allowance(origin, null, null, ownerAddress, spenderAddress);
+  const paddedOwner = padTo32Bytes(ownerAddress);
+  const paddedSpender = padTo32Bytes(spenderAddress);
+  const raw = await service.queries.Allowance(origin, null, null, paddedOwner, paddedSpender);
 
   const rawStr = parseU256(raw);
   return {

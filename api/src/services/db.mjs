@@ -8,7 +8,7 @@ export function getPool() {
 
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
-    throw new Error('[db] Missing environment variable: DATABASE_URL');
+    return null;
   }
 
   pool = new Pool({
@@ -31,6 +31,11 @@ export function getPool() {
  */
 export async function query(text, params = []) {
   const p = getPool();
+  if (!p) {
+    const err = new Error('Database not configured');
+    err.status = 503;
+    throw err;
+  }
   const result = await p.query(text, params);
   return result;
 }
@@ -55,8 +60,9 @@ export async function queryAll(text, params = []) {
  * Run the migration to create all tables.
  */
 export async function migrate() {
-  console.log('[db] Running migrations...');
+  console.log('[db] Skipping migrations — DATABASE_URL not set');
   const p = getPool();
+  if (!p) return;
 
   // -----------------------------------------------------------------------
   // Core tables (original)

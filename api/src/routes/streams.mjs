@@ -141,7 +141,7 @@ router.get('/:id/buffer', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+async function createStreamHandler(req, res, next) {
   try {
     const { receiver, token, flowRate, initialDeposit, mode, flowRateInterval } = req.body;
     if (!receiver || !token || !flowRate || !initialDeposit) {
@@ -183,7 +183,15 @@ router.post('/', async (req, res, next) => {
         },
       });
     }
-    const { result, blockHash } = await command(C, 'CreateStream', receiver, varaAddress, flowRateBase, depositBase);
+    let { result, blockHash } = await command(C, 'CreateStream', receiver, varaAddress, flowRateBase, depositBase);
+
+    // If result is null (decode warning), try to find the new stream ID via sender query
+    if (result == null && req.body.sender) {
+      const streams = await query(C, 'GetSenderStreams', req.body.sender);
+      if (streams && streams.length > 0) {
+        result = streams[streams.length - 1]; // Assume newest
+      }
+    }
 
     // Log event (non-blocking)
     logStreamEvent({
@@ -200,7 +208,7 @@ router.post('/', async (req, res, next) => {
     });
 
     res.status(201).json({
-      result,
+      result: result != null ? String(result) : null,
       blockHash,
       resolved: {
         token: tokMeta?.symbol || token,
@@ -210,7 +218,10 @@ router.post('/', async (req, res, next) => {
       },
     });
   } catch (err) { next(err); }
-});
+}
+
+router.post('/', createStreamHandler);
+router.post('/create', createStreamHandler);
 
 router.put('/:id', async (req, res, next) => {
   try {

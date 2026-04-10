@@ -29,7 +29,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'growstreams.xyz,localhost,127.0.0.1').split(',');
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some(o => origin.includes(o))) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  }
+}));
+
 app.use(morgan('short'));
 
 // Raw body parser for GitHub webhook HMAC verification (MUST be before express.json())
