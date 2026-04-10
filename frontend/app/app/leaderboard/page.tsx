@@ -247,7 +247,7 @@ export default function LeaderboardPage() {
       )}
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-provn-muted" />
           <input
@@ -282,9 +282,9 @@ export default function LeaderboardPage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400" />
         </div>
       ) : (
-        <div className="bg-provn-surface border border-provn-border rounded-xl overflow-hidden">
+        <div className="bg-provn-surface border border-provn-border rounded-xl overflow-hidden overflow-x-auto">
           {/* Table Header */}
-          <div className="grid grid-cols-[3rem_1fr_5rem_6rem_4rem_5rem_3rem] gap-2 px-5 py-3 border-b border-provn-border text-[10px] text-provn-muted uppercase tracking-wider font-medium">
+          <div className="grid grid-cols-[3rem_1fr_5rem_6rem_4rem_5rem_3rem] gap-2 px-5 py-3 border-b border-provn-border text-[10px] text-provn-muted uppercase tracking-wider font-medium min-w-[540px]">
             <div>Rank</div>
             <div>Participant</div>
             <div>Track</div>
@@ -306,7 +306,7 @@ export default function LeaderboardPage() {
                 return (
                   <div
                     key={entry.wallet}
-                    className={`grid grid-cols-[3rem_1fr_5rem_6rem_4rem_5rem_3rem] gap-2 px-5 py-3 items-center transition-colors ${
+                    className={`grid grid-cols-[3rem_1fr_5rem_6rem_4rem_5rem_3rem] gap-2 px-5 py-3 items-center transition-colors min-w-[540px] ${
                       isMe ? 'bg-emerald-500/5 border-l-2 border-emerald-500' : 'hover:bg-provn-bg/30'
                     }`}
                   >

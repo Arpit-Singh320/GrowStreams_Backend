@@ -152,7 +152,7 @@ export default function VaultPage() {
       ) : (
         <>
           {/* Token selector cards */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button onClick={() => setTokenMode('vara')} className={`text-left bg-provn-surface border rounded-xl p-4 transition-all ${
               tokenMode === 'vara' ? 'border-emerald-500/40 ring-1 ring-emerald-500/20' : 'border-provn-border hover:border-emerald-500/20'}`}>
               <div className="flex items-center gap-2 mb-2">

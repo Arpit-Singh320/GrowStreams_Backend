@@ -61,8 +61,8 @@
   --provn-surface: #161616;
   --provn-surface-2: #1a1a1a;
   --provn-text: #e0e0e0;
-  --provn-muted: #8a8a8a;
-  --provn-border: #3a3a3a;
+  --provn-muted: #a0a0a0;
+  --provn-border: #404040;
   --provn-accent: #ffa501;
   --provn-accent-press: #e58a00;
   --provn-accent-subtle: rgba(255, 165, 1, 0.14);
@@ -113,6 +113,29 @@
     font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, -apple-system, sans-serif;
     font-size: 16px;
     line-height: 1.5;
+  }
+
+  /* Fix transparent box visibility (Bug #2) */
+  [class*="bg-provn-bg\\/"] {
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--provn-border);
+  }
+
+  /* Improve card/surface visibility */
+  .bg-provn-surface {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Fix placeholder text visibility (Bug #4) */
+  ::placeholder {
+    color: var(--provn-muted) !important;
+    opacity: 0.7;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--provn-muted) !important;
+    opacity: 0.7;
   }
 
   /* Typography classes for Provn design system */

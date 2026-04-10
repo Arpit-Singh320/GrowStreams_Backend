@@ -7,6 +7,21 @@ import { getAllVaultBalances } from '../services/token-service.mjs';
 const router = Router();
 const C = 'tokenVault';
 
+// Maximum safe u128 value for the contract
+const MAX_U128 = BigInt('340282366920938463463374607431768211455');
+
+function safeBigInt(v) {
+  try {
+    const n = BigInt(v);
+    if (n < 0n) throw new Error('Amount must be positive');
+    if (n > MAX_U128) throw new Error('Amount exceeds maximum (u128 overflow)');
+    return n;
+  } catch (err) {
+    if (err.message.includes('u128') || err.message.includes('positive')) throw err;
+    throw new Error(`Invalid amount: ${v}`);
+  }
+}
+
 function toBigIntStr(v) {
   if (v == null) return '0';
   return typeof v === 'bigint' ? v.toString() : String(v);
@@ -128,10 +143,11 @@ router.post('/deposit', async (req, res, next) => {
   try {
     const { token, amount, mode } = req.body;
     if (!token || !amount) return res.status(400).json({ error: 'Missing: token, amount' });
+    const safeAmount = safeBigInt(amount);
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'DepositTokens', token, BigInt(amount)) });
+      return res.json({ payload: encodePayload(C, 'DepositTokens', token, safeAmount) });
     }
-    const { result, blockHash } = await command(C, 'DepositTokens', token, BigInt(amount));
+    const { result, blockHash } = await command(C, 'DepositTokens', token, safeAmount);
     res.status(201).json({ token, amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -140,10 +156,11 @@ router.post('/withdraw', async (req, res, next) => {
   try {
     const { token, amount, mode } = req.body;
     if (!token || !amount) return res.status(400).json({ error: 'Missing: token, amount' });
+    const safeAmount = safeBigInt(amount);
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'WithdrawTokens', token, BigInt(amount)) });
+      return res.json({ payload: encodePayload(C, 'WithdrawTokens', token, safeAmount) });
     }
-    const { result, blockHash } = await command(C, 'WithdrawTokens', token, BigInt(amount));
+    const { result, blockHash } = await command(C, 'WithdrawTokens', token, safeAmount);
     res.json({ token, amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -206,10 +223,11 @@ router.post('/withdraw-native', async (req, res, next) => {
   try {
     const { amount, mode } = req.body;
     if (!amount) return res.status(400).json({ error: 'Missing: amount' });
+    const safeAmount = safeBigInt(amount);
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'WithdrawNative', BigInt(amount)) });
+      return res.json({ payload: encodePayload(C, 'WithdrawNative', safeAmount) });
     }
-    const { result, blockHash } = await command(C, 'WithdrawNative', BigInt(amount));
+    const { result, blockHash } = await command(C, 'WithdrawNative', safeAmount);
     res.json({ amount, blockHash });
   } catch (err) { next(err); }
 });

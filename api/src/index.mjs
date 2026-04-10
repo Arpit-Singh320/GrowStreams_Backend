@@ -181,6 +181,14 @@ app.use((err, req, res, next) => {
   const status = err.status || 500;
   const message = err.message || 'Internal server error';
   console.error(`[error] ${req.method} ${req.path}: ${message}`);
+  if (err.stack) {
+    console.error(`[error] Stack trace:`, err.stack);
+  }
+  if (status >= 500) {
+    console.error(`[error] Request body:`, JSON.stringify(req.body || {}).slice(0, 500));
+    console.error(`[error] Query params:`, JSON.stringify(req.query || {}));
+    console.error(`[error] IP: ${req.ip}, User-Agent: ${req.headers['user-agent'] || 'unknown'}`);
+  }
   res.status(status).json({ error: message });
 });
 
