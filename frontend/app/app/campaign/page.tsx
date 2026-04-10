@@ -116,8 +116,8 @@ export default function CampaignPage() {
   const campaignEnded = true;
   const winners = [
     { rank: 1, name: '@anmolsinha21', points: 16, prize: 50 },
-    { rank: 2, name: '@Goofywater_06', points: 15, prize: 50 },
-    { rank: 3, name: '@Abastrump', points: 14, prize: 50 },
+    { rank: 2, name: '@Goofywater_06', points: 15, prize: 30 },
+    { rank: 3, name: '@Abastrump', points: 14, prize: 20 },
   ];
 
   return (
