@@ -24,7 +24,7 @@ const navItems = [
   { href: '/app/grow', label: 'GROW Token', icon: Coins },
   { href: '/app/vault', label: 'Vault', icon: Vault },
   { href: '/app/bridge', label: 'Bridge', icon: ArrowLeftRight },
-  { href: '/app/campaign', label: 'Campaign', icon: Zap },
+  { href: '/app/campaign', label: 'Campaigns', icon: Zap },
   { href: '/app/leaderboard', label: 'Leaderboard', icon: Medal },
   { href: '/app/splits', label: 'Splits', icon: GitFork, soon: true },
   { href: '/app/bounties', label: 'Bounties', icon: Trophy, soon: true },

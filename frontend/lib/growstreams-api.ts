@@ -288,6 +288,66 @@ export interface PayloadResult {
   value?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Multi-Campaign types
+// ---------------------------------------------------------------------------
+export interface Campaign {
+  id: string;
+  creator_wallet: string;
+  title: string;
+  description: string | null;
+  status: 'DRAFT' | 'FUNDED' | 'ACTIVE' | 'ENDED' | 'SETTLING' | 'CLOSED';
+  pool_amount: string;
+  pool_remaining: string;
+  token: string;
+  track_type: 'OSS' | 'CONTENT' | 'BOTH';
+  start_date: string;
+  end_date: string;
+  ended_at: string | null;
+  funding_tx_hash: string | null;
+  required_hashtags: string[];
+  required_mentions: string[];
+  github_repo_url: string | null;
+  github_issue_labels: string[];
+  max_oss_contributions: number | null;
+  max_content_contributions: number | null;
+  score_threshold: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignParticipant {
+  wallet: string;
+  campaign_xp: number;
+  enrolled_at: string;
+}
+
+export interface CampaignLeaderboardEntry {
+  rank: number;
+  wallet: string;
+  campaign_xp: number;
+  enrolled_at: string;
+}
+
+export interface CampaignPayoutEntry {
+  wallet: string;
+  xp_earned: number;
+  xp_share: number;
+  usdc_amount: number;
+  status: string;
+}
+
+export interface UserCampaign {
+  campaign_id: string;
+  title: string;
+  status: string;
+  campaign_xp: number;
+  enrolled_at: string;
+  start_date: string;
+  end_date: string;
+  pool_amount: string;
+}
+
 export const api = {
   health: () => get<HealthData>('/health'),
 
@@ -504,6 +564,44 @@ export const api = {
       return get<{ wallet: string; transactions: BridgeTransaction[]; total: number; limit: number; offset: number }>(`/api/bridge/history/${wallet}${qs ? '?' + qs : ''}`);
     },
     stats: (wallet: string) => get<BridgeStats>(`/api/bridge/stats/${wallet}`),
+  },
+
+  campaigns: {
+    list: (params?: { status?: string; track_type?: string; page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.status) q.set('status', params.status);
+      if (params?.track_type) q.set('track_type', params.track_type);
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.limit) q.set('limit', String(params.limit));
+      const qs = q.toString();
+      return get<{ campaigns: Campaign[]; count: number; page: number; limit: number }>(`/api/campaigns${qs ? '?' + qs : ''}`);
+    },
+    active: () => get<{ campaigns: Campaign[]; count: number }>('/api/campaigns/active'),
+    get: (id: string) => get<Campaign>(`/api/campaigns/${id}`),
+    create: (params: Record<string, unknown>) =>
+      post<Campaign>('/api/campaigns', params),
+    fund: (id: string, params: { wallet: string; tx_hash?: string }) =>
+      post<Campaign>(`/api/campaigns/${id}/fund`, params as unknown as Record<string, unknown>),
+    enroll: (id: string, params: { wallet: string }) =>
+      post<Record<string, unknown>>(`/api/campaigns/${id}/enroll`, params as unknown as Record<string, unknown>),
+    leaderboard: (id: string, params?: { page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.limit) q.set('limit', String(params.limit));
+      const qs = q.toString();
+      return get<{ campaign_id: string; leaderboard: CampaignLeaderboardEntry[]; total: number; page: number; limit: number }>(`/api/campaigns/${id}/leaderboard${qs ? '?' + qs : ''}`);
+    },
+    participants: (id: string, params?: { page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.limit) q.set('limit', String(params.limit));
+      const qs = q.toString();
+      return get<{ campaign_id: string; participants: CampaignParticipant[]; total: number; page: number; limit: number }>(`/api/campaigns/${id}/participants${qs ? '?' + qs : ''}`);
+    },
+    payoutPreview: (id: string) =>
+      get<{ campaign_id: string; pool_amount: number; total_xp: number; payouts: CampaignPayoutEntry[] }>(`/api/campaigns/${id}/payout-preview`),
+    userCampaigns: (wallet: string) =>
+      get<{ wallet: string; campaigns: UserCampaign[]; count: number }>(`/api/users/${wallet}/campaigns`),
   },
 
   identity: {

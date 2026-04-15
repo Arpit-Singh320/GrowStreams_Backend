@@ -44,7 +44,7 @@ function assertEq(actual: unknown, expected: unknown, name: string) {
 console.log('\n=== Frontend Token Registry ===\n');
 
 const allKeys = Object.keys(SUPPORTED_TOKENS);
-assertEq(allKeys.length, 5, 'Exactly 5 tokens');
+assertEq(allKeys.length, 6, 'Exactly 6 tokens');
 
 // Verify decimals match backend
 assertEq(SUPPORTED_TOKENS.WUSDC.decimals, 6, 'WUSDC = 6 dec');
@@ -74,11 +74,11 @@ assertEq(byVara!.key, 'WETH', 'Correct key');
 
 assert(getTokenByVaraAddress('0xdeadbeef') === null, 'Unknown address → null');
 
-assertEq(listTokens().length, 5, 'listTokens = 5');
+assertEq(listTokens().length, 6, 'listTokens = 6');
 assertEq(listStablecoins().length, 2, 'listStablecoins = 2');
 
 const streamable = listStreamableTokens();
-assertEq(streamable.length, 4, 'listStreamableTokens = 4 (excludes VARA native)');
+assertEq(streamable.length, 5, 'listStreamableTokens = 5 (excludes VARA native)');
 assert(!streamable.some(t => t.key === 'VARA'), 'VARA excluded from streamable');
 
 // ═══════════════════════════════════════════════════════════════
@@ -172,7 +172,7 @@ assertEq(perMonth, '98.496', 'USDC 38 base/sec = 98.496/mo');
 
 // WETH: 0.01/day
 const wethRate = flowRateFromInterval('0.01', 18, 'day');
-assertEq(wethRate, BigInt('115740740740740'), 'WETH 0.01/day');
+assertEq(wethRate, BigInt('115740740740'), 'WETH 0.01/day');
 
 // formatFlowRate
 const formatted = formatFlowRate(BigInt(38), 6, 'month');

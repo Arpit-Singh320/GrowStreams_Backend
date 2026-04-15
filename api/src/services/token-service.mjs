@@ -6,6 +6,7 @@ import { Sails } from 'sails-js';
 import { SailsIdlParser } from 'sails-js-parser';
 import { SUPPORTED_TOKENS, getToken, resolveVaraAddress } from '../config/tokens.mjs';
 import { toDisplayUnits } from '../utils/decimals.mjs';
+import { decodeAddress } from '@polkadot/keyring';
 
 // Minimal VFT IDL for balance/allowance/approve queries
 // All VFT tokens on Vara implement the same standard interface
@@ -29,6 +30,10 @@ service Vft {
 `;
 
 // GROW token IDL — uses VftService (not Vft) and u128 (not u256)
+// ⚠️  KNOWN INCOMPATIBILITY: The token-vault contract calls "Vft" + u256 for all VFT
+// cross-contract calls, which is correct for bridge-wrapped tokens (WUSDC/WUSDT/WETH/WBTC)
+// but breaks for GROW which exposes "VftService" + u128. GROW cannot be deposited/withdrawn
+// through the vault until the GROW token contract is migrated to standard VFT (M3 milestone).
 const GROW_IDL = `
 constructor {
   New : ();
@@ -66,18 +71,30 @@ function parseU256(val) {
 }
 
 /**
- * Pad a hex address to 32 bytes (64 chars) if it's shorter (e.g. 20-byte EVM address).
+ * Convert any wallet address format to a 0x-prefixed 32-byte hex string (actor_id).
+ * Handles SS58 (e.g. kGiaMA7..., 5GrwvaE...), 0x hex (padded to 32 bytes), and raw hex.
  * Gear actor_id is always 32 bytes.
  */
-function padTo32Bytes(address) {
+function toActorId(address) {
   if (!address || typeof address !== 'string') return address;
-  if (!address.startsWith('0x')) return address;
-  const hex = address.slice(2);
-  if (hex.length === 64) return address;
-  if (hex.length < 64) {
-    return '0x' + hex.padStart(64, '0');
+
+  // Already 0x-prefixed hex
+  if (address.startsWith('0x')) {
+    const hex = address.slice(2);
+    if (hex.length === 64) return address;
+    if (hex.length < 64) return '0x' + hex.padStart(64, '0');
+    return address;
   }
-  return address;
+
+  // SS58-encoded Substrate/Vara address — decode to raw 32-byte public key
+  try {
+    const decoded = decodeAddress(address);
+    const hex = Buffer.from(decoded).toString('hex');
+    return '0x' + hex.padStart(64, '0');
+  } catch {
+    // Fallback — return as-is and let the caller handle the error
+    return address;
+  }
 }
 
 async function getParser() {
@@ -138,8 +155,8 @@ export async function getVftBalance(tokenSymbol, walletAddress) {
 
   const origin = walletAddress || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
   // Pad EVM/short hex addresses to 32-bytes for actor_id compatibility
-  const paddedWallet = padTo32Bytes(walletAddress);
-  const raw = await service.queries.BalanceOf(origin, null, null, paddedWallet);
+  const actorId = toActorId(walletAddress);
+  const raw = await service.queries.BalanceOf(origin, null, null, actorId);
 
   const rawStr = parseU256(raw);
   return {
@@ -181,9 +198,9 @@ export async function getVftAllowance(tokenSymbol, ownerAddress, spenderAddress)
   const sails = await getVftInstance(tok.vara);
   const service = getVftService(sails);
   const origin = ownerAddress || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
-  const paddedOwner = padTo32Bytes(ownerAddress);
-  const paddedSpender = padTo32Bytes(spenderAddress);
-  const raw = await service.queries.Allowance(origin, null, null, paddedOwner, paddedSpender);
+  const ownerActorId = toActorId(ownerAddress);
+  const spenderActorId = toActorId(spenderAddress);
+  const raw = await service.queries.Allowance(origin, null, null, ownerActorId, spenderActorId);
 
   const rawStr = parseU256(raw);
   return {

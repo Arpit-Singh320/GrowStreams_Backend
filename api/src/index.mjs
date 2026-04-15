@@ -22,6 +22,7 @@ import leaderboardRouter from './routes/leaderboard.mjs';
 import usersRouter from './routes/users.mjs';
 import tokensRouter from './routes/tokens.mjs';
 import bridgeRouter from './routes/bridge.mjs';
+import campaignsRouter from './routes/campaigns.mjs';
 import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
 
@@ -62,6 +63,7 @@ app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/tokens', tokensRouter);
 app.use('/api/bridge', bridgeRouter);
+app.use('/api/campaigns', campaignsRouter);
 
 app.get('/', (req, res) => {
   res.json({
@@ -172,12 +174,25 @@ app.get('/', (req, res) => {
         register: 'POST /api/users/register { wallet, github_handle?, x_handle?, referral_code? }',
         profile: 'GET /api/users/:wallet',
         referrals: 'GET /api/users/:wallet/referrals',
+        campaigns: 'GET /api/users/:wallet/campaigns',
       },
       campaign: {
         register: 'POST /api/campaign/register { wallet, github_handle?, x_handle?, track }',
         participant: 'GET /api/campaign/participant/:wallet',
         config: 'GET /api/campaign/config',
         payoutSnapshot: 'POST /api/campaign/payout-snapshot (admin, Bearer token)',
+      },
+      campaigns: {
+        list: 'GET /api/campaigns?status=&track_type=&page=&limit=',
+        active: 'GET /api/campaigns/active',
+        get: 'GET /api/campaigns/:id',
+        create: 'POST /api/campaigns { creator_wallet, title, description?, pool_amount, token?, track_type?, start_date, end_date, required_hashtags?, required_mentions?, github_repo_url?, github_issue_labels?, max_oss_contributions?, max_content_contributions?, score_threshold? }',
+        fund: 'POST /api/campaigns/:id/fund { wallet, tx_hash? }',
+        enroll: 'POST /api/campaigns/:id/enroll { wallet }',
+        leaderboard: 'GET /api/campaigns/:id/leaderboard?page=&limit=',
+        participants: 'GET /api/campaigns/:id/participants?page=&limit=',
+        payoutPreview: 'GET /api/campaigns/:id/payout-preview',
+        executePayout: 'POST /api/campaigns/:id/execute-payout (admin, Bearer token)',
       },
       webhooks: {
         github: 'POST /api/webhooks/github (GitHub webhook endpoint, HMAC verified)',

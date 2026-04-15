@@ -18,16 +18,18 @@ const BRIDGE_CONFIG = {
     blockTime: 3, // seconds
   },
   ethereum: {
-    bridgeContract: '0x0000000000000000000000000000000000000000', // Placeholder — replace with actual bridge contract
-    rpcUrl: process.env.ETH_RPC_URL || 'https://ethereum-holesky-rpc.publicnode.com',
-    explorer: 'https://holesky.etherscan.io',
-    chainId: 17000,
-    chainName: 'Ethereum Holesky',
+    bridgeContract: '0xAb8F315Cc80cf2368750fE5A33E259d6241b3dEB', // ETH MessageQueue on Hoodi
+    erc20Manager: '0xA17187De490dB5F7160822dA197bcAc39d64baCb',    // ETH ERC20Manager on Hoodi
+    verifier: '0xc3ac0c364452acEE4366CD088F947965ec486e8F',         // ETH Verifier on Hoodi
+    rpcUrl: process.env.ETH_RPC_URL || 'https://rpc.hoodi.ethpandaops.io',
+    explorer: 'https://hoodi.etherscan.io',
+    chainId: 560048,
+    chainName: 'Ethereum Hoodi',
     blockTime: 12, // seconds
   },
   // Default bridge parameters
   defaults: {
-    estimatedTimeMinutes: 15, // avg bridge confirmation time
+    estimatedTimeMinutes: 30, // ~30 min per official vara-eth-bridge-flows reference
     minConfirmations: 12,     // ETH blocks before bridge finalizes
     maxConfirmations: 64,     // considered fully confirmed
     feePercentBps: 10,        // 0.10% bridge fee (10 basis points)
@@ -147,6 +149,7 @@ export function getBridgeInfo() {
   const routes = getSupportedRoutes();
   return {
     supported: true,
+    isInformationalOnly: true, // Bridge execution not yet implemented — info/tracking only
     version: '1.0.0',
     chains: {
       ethereum: {
@@ -154,6 +157,8 @@ export function getBridgeInfo() {
         chainId: BRIDGE_CONFIG.ethereum.chainId,
         explorer: BRIDGE_CONFIG.ethereum.explorer,
         bridgeContract: BRIDGE_CONFIG.ethereum.bridgeContract,
+        erc20Manager: BRIDGE_CONFIG.ethereum.erc20Manager,
+        verifier: BRIDGE_CONFIG.ethereum.verifier,
         blockTime: BRIDGE_CONFIG.ethereum.blockTime,
       },
       vara: {
@@ -179,7 +184,7 @@ export function getBridgeInfo() {
     },
     faucets: {
       vara: 'https://idea.gear-tech.io/programs?node=wss%3A%2F%2Ftestnet.vara.network',
-      holesky: 'https://cloud.google.com/application/web3/faucet/ethereum/holesky',
+      hoodi: 'https://faucet.hoodi.ethpandaops.io/',
     },
     guides: {
       bridging: 'https://wiki.vara.network/docs/bridge/',

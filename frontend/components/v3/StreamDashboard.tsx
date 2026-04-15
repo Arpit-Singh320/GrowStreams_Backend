@@ -384,7 +384,9 @@ export default function StreamDashboard() {
         }
       }
       toast.success(`${action} succeeded for stream #${id}`);
-      setTimeout(loadStreams, 3000);
+      loadStreams();
+      setTimeout(loadStreams, 5000);
+      setTimeout(loadStreams, 12000);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Action failed');
     } finally {

@@ -272,5 +272,167 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_bridge_tx_created ON bridge_transactions(created_at);
   `);
 
+  // -----------------------------------------------------------------------
+  // V3: Multi-campaign system
+  // -----------------------------------------------------------------------
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      creator_wallet        VARCHAR NOT NULL,
+      title                 VARCHAR(200) NOT NULL,
+      description           TEXT,
+      pool_amount           NUMERIC(20,6) NOT NULL,
+      pool_remaining        NUMERIC(20,6) NOT NULL,
+      token                 VARCHAR(20) NOT NULL DEFAULT 'WUSDC',
+      status                VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
+                            CHECK (status IN ('DRAFT','FUNDED','ACTIVE','ENDED','SETTLING','CLOSED')),
+      track_type            VARCHAR(20) NOT NULL DEFAULT 'BOTH'
+                            CHECK (track_type IN ('OSS','CONTENT','BOTH')),
+      start_date            TIMESTAMPTZ NOT NULL,
+      end_date              TIMESTAMPTZ NOT NULL,
+      ended_at              TIMESTAMPTZ,
+      funding_tx_hash       VARCHAR,
+      required_hashtags     TEXT[],
+      required_mentions     TEXT[],
+      github_repo_url       VARCHAR,
+      github_issue_labels   TEXT[],
+      max_oss_contributions     INTEGER DEFAULT 3,
+      max_content_contributions INTEGER DEFAULT 10,
+      score_threshold       INTEGER DEFAULT 70,
+      created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS campaign_participants (
+      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      campaign_id  UUID NOT NULL REFERENCES campaigns(id),
+      wallet       VARCHAR NOT NULL,
+      campaign_xp  INTEGER NOT NULL DEFAULT 0,
+      enrolled_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(campaign_id, wallet)
+    );
+
+    CREATE TABLE IF NOT EXISTS campaign_payouts (
+      id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      campaign_id  UUID NOT NULL REFERENCES campaigns(id),
+      wallet       VARCHAR NOT NULL,
+      xp_earned    INTEGER NOT NULL,
+      xp_share     NUMERIC(10,6) NOT NULL,
+      usdc_amount  NUMERIC(20,6) NOT NULL,
+      status       VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+                   CHECK (status IN ('PENDING','EXECUTED','FAILED','BELOW_MINIMUM')),
+      tx_hash      VARCHAR,
+      executed_at  TIMESTAMPTZ,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  // Add campaign_id and campaign_count columns to contributions if not exist
+  await p.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'contributions' AND column_name = 'campaign_id'
+      ) THEN
+        ALTER TABLE contributions ADD COLUMN campaign_id UUID REFERENCES campaigns(id);
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'contributions' AND column_name = 'campaign_count'
+      ) THEN
+        ALTER TABLE contributions ADD COLUMN campaign_count INTEGER NOT NULL DEFAULT 1;
+      END IF;
+    END $$;
+  `);
+
+  // Add campaign_id column to xp_events if not exist
+  await p.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'xp_events' AND column_name = 'campaign_id'
+      ) THEN
+        ALTER TABLE xp_events ADD COLUMN campaign_id UUID REFERENCES campaigns(id);
+      END IF;
+    END $$;
+  `);
+
+  // Multi-campaign indexes
+  await p.query(`
+    CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
+    CREATE INDEX IF NOT EXISTS idx_campaigns_creator ON campaigns(creator_wallet);
+    CREATE INDEX IF NOT EXISTS idx_campaigns_dates ON campaigns(start_date, end_date);
+    CREATE INDEX IF NOT EXISTS idx_cp_campaign ON campaign_participants(campaign_id);
+    CREATE INDEX IF NOT EXISTS idx_cp_wallet ON campaign_participants(wallet);
+    CREATE INDEX IF NOT EXISTS idx_payouts_campaign ON campaign_payouts(campaign_id);
+    CREATE INDEX IF NOT EXISTS idx_payouts_wallet ON campaign_payouts(wallet);
+    CREATE INDEX IF NOT EXISTS idx_contributions_campaign ON contributions(campaign_id);
+    CREATE INDEX IF NOT EXISTS idx_xp_events_campaign ON xp_events(campaign_id);
+  `);
+
+  // -----------------------------------------------------------------------
+  // Backfill: Create legacy campaign record for existing data
+  // -----------------------------------------------------------------------
+  await p.query(`
+    DO $$
+    DECLARE
+      legacy_id UUID;
+      pool_val  NUMERIC;
+      c_status  VARCHAR;
+      c_end     TIMESTAMPTZ;
+    BEGIN
+      -- Only run if no campaigns exist yet
+      IF NOT EXISTS (SELECT 1 FROM campaigns LIMIT 1) THEN
+        pool_val := 100.000000;
+        c_end    := '2026-05-01T00:00:00Z'::TIMESTAMPTZ;
+
+        -- If end date is past, campaign is CLOSED; otherwise ACTIVE
+        IF c_end <= NOW() THEN
+          c_status := 'CLOSED';
+        ELSE
+          c_status := 'ACTIVE';
+        END IF;
+
+        INSERT INTO campaigns (
+          creator_wallet, title, description,
+          pool_amount, pool_remaining, token, status, track_type,
+          start_date, end_date,
+          required_hashtags, required_mentions,
+          github_repo_url, github_issue_labels,
+          score_threshold
+        ) VALUES (
+          'PLATFORM',
+          'GrowStreams Launch Campaign',
+          'The original GrowStreams launch campaign — $100 USDC pool for OSS and content contributors.',
+          pool_val, pool_val, 'WUSDC', c_status, 'BOTH',
+          '2026-04-01T00:00:00Z'::TIMESTAMPTZ, c_end,
+          ARRAY['#GrowStreams', '#VaraNetwork'],
+          ARRAY['@GrowwStreams'],
+          'https://github.com/BlockXAI/GrowStreams_Backend',
+          ARRAY['stream-bounty'],
+          70
+        )
+        RETURNING id INTO legacy_id;
+
+        -- Backfill campaign_id on existing contributions
+        UPDATE contributions SET campaign_id = legacy_id WHERE campaign_id IS NULL;
+
+        -- Backfill campaign_id on existing xp_events
+        UPDATE xp_events SET campaign_id = legacy_id WHERE campaign_id IS NULL;
+
+        -- Enroll all existing participants into the legacy campaign
+        INSERT INTO campaign_participants (campaign_id, wallet, campaign_xp)
+        SELECT legacy_id, p.wallet, p.total_xp
+        FROM participants p
+        ON CONFLICT (campaign_id, wallet) DO NOTHING;
+
+        RAISE NOTICE '[db] Backfilled legacy campaign % with status %', legacy_id, c_status;
+      END IF;
+    END $$;
+  `);
+
   console.log('[db] Migrations complete');
 }

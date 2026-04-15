@@ -12,8 +12,10 @@ import {
   getBridgeHistory,
   getBridgeStats,
 } from '../services/bridge-service.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 
 // ─── Info & Routes ──────────────────────────────────────────────
 

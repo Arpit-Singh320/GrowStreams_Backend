@@ -1,6 +1,7 @@
 import { scorePR } from './llm-scorer.mjs';
 import { awardXP, getInitialXP } from './xp-service.mjs';
 import { queryOne, queryAll, query } from './db.mjs';
+import { matchCampaignsForPR, awardCampaignXP, checkContributionLimit } from './campaign-service.mjs';
 
 function getToken() {
   const token = process.env.GITHUB_APP_PRIVATE_KEY || process.env.GITHUB_TOKEN;
@@ -76,6 +77,58 @@ function isCampaignActive() {
   if (start && new Date(start) > now) return false;
   if (end && new Date(end) < now) return false;
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Match PR against active campaigns and award campaign XP
+// ---------------------------------------------------------------------------
+async function matchAndAwardCampaigns(wallet, contributionId, xpAmount) {
+  try {
+    const { owner, repo } = getRepoConfig();
+    const repoUrl = `https://github.com/${owner}/${repo}`;
+    const matchedCampaigns = await matchCampaignsForPR(repoUrl);
+
+    if (matchedCampaigns.length === 0) return null;
+
+    // Set campaign_id (first match) and campaign_count on the contribution
+    await query(
+      `UPDATE contributions SET campaign_id = $1, campaign_count = $2, updated_at = NOW() WHERE id = $3`,
+      [matchedCampaigns[0].id, matchedCampaigns.length, contributionId]
+    );
+
+    const firstCampaignId = matchedCampaigns[0].id;
+
+    for (const campaign of matchedCampaigns) {
+      try {
+        // Check if participant is enrolled
+        const enrollment = await queryOne(
+          `SELECT id FROM campaign_participants WHERE campaign_id = $1 AND wallet = $2`,
+          [campaign.id, wallet]
+        );
+        if (!enrollment) {
+          console.log(`[github-agent] ${wallet} not enrolled in campaign ${campaign.id}, skipping campaign XP`);
+          continue;
+        }
+
+        // Check contribution limit
+        const limitCheck = await checkContributionLimit(campaign.id, wallet, 'OSS');
+        if (!limitCheck.allowed) {
+          console.log(`[github-agent] ${wallet} hit limit in campaign ${campaign.id}: ${limitCheck.reason}`);
+          continue;
+        }
+
+        await awardCampaignXP(campaign.id, wallet, xpAmount, contributionId);
+        console.log(`[github-agent] +${xpAmount} campaign XP to ${wallet} in campaign ${campaign.id}`);
+      } catch (campErr) {
+        console.error(`[github-agent] Campaign XP failed for ${wallet} in ${campaign.id}: ${campErr.message}`);
+      }
+    }
+
+    return firstCampaignId;
+  } catch (err) {
+    console.error(`[github-agent] Campaign matching failed: ${err.message}`);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -365,8 +418,11 @@ export async function handlePROpened(payload) {
       'ACTIVE', result.feedback, result
     );
 
+    // Match against active campaigns
+    const campaignId = await matchAndAwardCampaigns(participant.wallet, contribution.id, xpAmount);
+
     try {
-      await awardXP(participant.wallet, xpAmount, 'INITIAL_AWARD', contribution.id);
+      await awardXP(participant.wallet, xpAmount, 'INITIAL_AWARD', contribution.id, campaignId);
     } catch (err) {
       console.error(`[github-agent] XP award failed for PR #${prNumber}: ${err.message}`);
     }
@@ -445,8 +501,11 @@ export async function handlePRSynchronized(payload) {
       max_daily_until: new Date(Date.now() + 14 * 86400000).toISOString(),
     });
 
+    // Match against active campaigns on upgrade
+    const campaignId = await matchAndAwardCampaigns(participant.wallet, existing.id, xpAmount);
+
     try {
-      await awardXP(participant.wallet, xpAmount, 'INITIAL_AWARD', existing.id);
+      await awardXP(participant.wallet, xpAmount, 'INITIAL_AWARD', existing.id, campaignId);
     } catch (err) {
       console.error(`[github-agent] XP award failed for PR #${prNumber} (upgrade): ${err.message}`);
     }
@@ -467,8 +526,10 @@ export async function handlePRSynchronized(payload) {
     });
 
     if (xpDelta > 0) {
+      // Award adjustment campaign XP if contribution is linked to a campaign
+      const campaignId = existing.campaign_id || null;
       try {
-        await awardXP(participant.wallet, xpDelta, 'ADJUSTMENT', existing.id);
+        await awardXP(participant.wallet, xpDelta, 'ADJUSTMENT', existing.id, campaignId);
       } catch (err) {
         console.error(`[github-agent] XP adjustment failed for PR #${prNumber}: ${err.message}`);
       }
@@ -525,7 +586,9 @@ export async function handlePRMerged(payload) {
     xp_awarded: existing.xp_awarded + mergeBonus,
   });
 
-  await awardXP(participant.wallet, mergeBonus, 'MERGE_BONUS', existing.id);
+  // Pass campaign_id from the contribution so merge bonus is campaign-scoped
+  const campaignId = existing.campaign_id || null;
+  await awardXP(participant.wallet, mergeBonus, 'MERGE_BONUS', existing.id, campaignId);
   await postComment(prNumber, buildMergeBonusComment(mergeBonus, participant.wallet));
 
   console.log(`[github-agent] PR #${prNumber}: merge bonus +${mergeBonus} XP`);

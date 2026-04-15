@@ -2,359 +2,279 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
-import { api } from '@/lib/growstreams-api';
+import { api, Campaign, CampaignLeaderboardEntry } from '@/lib/growstreams-api';
 import {
-  Trophy, Medal, TrendingUp, TrendingDown, Minus,
-  Users, Zap, DollarSign, GitBranch, Twitter,
-  ChevronLeft, ChevronRight, Search, Filter, Crown, PartyPopper,
+  Trophy, Medal, Users, Zap, DollarSign, GitBranch, Twitter,
+  ChevronDown, ChevronUp, Clock, Star, Loader2, ArrowRight,
 } from 'lucide-react';
-
-interface LeaderboardEntry {
-  rank: number;
-  wallet: string;
-  displayName: string;
-  track: string;
-  totalXP: number;
-  contributions: number;
-  estimatedUSDC: number;
-  rankChange: number;
-}
-
-interface LeaderboardData {
-  totalParticipants: number;
-  totalXP: number;
-  poolUSDC: number;
-  campaignEndsIn: number | null;
-  page: number;
-  limit: number;
-  entries: LeaderboardEntry[];
-}
-
-interface StatsData {
-  totalParticipants: number;
-  totalXP: number;
-  totalContributions: number;
-  ossContributions: number;
-  contentContributions: number;
-  topContributor: { wallet: string; displayName: string; totalXP: number; track: string } | null;
-  campaignDaysRemaining: number | null;
-  poolUSDC: number;
-}
+import Link from 'next/link';
 
 function shortenWallet(w: string) {
   if (!w || w.length < 12) return w;
   return w.slice(0, 6) + '...' + w.slice(-4);
 }
 
+function statusColor(status: string) {
+  switch (status) {
+    case 'ACTIVE': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
+    case 'FUNDED': return 'text-blue-400 bg-blue-500/10 border-blue-500/30';
+    case 'ENDED': case 'SETTLING': case 'CLOSED': return 'text-red-400 bg-red-500/10 border-red-500/30';
+    case 'DRAFT': return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
+    default: return 'text-provn-muted bg-provn-bg border-provn-border';
+  }
+}
+
+function trackLabel(t: string) {
+  if (t === 'OSS') return { icon: GitBranch, label: 'OSS', color: 'text-emerald-400' };
+  if (t === 'CONTENT') return { icon: Twitter, label: 'Content', color: 'text-blue-400' };
+  return { icon: Zap, label: 'Both', color: 'text-purple-400' };
+}
+
+function daysUntil(dateStr: string) {
+  return Math.max(0, Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000));
+}
+
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center"><Medal className="w-4 h-4 text-amber-400" /></div>;
-  if (rank === 2) return <div className="w-8 h-8 rounded-full bg-gray-400/20 flex items-center justify-center"><Medal className="w-4 h-4 text-gray-300" /></div>;
-  if (rank === 3) return <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center"><Medal className="w-4 h-4 text-orange-400" /></div>;
-  return <div className="w-8 h-8 rounded-full bg-provn-bg flex items-center justify-center text-xs font-bold text-provn-muted">#{rank}</div>;
-}
-
-function RankChange({ change }: { change: number }) {
-  if (change > 0) return <span className="flex items-center gap-0.5 text-emerald-400 text-xs"><TrendingUp className="w-3 h-3" />+{change}</span>;
-  if (change < 0) return <span className="flex items-center gap-0.5 text-red-400 text-xs"><TrendingDown className="w-3 h-3" />{change}</span>;
-  return <span className="flex items-center gap-0.5 text-provn-muted text-xs"><Minus className="w-3 h-3" /></span>;
-}
-
-function TrackBadge({ track }: { track: string }) {
-  if (track === 'OSS') return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 flex items-center gap-1"><GitBranch className="w-2.5 h-2.5" />OSS</span>;
-  if (track === 'CONTENT') return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 flex items-center gap-1"><Twitter className="w-2.5 h-2.5" />Content</span>;
-  return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-400">Both</span>;
+  if (rank === 1) return <div className="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center"><Medal className="w-3.5 h-3.5 text-amber-400" /></div>;
+  if (rank === 2) return <div className="w-7 h-7 rounded-full bg-gray-400/20 flex items-center justify-center"><Medal className="w-3.5 h-3.5 text-gray-300" /></div>;
+  if (rank === 3) return <div className="w-7 h-7 rounded-full bg-orange-500/20 flex items-center justify-center"><Medal className="w-3.5 h-3.5 text-orange-400" /></div>;
+  return <div className="w-7 h-7 rounded-full bg-provn-bg flex items-center justify-center text-[10px] font-bold text-provn-muted">#{rank}</div>;
 }
 
 export default function LeaderboardPage() {
   const { account } = useAccount();
-  const [data, setData] = useState<LeaderboardData | null>(null);
-  const [stats, setStats] = useState<StatsData | null>(null);
+  const wallet = account?.decodedAddress || '';
+
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [trackFilter, setTrackFilter] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const limit = 20;
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [leaderboards, setLeaderboards] = useState<Record<string, CampaignLeaderboardEntry[]>>({});
+  const [lbLoading, setLbLoading] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const params: { page: number; limit: number; track?: string } = { page, limit };
-      if (trackFilter) params.track = trackFilter;
-
-      const [lb, st] = await Promise.all([
-        api.campaign.leaderboard(params),
-        api.campaign.leaderboardStats(),
-      ]);
-
-      setData(lb as unknown as LeaderboardData);
-      setStats(st as unknown as StatsData);
+      const res = await api.campaigns.list({ limit: 50 });
+      const all = res.campaigns || [];
+      // Sort: ACTIVE first, then ENDED/CLOSED, then others
+      const order: Record<string, number> = { ACTIVE: 0, ENDED: 1, SETTLING: 1, CLOSED: 2, FUNDED: 3, DRAFT: 4 };
+      all.sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5));
+      setCampaigns(all);
     } catch (err) {
-      console.error('Leaderboard load failed:', err);
+      console.error('Failed to load campaigns:', err);
     } finally {
       setLoading(false);
     }
-  }, [page, trackFilter]);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const totalPages = data ? Math.ceil((data.totalParticipants || 1) / limit) : 1;
-  const myWallet = account?.decodedAddress?.toLowerCase() || '';
+  const toggleLeaderboard = async (campaignId: string) => {
+    if (expandedId === campaignId) { setExpandedId(null); return; }
+    setExpandedId(campaignId);
+    if (!leaderboards[campaignId]) {
+      setLbLoading(campaignId);
+      try {
+        const res = await api.campaigns.leaderboard(campaignId, { limit: 20 });
+        setLeaderboards(prev => ({ ...prev, [campaignId]: res.leaderboard || [] }));
+      } catch {
+        setLeaderboards(prev => ({ ...prev, [campaignId]: [] }));
+      } finally {
+        setLbLoading(null);
+      }
+    }
+  };
 
-  const filteredEntries = data?.entries?.filter(e => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return e.displayName.toLowerCase().includes(q) || e.wallet.toLowerCase().includes(q);
-  }) || [];
+  const totalPools = campaigns.reduce((sum, c) => sum + parseFloat(c.pool_amount || '0'), 0);
+  const activeCampaigns = campaigns.filter(c => c.status === 'ACTIVE');
+  const endedCampaigns = campaigns.filter(c => ['ENDED', 'SETTLING', 'CLOSED'].includes(c.status));
 
-  // Campaign winners data
-  const winners = [
-    { rank: 1, name: '@anmolsinha21', points: 16, prize: 50 },
-    { rank: 2, name: '@Goofywater_06', points: 15, prize: 50 },
-    { rank: 3, name: '@Abastrump', points: 14, prize: 50 },
-  ];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Campaign Ended Banner */}
-      <div className="bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-blue-500/20 border-2 border-amber-500/30 rounded-2xl p-6">
-        <div className="flex items-start gap-4">
-          <PartyPopper className="w-8 h-8 text-amber-400 flex-shrink-0 mt-1" />
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-amber-400 mb-2 flex items-center gap-2">
-              VarAIbot Challenge Complete! 🎉
-            </h2>
-            <p className="text-provn-text mb-4">
-              Big thanks to everyone who participated in the VarAIbot Challenge by GrowStreams 🙌
-              The videos and PR shared by the community were incredibly valuable and played a key role in improving the project.
-            </p>
-            <p className="text-sm text-provn-muted">
-              There will be no VarAIbot challenge this week, as we're preparing new activities for next week. Have a great start to the week 🚀
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Winners Podium */}
-      <div className="bg-provn-surface border border-provn-border rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-provn-border bg-gradient-to-r from-amber-500/5 to-transparent">
-          <h3 className="font-bold flex items-center gap-2">
-            <Crown className="w-5 h-5 text-amber-400" />
-            🏆 Campaign Winners
-          </h3>
-        </div>
-        <div className="p-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {winners.map((winner) => (
-              <div
-                key={winner.rank}
-                className={`relative rounded-xl p-5 border-2 ${
-                  winner.rank === 1
-                    ? 'bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/30'
-                    : winner.rank === 2
-                    ? 'bg-gradient-to-br from-gray-400/10 to-gray-500/5 border-gray-400/30'
-                    : 'bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/30'
-                }`}
-              >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    winner.rank === 1 ? 'bg-amber-500/20' :
-                    winner.rank === 2 ? 'bg-gray-400/20' : 'bg-orange-500/20'
-                  }`}>
-                    <Medal className={`w-6 h-6 ${
-                      winner.rank === 1 ? 'text-amber-400' :
-                      winner.rank === 2 ? 'text-gray-300' : 'text-orange-400'
-                    }`} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-provn-muted uppercase tracking-wider">{winner.rank === 1 ? '1st' : winner.rank === 2 ? '2nd' : '3rd'} Place</p>
-                    <p className="font-bold text-lg">{winner.name}</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-provn-muted">Points</span>
-                    <span className="font-bold text-amber-400">{winner.points}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-provn-muted">Prize</span>
-                    <span className="font-bold text-emerald-400">${winner.prize} USDC</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Trophy className="w-6 h-6 text-amber-400" /> Full Leaderboard
-          </h1>
-          <p className="text-provn-muted text-sm mt-1">Final campaign rankings and XP standings</p>
+      <div className="text-center space-y-2">
+        <div className="flex justify-center">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-purple-500/20 border border-amber-500/30 flex items-center justify-center">
+            <Trophy className="w-7 h-7 text-amber-400" />
+          </div>
         </div>
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2 text-center">
-          <p className="text-lg font-bold text-red-400">ENDED</p>
-          <p className="text-[10px] text-provn-muted uppercase tracking-wider">Campaign Status</p>
+        <h1 className="text-3xl font-bold">Campaign Leaderboards</h1>
+        <p className="text-provn-muted max-w-lg mx-auto text-sm">
+          View rankings for each campaign. Expand any campaign to see its leaderboard.
+        </p>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">
+          <Zap className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
+          <p className="text-2xl font-bold text-emerald-400">{activeCampaigns.length}</p>
+          <p className="text-[10px] text-provn-muted uppercase tracking-wider">Active</p>
+        </div>
+        <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">
+          <DollarSign className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+          <p className="text-2xl font-bold text-amber-400">${totalPools.toLocaleString()}</p>
+          <p className="text-[10px] text-provn-muted uppercase tracking-wider">Total Pools</p>
+        </div>
+        <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">
+          <Users className="w-5 h-5 text-purple-400 mx-auto mb-1" />
+          <p className="text-2xl font-bold text-purple-400">{campaigns.length}</p>
+          <p className="text-[10px] text-provn-muted uppercase tracking-wider">Campaigns</p>
         </div>
       </div>
 
-      {/* Stats Row */}
-      {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
-            <Users className="w-4 h-4 text-blue-400 mx-auto mb-1" />
-            <p className="text-xl font-bold">{stats.totalParticipants}</p>
-            <p className="text-[10px] text-provn-muted">Participants</p>
-          </div>
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
-            <Zap className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-            <p className="text-xl font-bold font-mono">{(stats.totalXP || 0).toLocaleString()}</p>
-            <p className="text-[10px] text-provn-muted">Total XP</p>
-          </div>
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
-            <DollarSign className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
-            <p className="text-xl font-bold text-emerald-400">${stats.poolUSDC}</p>
-            <p className="text-[10px] text-provn-muted">Prize Pool</p>
-          </div>
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
-            <GitBranch className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
-            <p className="text-xl font-bold">{stats.ossContributions}</p>
-            <p className="text-[10px] text-provn-muted">OSS PRs</p>
-          </div>
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
-            <Twitter className="w-4 h-4 text-blue-400 mx-auto mb-1" />
-            <p className="text-xl font-bold">{stats.contentContributions}</p>
-            <p className="text-[10px] text-provn-muted">Content Posts</p>
-          </div>
-        </div>
-      )}
-
-      {/* Top Contributor Callout */}
-      {stats?.topContributor && (
-        <div className="bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-xl px-5 py-3 flex items-center gap-3">
-          <Medal className="w-6 h-6 text-amber-400 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm">
-              <span className="font-semibold text-amber-400">{stats.topContributor.displayName}</span>
-              {' '}is leading with{' '}
-              <span className="font-bold">{stats.topContributor.totalXP.toLocaleString()} XP</span>
-            </p>
-          </div>
-          <TrackBadge track={stats.topContributor.track} />
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-provn-muted" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search by name or wallet..."
-            className="w-full bg-provn-surface border border-provn-border rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/50"
-          />
-        </div>
-        <div className="flex items-center gap-1.5 bg-provn-surface border border-provn-border rounded-lg p-1">
-          <Filter className="w-3.5 h-3.5 text-provn-muted ml-2" />
-          {(['', 'OSS', 'CONTENT'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => { setTrackFilter(t); setPage(1); }}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                trackFilter === t
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : 'text-provn-muted hover:text-provn-text'
-              }`}
-            >
-              {t || 'All'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Table */}
-      {loading ? (
-        <div className="flex items-center justify-center h-40">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400" />
+      {campaigns.length === 0 ? (
+        <div className="text-center py-16 text-provn-muted">
+          <Trophy className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="mb-2">No campaigns yet</p>
+          <Link href="/app/campaign" className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 text-sm font-medium">
+            Go to Campaigns <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       ) : (
-        <div className="bg-provn-surface border border-provn-border rounded-xl overflow-hidden">
-          {/* Table Header */}
-          <div className="grid grid-cols-[3rem_1fr_5rem_6rem_4rem_5rem_3rem] gap-2 px-5 py-3 border-b border-provn-border text-[10px] text-provn-muted uppercase tracking-wider font-medium">
-            <div>Rank</div>
-            <div>Participant</div>
-            <div>Track</div>
-            <div className="text-right">XP</div>
-            <div className="text-right">PRs</div>
-            <div className="text-right">USDC</div>
-            <div className="text-right">24h</div>
-          </div>
-
-          {/* Rows */}
-          {filteredEntries.length === 0 ? (
-            <div className="px-5 py-10 text-center text-provn-muted text-sm">
-              No participants found. Be the first to register!
-            </div>
-          ) : (
-            <div className="divide-y divide-provn-border/50">
-              {filteredEntries.map(entry => {
-                const isMe = entry.wallet.toLowerCase() === myWallet;
-                return (
-                  <div
-                    key={entry.wallet}
-                    className={`grid grid-cols-[3rem_1fr_5rem_6rem_4rem_5rem_3rem] gap-2 px-5 py-3 items-center transition-colors ${
-                      isMe ? 'bg-emerald-500/5 border-l-2 border-emerald-500' : 'hover:bg-provn-bg/30'
-                    }`}
-                  >
-                    <div><RankBadge rank={entry.rank} /></div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {entry.displayName}
-                        {isMe && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-emerald-500/15 text-emerald-400">You</span>}
-                      </p>
-                      <p className="text-[10px] text-provn-muted font-mono">{shortenWallet(entry.wallet)}</p>
-                    </div>
-                    <div><TrackBadge track={entry.track} /></div>
-                    <div className="text-right">
-                      <p className="font-bold font-mono text-sm">{entry.totalXP.toLocaleString()}</p>
-                    </div>
-                    <div className="text-right text-sm text-provn-muted">{entry.contributions}</div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-emerald-400">${entry.estimatedUSDC}</p>
-                    </div>
-                    <div className="text-right"><RankChange change={entry.rankChange} /></div>
-                  </div>
-                );
-              })}
+        <>
+          {/* Active Campaigns */}
+          {activeCampaigns.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Zap className="w-5 h-5 text-emerald-400" /> Active Campaign Leaderboards
+              </h2>
+              {activeCampaigns.map(c => (
+                <CampaignLeaderboardCard
+                  key={c.id}
+                  campaign={c}
+                  expanded={expandedId === c.id}
+                  onToggle={() => toggleLeaderboard(c.id)}
+                  leaderboard={leaderboards[c.id]}
+                  lbLoading={lbLoading === c.id}
+                  myWallet={wallet}
+                />
+              ))}
             </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-provn-border">
-              <p className="text-xs text-provn-muted">
-                Page {page} of {totalPages} ({data?.totalParticipants} participants)
-              </p>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="p-1.5 rounded-lg border border-provn-border hover:bg-provn-bg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="p-1.5 rounded-lg border border-provn-border hover:bg-provn-bg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+          {/* Ended Campaigns */}
+          {endedCampaigns.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-provn-muted">
+                <Clock className="w-5 h-5" /> Past Campaign Leaderboards
+              </h2>
+              {endedCampaigns.map(c => (
+                <CampaignLeaderboardCard
+                  key={c.id}
+                  campaign={c}
+                  expanded={expandedId === c.id}
+                  onToggle={() => toggleLeaderboard(c.id)}
+                  leaderboard={leaderboards[c.id]}
+                  lbLoading={lbLoading === c.id}
+                  myWallet={wallet}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Link to campaigns */}
+      <div className="text-center">
+        <Link
+          href="/app/campaign"
+          className="inline-flex items-center gap-2 text-provn-muted hover:text-emerald-400 text-sm font-medium transition-colors"
+        >
+          <Zap className="w-4 h-4" />
+          View All Campaigns & Enroll
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function CampaignLeaderboardCard({
+  campaign, expanded, onToggle, leaderboard, lbLoading, myWallet,
+}: {
+  campaign: Campaign;
+  expanded: boolean;
+  onToggle: () => void;
+  leaderboard?: CampaignLeaderboardEntry[];
+  lbLoading: boolean;
+  myWallet: string;
+}) {
+  const Track = trackLabel(campaign.track_type);
+  const isActive = campaign.status === 'ACTIVE';
+
+  return (
+    <div className="bg-provn-surface border border-provn-border rounded-xl overflow-hidden">
+      {/* Campaign Header — clickable to expand */}
+      <button
+        onClick={onToggle}
+        className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-provn-bg/30 transition-colors"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-0.5">
+            <h3 className="font-semibold truncate">{campaign.title}</h3>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${statusColor(campaign.status)}`}>{campaign.status}</span>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-provn-muted">
+            <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" />${parseFloat(campaign.pool_amount).toLocaleString()}</span>
+            <span className={`flex items-center gap-1 ${Track.color}`}><Track.icon className="w-3 h-3" />{Track.label}</span>
+            {isActive && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{daysUntil(campaign.end_date)}d left</span>}
+            <span className="flex items-center gap-1"><Star className="w-3 h-3" />Min {campaign.score_threshold}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-provn-muted">
+          <Medal className="w-4 h-4" />
+          <span className="text-xs font-medium">Leaderboard</span>
+          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </div>
+      </button>
+
+      {/* Expanded Leaderboard */}
+      {expanded && (
+        <div className="border-t border-provn-border bg-provn-bg/30">
+          {lbLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+            </div>
+          ) : leaderboard && leaderboard.length > 0 ? (
+            <div>
+              <div className="grid grid-cols-[3rem_1fr_6rem] gap-2 px-5 py-2 text-[10px] text-provn-muted uppercase tracking-wider font-medium border-b border-provn-border/30">
+                <div>Rank</div><div>Participant</div><div className="text-right">Campaign XP</div>
               </div>
+              <div className="divide-y divide-provn-border/20">
+                {leaderboard.map((entry, i) => {
+                  const isMe = entry.wallet.toLowerCase() === myWallet.toLowerCase();
+                  return (
+                    <div
+                      key={entry.wallet}
+                      className={`grid grid-cols-[3rem_1fr_6rem] gap-2 px-5 py-2.5 items-center text-sm ${
+                        isMe ? 'bg-emerald-500/5' : ''
+                      }`}
+                    >
+                      <div><RankBadge rank={i + 1} /></div>
+                      <div className="min-w-0">
+                        <p className="font-mono text-xs truncate">
+                          {shortenWallet(entry.wallet)}
+                          {isMe && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[9px] font-medium bg-emerald-500/15 text-emerald-400">You</span>}
+                        </p>
+                      </div>
+                      <div className="text-right font-bold font-mono text-emerald-400">{(entry.campaign_xp || 0).toLocaleString()}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="py-10 text-center text-sm text-provn-muted">
+              No participants yet. Be the first to enroll and contribute!
             </div>
           )}
         </div>

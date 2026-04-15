@@ -17,13 +17,15 @@ export async function runDailyXP() {
 
   const now = new Date().toISOString();
 
-  // Fetch eligible contributions
+  // Fetch eligible contributions, joining with campaigns to check campaign status
   const contributions = await queryAll(
-    `SELECT id, wallet, score, status, max_daily_until
-     FROM contributions
-     WHERE track = 'OSS'
-       AND status IN ('ACTIVE', 'MERGED')
-       AND (max_daily_until IS NULL OR max_daily_until > $1)`,
+    `SELECT c.id, c.wallet, c.score, c.status, c.max_daily_until, c.campaign_id,
+            camp.status AS campaign_status
+     FROM contributions c
+     LEFT JOIN campaigns camp ON camp.id = c.campaign_id
+     WHERE c.track = 'OSS'
+       AND c.status IN ('ACTIVE', 'MERGED')
+       AND (c.max_daily_until IS NULL OR c.max_daily_until > $1)`,
     [now]
   );
 
@@ -49,10 +51,20 @@ export async function runDailyXP() {
 
       if (todayEvent) continue; // Already awarded today
 
+      // Safety check: skip contributions linked to ENDED/CLOSED campaigns
+      if (contrib.campaign_id && ['ENDED', 'SETTLING', 'CLOSED'].includes(contrib.campaign_status)) {
+        continue;
+      }
+
       const dailyRate = getDailyRate(contrib.score);
       if (dailyRate <= 0) continue;
 
-      await awardXP(contrib.wallet, dailyRate, 'DAILY_ACCUMULATION', contrib.id);
+      // Pass campaignId if the contribution is linked to an ACTIVE campaign
+      const campaignId = (contrib.campaign_id && contrib.campaign_status === 'ACTIVE')
+        ? contrib.campaign_id
+        : null;
+
+      await awardXP(contrib.wallet, dailyRate, 'DAILY_ACCUMULATION', contrib.id, campaignId);
       totalAwarded += dailyRate;
       contributionsProcessed++;
     } catch (err) {

@@ -1,4 +1,5 @@
 import { query, queryOne, queryAll } from './db.mjs';
+import { awardCampaignXP } from './campaign-service.mjs';
 
 const ONE_TIME_REASONS = ['INITIAL_AWARD', 'MERGE_BONUS', 'VIRAL_BONUS', 'RESHARE_BONUS'];
 const REFERRAL_BONUS_PCT = 0.05; // 5% referral bonus
@@ -7,8 +8,9 @@ const REFERRAL_BONUS_PCT = 0.05; // 5% referral bonus
  * Award XP to a participant.
  * Inserts an xp_event and updates participant total_xp.
  * One-time reasons are idempotent per (reason, contribution_id).
+ * Optional campaignId: when present, also awards campaign-scoped XP.
  */
-export async function awardXP(wallet, xpDelta, reason, contributionId = null) {
+export async function awardXP(wallet, xpDelta, reason, contributionId = null, campaignId = null) {
   if (ONE_TIME_REASONS.includes(reason) && contributionId) {
     const existing = await queryOne(
       `SELECT id FROM xp_events WHERE wallet = $1 AND reason = $2 AND contribution_id = $3 LIMIT 1`,
@@ -21,9 +23,9 @@ export async function awardXP(wallet, xpDelta, reason, contributionId = null) {
   }
 
   const event = await queryOne(
-    `INSERT INTO xp_events (wallet, xp_delta, reason, contribution_id)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [wallet, xpDelta, reason, contributionId]
+    `INSERT INTO xp_events (wallet, xp_delta, reason, contribution_id, campaign_id)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [wallet, xpDelta, reason, contributionId, campaignId || null]
   );
 
   // Recalculate total from all xp_events for this wallet (safe, avoids drift)
@@ -39,6 +41,15 @@ export async function awardXP(wallet, xpDelta, reason, contributionId = null) {
   );
 
   console.log(`[xp] Awarded ${xpDelta} XP (${reason}) to ${wallet}`);
+
+  // Award campaign-scoped XP if campaignId is provided
+  if (campaignId) {
+    try {
+      await awardCampaignXP(campaignId, wallet, xpDelta, contributionId);
+    } catch (campErr) {
+      console.warn(`[xp] Campaign XP award failed for ${wallet} in ${campaignId}: ${campErr.message}`);
+    }
+  }
 
   // Award referral bonus to referrer (skip if this IS a referral bonus to avoid recursion)
   if (reason !== 'REFERRAL_BONUS' && xpDelta > 0) {

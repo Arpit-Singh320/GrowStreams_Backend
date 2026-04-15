@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { queryOne } from '../services/db.mjs';
 import { getLeaderboard, getParticipantStats } from '../services/xp-service.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 
 // ---------------------------------------------------------------------------
 // GET /api/leaderboard

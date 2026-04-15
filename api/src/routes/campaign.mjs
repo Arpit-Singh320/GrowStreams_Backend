@@ -8,8 +8,10 @@ import {
 } from '../services/xp-service.mjs';
 import { createUser, getUserByWallet } from '../services/user-service.mjs';
 import { isValidWallet, sanitizeText } from '../utils/validation.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 
 // ---------------------------------------------------------------------------
 // Simple in-memory rate limiter: max 5 registrations per IP per minute

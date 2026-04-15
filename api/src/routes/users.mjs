@@ -5,8 +5,11 @@ import {
   getUserProfile,
   getUserReferrals,
 } from '../services/user-service.mjs';
+import { getUserCampaigns } from '../services/campaign-service.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 
 // ---------------------------------------------------------------------------
 // Simple in-memory rate limiter: max 5 registrations per IP per minute
@@ -108,6 +111,17 @@ router.get('/:wallet/referrals', async (req, res, next) => {
       referral_count: referrals.length,
       referrals,
     });
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/users/:wallet/campaigns
+// ---------------------------------------------------------------------------
+router.get('/:wallet/campaigns', async (req, res, next) => {
+  try {
+    const { wallet } = req.params;
+    const campaigns = await getUserCampaigns(wallet);
+    res.json({ wallet, campaigns, count: campaigns.length });
   } catch (err) { next(err); }
 });
 

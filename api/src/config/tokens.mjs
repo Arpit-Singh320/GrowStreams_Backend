@@ -1,6 +1,6 @@
 // Token Registry — all supported tokens with full metadata
 // Vara addresses are VFT contract ActorIds on Vara testnet
-// ETH addresses are ERC-20 contract addresses on Ethereum testnet (Holesky/Sepolia)
+// ETH addresses are ERC-20 contract addresses on Ethereum Hoodi testnet
 
 export const SUPPORTED_TOKENS = {
   WUSDC: {
@@ -55,6 +55,17 @@ export const SUPPORTED_TOKENS = {
     eth: null,
     icon: '/tokens/grow.svg',
     category: 'utility',
+    isStablecoin: false,
+    minBuffer: 3600,
+  },
+  WTVARA: {
+    symbol: 'WTVARA',
+    name: 'Tokenized VARA',
+    decimals: 12,
+    vara: 'native',           // native VARA is locked on Vara side
+    eth: '0xE1ab85A8B4d5d5B6af0bbD0203EB322DF33d0464',
+    icon: '/tokens/vara.svg',
+    category: 'native',
     isStablecoin: false,
     minBuffer: 3600,
   },

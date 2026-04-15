@@ -87,6 +87,20 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     color: 'text-cyan-400',
     colorAccent: 'cyan',
   },
+  WTVARA: {
+    key: 'WTVARA',
+    symbol: 'WTVARA',
+    name: 'Tokenized VARA',
+    decimals: 12,
+    vara: 'native',           // native VARA is locked on Vara side
+    eth: '0xE1ab85A8B4d5d5B6af0bbD0203EB322DF33d0464',
+    icon: '/tokens/vara.svg',
+    category: 'native',
+    isStablecoin: false,
+    minBuffer: 3600,
+    color: 'text-emerald-400',
+    colorAccent: 'emerald',
+  },
   VARA: {
     key: 'VARA',
     symbol: 'VARA',

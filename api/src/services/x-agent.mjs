@@ -2,6 +2,7 @@ import { TwitterApi } from 'twitter-api-v2';
 import { scoreContent } from './llm-scorer.mjs';
 import { awardXP, getInitialXP } from './xp-service.mjs';
 import { queryOne, query } from './db.mjs';
+import { matchCampaignsForTweet, awardCampaignXP, checkContributionLimit } from './campaign-service.mjs';
 
 let readClient = null;
 let writeClient = null;
@@ -51,6 +52,77 @@ function isCampaignActive() {
   if (start && new Date(start) > now) return false;
   if (end && new Date(end) < now) return false;
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Extract hashtags and mentions from tweet text
+// ---------------------------------------------------------------------------
+function extractHashtags(text) {
+  if (!text) return [];
+  const matches = text.match(/#[\w]+/g);
+  return matches ? [...new Set(matches.map(h => h.toLowerCase()))] : [];
+}
+
+function extractMentions(text) {
+  if (!text) return [];
+  const matches = text.match(/@[\w]+/g);
+  return matches ? [...new Set(matches.map(m => m.toLowerCase().replace(/^@/, '')))] : [];
+}
+
+// ---------------------------------------------------------------------------
+// Match tweet against active campaigns and award campaign XP
+// ---------------------------------------------------------------------------
+async function matchAndAwardTweetCampaigns(wallet, tweetId, contributionId, xpAmount, tweetText) {
+  try {
+    const hashtags = extractHashtags(tweetText);
+    const mentions = extractMentions(tweetText);
+    const matchedCampaigns = await matchCampaignsForTweet(hashtags, mentions);
+
+    if (matchedCampaigns.length === 0) return null;
+
+    if (matchedCampaigns.length > 1) {
+      console.warn(`[x-agent] Tweet ${tweetId} matched ${matchedCampaigns.length} campaigns for wallet ${wallet}`);
+    }
+
+    // Set campaign_id (first match) and campaign_count on the contribution
+    await query(
+      `UPDATE contributions SET campaign_id = $1, campaign_count = $2, updated_at = NOW() WHERE id = $3`,
+      [matchedCampaigns[0].id, matchedCampaigns.length, contributionId]
+    );
+
+    const firstCampaignId = matchedCampaigns[0].id;
+
+    for (const campaign of matchedCampaigns) {
+      try {
+        // Check if participant is enrolled
+        const enrollment = await queryOne(
+          `SELECT id FROM campaign_participants WHERE campaign_id = $1 AND wallet = $2`,
+          [campaign.id, wallet]
+        );
+        if (!enrollment) {
+          console.log(`[x-agent] ${wallet} not enrolled in campaign ${campaign.id}, skipping campaign XP`);
+          continue;
+        }
+
+        // Check content contribution limit
+        const limitCheck = await checkContributionLimit(campaign.id, wallet, 'CONTENT');
+        if (!limitCheck.allowed) {
+          console.log(`[x-agent] ${wallet} hit limit in campaign ${campaign.id}: ${limitCheck.reason}`);
+          continue;
+        }
+
+        await awardCampaignXP(campaign.id, wallet, xpAmount, contributionId);
+        console.log(`[x-agent] +${xpAmount} campaign XP to ${wallet} in campaign ${campaign.id}`);
+      } catch (campErr) {
+        console.error(`[x-agent] Campaign XP failed for ${wallet} in ${campaign.id}: ${campErr.message}`);
+      }
+    }
+
+    return firstCampaignId;
+  } catch (err) {
+    console.error(`[x-agent] Campaign matching failed for tweet ${tweetId}: ${err.message}`);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -260,8 +332,13 @@ async function processTweet(tweet, authorUsername, authorMetrics) {
       }
     );
 
+    // Match against active campaigns
+    const campaignId = await matchAndAwardTweetCampaigns(
+      participant.wallet, tweetId, contribution.id, xpAmount, tweetText
+    );
+
     try {
-      await awardXP(participant.wallet, xpAmount, 'INITIAL_AWARD', contribution.id);
+      await awardXP(participant.wallet, xpAmount, 'INITIAL_AWARD', contribution.id, campaignId);
     } catch (err) {
       console.error(`[x-agent] XP award failed for tweet ${tweetId}: ${err.message}`);
     }
@@ -270,7 +347,7 @@ async function processTweet(tweet, authorUsername, authorMetrics) {
     if (isThread && threadLength >= 5) {
       try {
         const threadBonusXP = Math.round(getInitialXP(combinedScore, 'CONTENT') * 0.3);
-        await awardXP(participant.wallet, threadBonusXP, 'THREAD_BONUS', contribution.id);
+        await awardXP(participant.wallet, threadBonusXP, 'THREAD_BONUS', contribution.id, campaignId);
       } catch (err) {
         console.error(`[x-agent] Thread bonus XP failed for tweet ${tweetId}: ${err.message}`);
       }
@@ -362,9 +439,12 @@ export async function reevaluateTweet(contributionId, tweetId, wallet) {
   const replies = tweet.public_metrics?.reply_count || 0;
   const totalEngagements = likes + retweets + replies;
 
+  // Get campaign_id from the contribution for re-evaluation bonuses
+  const campaignId = contribution.campaign_id || null;
+
   // Check for viral bonus (500+ engagements)
   if (totalEngagements >= 500) {
-    await awardXP(wallet, 800, 'VIRAL_BONUS', contributionId);
+    await awardXP(wallet, 800, 'VIRAL_BONUS', contributionId, campaignId);
     console.log(`[x-agent] Tweet ${tweetId}: VIRAL_BONUS +800 XP (${totalEngagements} engagements)`);
   }
 
@@ -381,7 +461,7 @@ export async function reevaluateTweet(contributionId, tweetId, wallet) {
       );
 
       if (varaRetweeted) {
-        await awardXP(wallet, 500, 'RESHARE_BONUS', contributionId);
+        await awardXP(wallet, 500, 'RESHARE_BONUS', contributionId, campaignId);
         console.log(`[x-agent] Tweet ${tweetId}: RESHARE_BONUS +500 XP (@VaraNetwork retweeted)`);
       }
     }
@@ -398,7 +478,7 @@ export async function reevaluateTweet(contributionId, tweetId, wallet) {
 
   if (newEngagementScore - oldEngagementScore > 10) {
     const bonusXP = Math.round((newEngagementScore - oldEngagementScore) * 3);
-    await awardXP(wallet, bonusXP, 'ENGAGEMENT_BONUS', contributionId);
+    await awardXP(wallet, bonusXP, 'ENGAGEMENT_BONUS', contributionId, campaignId);
     console.log(`[x-agent] Tweet ${tweetId}: ENGAGEMENT_BONUS +${bonusXP} XP (engagement improved)`);
   }
 

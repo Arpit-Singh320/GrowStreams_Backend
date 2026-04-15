@@ -3,8 +3,10 @@ import { query, command, encodePayload } from '../sails-client.mjs';
 import { getToken, getTokenByVaraAddress, resolveVaraAddress, listTokens } from '../config/tokens.mjs';
 import { toBaseUnits, toDisplayUnits } from '../utils/decimals.mjs';
 import { logVaultEvent, getVaultHistory } from '../services/stream-history.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 const C = 'tokenVault';
 
 function toBigIntStr(v) {

@@ -3,8 +3,10 @@ import { SUPPORTED_TOKENS, getToken, listTokens, listStablecoins, resolveVaraAdd
 import { toBaseUnits, toDisplayUnits, flowRateFromInterval, flowRatePerInterval, calculateMinDeposit, INTERVALS } from '../utils/decimals.mjs';
 import { getVftBalance, getVftAllowance, generateApprovePayload, getAllBalances } from '../services/token-service.mjs';
 import { getProgramIds } from '../sails-client.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 
 // ─── Token Metadata ──────────────────────────────────────────
 
