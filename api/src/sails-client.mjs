@@ -117,10 +117,21 @@ export async function connect() {
   if (seed) {
     try {
       keyring = await GearKeyring.fromMnemonic(seed);
-    } catch {
-      keyring = await GearKeyring.fromSuri(seed);
+      console.log(`[sails] Keyring loaded from mnemonic: ${keyring.address}`);
+    } catch (mnemonicErr) {
+      console.warn(`[sails] Mnemonic failed: ${mnemonicErr.message}, trying SURI...`);
+      try {
+        keyring = await GearKeyring.fromSuri(seed);
+        console.log(`[sails] Keyring loaded from SURI: ${keyring.address}`);
+      } catch (suriErr) {
+        console.error(`[sails] CRITICAL: Failed to load keyring from seed!`);
+        console.error(`[sails] Mnemonic error: ${mnemonicErr.message}`);
+        console.error(`[sails] SURI error: ${suriErr.message}`);
+        console.error(`[sails] On-chain minting will NOT work!`);
+      }
     }
-    console.log(`[sails] Account: ${keyring.address}`);
+  } else {
+    console.warn(`[sails] No VARA_SEED provided — on-chain minting disabled`);
   }
 
   parser = await SailsIdlParser.new();
