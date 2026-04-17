@@ -4,6 +4,8 @@ import { runSnapshot } from './leaderboard-snapshot.mjs';
 import { runReevaluate } from './x-reevaluate.mjs';
 import { runCampaignStatusCheck } from './campaign-status.mjs';
 import { pollRecentTweets, pollRegisteredUsers } from '../services/x-agent.mjs';
+import { runFollowCheck, runMentionCheck } from './quest-x-monitor.mjs';
+import { runStreamCheck } from './quest-stream-monitor.mjs';
 
 // Lock map to prevent overlapping cron executions (Bug #5 fix)
 const locks = new Map();
@@ -42,6 +44,16 @@ export function initCrons() {
   // Campaign status check — every hour (Bug #1 fix)
   cron.schedule('0 * * * *', () => withLock('campaign-status', runCampaignStatusCheck), { timezone: 'UTC' });
 
+  // Quest monitoring crons
+  // Q1: X follow check — every 5 minutes
+  cron.schedule('*/5 * * * *', () => withLock('quest-follow', runFollowCheck), { timezone: 'UTC' });
+
+  // Q2: X mention check — every 10 minutes
+  cron.schedule('*/10 * * * *', () => withLock('quest-mention', runMentionCheck), { timezone: 'UTC' });
+
+  // Q5: Stream creation check — every 5 minutes
+  cron.schedule('*/5 * * * *', () => withLock('quest-stream', runStreamCheck), { timezone: 'UTC' });
+
   console.log('[cron] Campaign jobs scheduled:');
   console.log('[cron]   daily-xp:         0 0 * * *     (midnight UTC)');
   console.log('[cron]   snapshot:         5 0 * * *     (00:05 UTC)');
@@ -49,4 +61,8 @@ export function initCrons() {
   console.log('[cron]   x-poll:           */15 * * * *  (every 15min)');
   console.log('[cron]   x-user-poll:      */30 * * * *  (every 30min)');
   console.log('[cron]   campaign-status:  0 * * * *     (every hour)');
+  console.log('[cron] Quest monitoring jobs scheduled:');
+  console.log('[cron]   quest-follow:     */5 * * * *   (every 5min)');
+  console.log('[cron]   quest-mention:    */10 * * * *  (every 10min)');
+  console.log('[cron]   quest-stream:     */5 * * * *   (every 5min)');
 }

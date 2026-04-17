@@ -47,5 +47,12 @@
     "deployedAt": "2026-02-25T18:54:39.822Z",
     "network": "vara-testnet",
     "node": "wss://testnet.vara.network"
+  },
+  "quest-seeds": {
+    "programId": "0xf12f4e2c2e6f4f38a958d693caebb4ed77012d729fde0496dc432fa3e66a8241",
+    "codeId": "0x2557fa7eae16da7076b37c770ad7a4cb287ab35bae988dcbb12407dd9cc1e3a1",
+    "deployedAt": "2026-04-17T17:16:07.061Z",
+    "network": "vara-testnet",
+    "node": "wss://testnet.vara.network"
   }
 }

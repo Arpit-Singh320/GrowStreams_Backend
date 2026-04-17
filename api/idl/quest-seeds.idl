@@ -1,0 +1,37 @@
+// GrowStreams — SEEDS Quest Reward Token IDL
+// Non-transferable by default, admin-minted on quest completion
+
+type SeedsMeta = struct {
+  name: str,
+  symbol: str,
+  decimals: u8,
+  total_supply: u128,
+  admin: actor_id,
+  total_holders: u32,
+};
+
+type MintEvent = struct {
+  to: actor_id,
+  amount: u128,
+  reason: str,
+};
+
+constructor {
+  New : ();
+};
+
+service SeedsService {
+  // --- Mutations ---
+  Mint : (to: actor_id, amount: u128, reason: str) -> MintEvent;
+  BatchMint : (recipients: vec struct { actor_id, u128, str }) -> vec MintEvent;
+  Transfer : (to: actor_id, amount: u128) -> bool;
+  Burn : (amount: u128) -> null;
+
+  // --- Queries ---
+  query BalanceOf : (account: actor_id) -> u128;
+  query TotalSupply : () -> u128;
+  query Name : () -> str;
+  query Symbol : () -> str;
+  query Decimals : () -> u8;
+  query GetMeta : () -> SeedsMeta;
+};

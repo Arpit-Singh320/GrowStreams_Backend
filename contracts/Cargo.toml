@@ -7,6 +7,7 @@ members = [
     "adapters/bounty-adapter",
     "identity-registry",
     "grow-token",
+    "quest-seeds",
 ]
 resolver = "2"
 

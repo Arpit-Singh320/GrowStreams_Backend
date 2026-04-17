@@ -21,6 +21,7 @@ import webhooksRouter from './routes/webhooks.mjs';
 import leaderboardRouter from './routes/leaderboard.mjs';
 import usersRouter from './routes/users.mjs';
 import tokensRouter from './routes/tokens.mjs';
+import questsRouter from './routes/quests.mjs';
 import { startStream as startXStream, pollRecentTweets } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
 
@@ -49,6 +50,7 @@ app.use('/api/webhooks', webhooksRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/tokens', tokensRouter);
+app.use('/api/quests', questsRouter);
 
 app.get('/', (req, res) => {
   res.json({
@@ -165,12 +167,24 @@ app.get('/', (req, res) => {
         payoutSnapshot: 'POST /api/campaign/payout-snapshot (admin, Bearer token)',
       },
       webhooks: {
-        github: 'POST /api/webhooks/github (GitHub webhook endpoint, HMAC verified)',
+        github: 'POST /api/webhooks/github (GitHub webhook — events: pull_request, star, ping)',
       },
       leaderboard: {
         list: 'GET /api/leaderboard?page=&limit=&track=',
         stats: 'GET /api/leaderboard/stats',
         participant: 'GET /api/leaderboard/:wallet',
+      },
+      quests: {
+        verifyInvite: 'POST /api/quests/verify-invite { code }',
+        register: 'POST /api/quests/register { wallet, email, x_username, github_username, invite_code }',
+        list: 'GET /api/quests',
+        me: 'GET /api/quests/me?wallet=',
+        seeds: 'GET /api/quests/seeds/:wallet',
+        claim: 'POST /api/quests/:slug/claim { wallet }',
+        stats: 'GET /api/quests/stats',
+        adminGenerateInvites: 'POST /api/quests/admin/generate-invites { count, max_uses?, expires_at? } (Bearer token)',
+        adminListInvites: 'GET /api/quests/admin/invites?status= (Bearer token)',
+        adminAward: 'POST /api/quests/admin/award { wallet, quest_slug } (Bearer token)',
       },
       _note: 'POST routes accept { mode: "payload" } to return encoded payload for client-side wallet signing instead of server-side execution.',
     },

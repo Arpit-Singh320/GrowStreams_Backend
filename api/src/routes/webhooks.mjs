@@ -6,6 +6,8 @@ import {
   handlePRMerged,
   handlePRClosed,
 } from '../services/github-agent.mjs';
+import { awardSeeds, isQuestCompleted } from '../services/quest-service.mjs';
+import { queryOne } from '../services/db.mjs';
 
 const router = Router();
 
@@ -105,6 +107,43 @@ router.post('/github', async (req, res) => {
         console.log(`[webhook] handlePRClosed completed for PR #${prNumber}`);
       } else {
         console.log(`[webhook] Ignoring pull_request.${action} for PR #${prNumber}`);
+      }
+      // Quest Q4: Award Seeds for PR opened by a quest-registered user
+      if (action === 'opened' && author) {
+        try {
+          const questReg = await queryOne(
+            `SELECT wallet FROM quest_registrations WHERE github_username = $1`,
+            [author.toLowerCase()]
+          );
+          if (questReg) {
+            const completion = await awardSeeds(questReg.wallet, 'raise-pr', { pr_number: prNumber, author });
+            if (completion) {
+              console.log(`[webhook] Quest Q4: Awarded Seeds to ${questReg.wallet} for PR #${prNumber}`);
+            }
+          }
+        } catch (questErr) {
+          console.warn(`[webhook] Quest PR award failed: ${questErr.message}`);
+        }
+      }
+    } else if (event === 'star') {
+      // Quest Q3: Star event
+      const action = payload.action;
+      const sender = payload.sender?.login;
+      console.log(`[webhook] star.${action} by @${sender}`);
+
+      if (action === 'created' && sender) {
+        try {
+          const questReg = await queryOne(
+            `SELECT wallet FROM quest_registrations WHERE github_username = $1`,
+            [sender.toLowerCase()]
+          );
+          if (questReg && !(await isQuestCompleted(questReg.wallet, 'star-repo'))) {
+            await awardSeeds(questReg.wallet, 'star-repo', { github_user: sender });
+            console.log(`[webhook] Quest Q3: Awarded Seeds to ${questReg.wallet} for starring repo`);
+          }
+        } catch (questErr) {
+          console.warn(`[webhook] Quest star award failed: ${questErr.message}`);
+        }
       }
     } else if (event === 'ping') {
       console.log('[webhook] Ping received, webhook configured correctly');

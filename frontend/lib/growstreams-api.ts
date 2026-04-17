@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'https://growstreams-core-production.up.railway.app';
+const API_BASE = process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'https://growstreams-launch-production.up.railway.app';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -149,6 +149,43 @@ export interface TxResult {
 export interface PayloadResult {
   payload: string;
   value?: string;
+}
+
+export interface QuestData {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  quest_type: string;
+  seeds_reward: number;
+  icon: string;
+  repeatable: boolean;
+  active: boolean;
+  sort_order: number;
+  completed?: boolean;
+  completionCount?: number;
+  totalEarned?: number;
+  latestCompletion?: Record<string, unknown> | null;
+}
+
+export interface QuestProgress {
+  registered: boolean;
+  registration?: Record<string, unknown>;
+  totalSeeds?: number;
+  questsCompleted?: number;
+  questsTotal?: number;
+  quests?: QuestData[];
+  recentActivity?: Array<{
+    id: number;
+    wallet: string;
+    delta: number;
+    reason: string;
+    quest_id: number;
+    tx_hash: string | null;
+    created_at: string;
+    slug: string;
+    quest_title: string;
+  }>;
 }
 
 export const api = {
@@ -354,5 +391,22 @@ export const api = {
       post<TxResult | PayloadResult>('/api/identity/revoke', params as unknown as Record<string, unknown>),
     updateScore: (params: { actorId: string; newScore: number; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/identity/update-score', params as unknown as Record<string, unknown>),
+  },
+
+  quests: {
+    verifyInvite: (code: string) =>
+      post<{ valid: boolean; message?: string }>('/api/quests/verify-invite', { code } as Record<string, unknown>),
+    register: (params: { wallet: string; email: string; x_username: string; github_username: string; invite_code: string }) =>
+      post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
+    list: () =>
+      get<{ quests: QuestData[] }>('/api/quests'),
+    me: (wallet: string) =>
+      get<QuestProgress>(`/api/quests/me?wallet=${wallet}`),
+    seeds: (wallet: string) =>
+      get<{ wallet: string; seeds: number }>(`/api/quests/seeds/${wallet}`),
+    claim: (slug: string, wallet: string) =>
+      post<{ message: string; slug: string; wallet: string; status: string }>(`/api/quests/${slug}/claim`, { wallet } as Record<string, unknown>),
+    stats: () =>
+      get<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>('/api/quests/stats'),
   },
 };

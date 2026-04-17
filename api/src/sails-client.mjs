@@ -20,6 +20,7 @@ function findIdl(filename) {
     'bounty-adapter.idl': 'contracts/adapters/bounty-adapter/bounty-adapter.idl',
     'identity-registry.idl': 'contracts/identity-registry/identity-registry.idl',
     'grow-token.idl': 'contracts/grow-token/grow-token.idl',
+    'quest-seeds.idl': 'contracts/quest-seeds/quest-seeds.idl',
   };
   return resolve(PROJECT_ROOT, contractMap[filename] || filename);
 }
@@ -32,6 +33,7 @@ const IDL_PATHS = {
   bountyAdapter: findIdl('bounty-adapter.idl'),
   identityRegistry: findIdl('identity-registry.idl'),
   growToken: findIdl('grow-token.idl'),
+  questSeeds: findIdl('quest-seeds.idl'),
 };
 
 let gearApi = null;
@@ -46,6 +48,7 @@ const contracts = {
   bountyAdapter: null,
   identityRegistry: null,
   growToken: null,
+  questSeeds: null,
 };
 
 const SERVICE_NAMES = {
@@ -56,6 +59,7 @@ const SERVICE_NAMES = {
   bountyAdapter: 'BountyService',
   identityRegistry: 'IdentityService',
   growToken: 'VftService',
+  questSeeds: 'SeedsService',
 };
 
 function loadDeployState() {
@@ -82,6 +86,7 @@ const DEPLOY_KEY_MAP = {
   bountyAdapter: 'bounty-adapter',
   identityRegistry: 'identity-registry',
   growToken: 'grow-token',
+  questSeeds: 'quest-seeds',
 };
 
 async function initSailsInstance(name, idlPath, programId) {
@@ -130,6 +135,7 @@ export async function connect() {
     bountyAdapter: process.env.BOUNTY_ADAPTER_ID,
     identityRegistry: process.env.IDENTITY_REGISTRY_ID,
     growToken: process.env.GROW_TOKEN_ID,
+    questSeeds: process.env.QUEST_SEEDS_ID,
   };
 
   for (const [name, idlPath] of Object.entries(IDL_PATHS)) {
