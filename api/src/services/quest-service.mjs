@@ -241,12 +241,16 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
   if (seedsContract && !txHash) {
     try {
       const reason = `quest:${questSlug}`;
-      const { blockHash } = await sailsCommand('questSeeds', 'Mint', wallet, quest.seeds_reward, reason);
-      onChainTxHash = blockHash || null;
-      console.log(`[quest] On-chain mint: ${quest.seeds_reward} Seeds to ${wallet}, tx=${onChainTxHash}`);
+      console.log(`[quest] Attempting on-chain mint: ${quest.seeds_reward} Seeds to ${wallet}`);
+      const mintResult = await sailsCommand('questSeeds', 'Mint', wallet, quest.seeds_reward, reason);
+      console.log(`[quest] Mint result:`, mintResult);
+      onChainTxHash = mintResult.blockHash || null;
+      console.log(`[quest] On-chain mint SUCCESS: ${quest.seeds_reward} Seeds to ${wallet}, tx=${onChainTxHash}`);
     } catch (mintErr) {
       console.warn(`[quest] On-chain mint failed for ${wallet}: ${mintErr.message}. Recording DB-only.`);
     }
+  } else if (!seedsContract) {
+    console.warn(`[quest] questSeeds contract not loaded — Seeds will be DB-only`);
   }
 
   // Insert completion

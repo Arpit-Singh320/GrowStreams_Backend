@@ -396,16 +396,19 @@ function QuestDashboard({ wallet }: { wallet: string }) {
                     {new Date(activity.created_at).toLocaleString()}
                   </p>
                 </div>
-                {activity.tx_hash && (
+                {activity.tx_hash ? (
                   <a
                     href={`https://vara.subscan.io/extrinsic/${activity.tx_hash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-provn-muted hover:text-emerald-400 transition-colors"
-                    title="View on-chain"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors flex-shrink-0"
+                    title="View on-chain transaction"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink className="w-3 h-3" />
+                    <span>View TX</span>
                   </a>
+                ) : (
+                  <span className="text-[10px] text-provn-muted/50 flex-shrink-0">DB only</span>
                 )}
               </div>
             ))}
