@@ -11,6 +11,8 @@
   "dependencies": {
     "@gear-js/api": "^0.44.2",
     "dotenv": "^16.4.5",
+    "sails-js": "^0.5.1",
+    "sails-js-parser": "^0.5.1",
     "twitter-api-v2": "^1.29.0"
   }
 }

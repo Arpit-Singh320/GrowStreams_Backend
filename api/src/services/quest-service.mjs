@@ -242,7 +242,17 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
     try {
       const reason = `quest:${questSlug}`;
       console.log(`[quest] Attempting on-chain mint: ${quest.seeds_reward} Seeds to ${wallet}`);
-      const mintResult = await sailsCommand('questSeeds', 'Mint', wallet, quest.seeds_reward, reason);
+      
+      // Convert wallet to hex format if it's SS58 (starts with letter/number, not 0x)
+      let walletHex = wallet;
+      if (!wallet.startsWith('0x')) {
+        const { decodeAddress } = await import('@polkadot/util-crypto');
+        const publicKey = decodeAddress(wallet);
+        walletHex = '0x' + Buffer.from(publicKey).toString('hex');
+        console.log(`[quest] Converted SS58 ${wallet} to hex ${walletHex}`);
+      }
+      
+      const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, quest.seeds_reward, reason);
       console.log(`[quest] Mint result:`, mintResult);
       onChainTxHash = mintResult.blockHash || null;
       console.log(`[quest] On-chain mint SUCCESS: ${quest.seeds_reward} Seeds to ${wallet}, tx=${onChainTxHash}`);
