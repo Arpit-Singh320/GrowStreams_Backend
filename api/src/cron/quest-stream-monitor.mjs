@@ -24,10 +24,11 @@ export async function runStreamCheck() {
       // Uses the streamCore contract via sails-client
       let hasStream = false;
       try {
-        const result = await sailsQuery('streamCore', 'GetStreamsBySender', user.wallet);
-        // Result should be an array/list of streams
+        const result = await sailsQuery('streamCore', 'GetSenderStreams', user.wallet);
+        // Result should be an array/list of stream IDs (vec u64)
         if (result && ((Array.isArray(result) && result.length > 0) || (result.length > 0))) {
           hasStream = true;
+          console.log(`[quest-stream] Found ${result.length} stream(s) for ${user.wallet}`);
         }
       } catch (err) {
         // Contract query failed — may not be deployed or user has no streams
