@@ -351,7 +351,7 @@ function QuestDashboard({ wallet }: { wallet: string }) {
           </p>
         </div>
         <p className="text-[10px] text-provn-muted pl-4">
-          💡 Seeds are minted server-side to your wallet — no signature required. Click the <ExternalLink className="w-3 h-3 inline" /> icon in Recent Activity to view on-chain proof.
+          💡 Seeds are minted server-side to your wallet — no signature required. Click "View On-Chain" in Recent Activity to see proof on VARA Idea portal.
         </p>
       </div>
 
@@ -398,14 +398,14 @@ function QuestDashboard({ wallet }: { wallet: string }) {
                 </div>
                 {activity.tx_hash ? (
                   <a
-                    href={`https://vara.subscan.io/extrinsic/${activity.tx_hash}`}
+                    href={`https://idea.gear-tech.io/programs/0xf12f4e2c2e6f4f38a958d693caebb4ed77012d729fde0496dc432fa3e66a8241?node=wss://testnet.vara.network`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors flex-shrink-0"
-                    title="View on-chain transaction"
+                    title="View on VARA Idea portal"
                   >
                     <ExternalLink className="w-3 h-3" />
-                    <span>View TX</span>
+                    <span>View On-Chain</span>
                   </a>
                 ) : (
                   <span className="text-[10px] text-provn-muted/50 flex-shrink-0">DB only</span>
