@@ -343,10 +343,15 @@ function QuestDashboard({ wallet }: { wallet: string }) {
       </div>
 
       {/* On-chain indicator */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/5 border border-emerald-500/15 rounded-lg">
-        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-        <p className="text-xs text-provn-muted">
-          Seeds are recorded on-chain on <span className="text-emerald-400 font-medium">VARA Network</span>. Every quest completion creates a blockchain transaction.
+      <div className="px-4 py-3 bg-emerald-500/5 border border-emerald-500/15 rounded-lg space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <p className="text-xs text-provn-muted">
+            Seeds are minted on-chain on <span className="text-emerald-400 font-medium">VARA Network</span>. Every quest completion creates a blockchain transaction.
+          </p>
+        </div>
+        <p className="text-[10px] text-provn-muted pl-4">
+          💡 Seeds are minted server-side to your wallet — no signature required. Click the <ExternalLink className="w-3 h-3 inline" /> icon in Recent Activity to view on-chain proof.
         </p>
       </div>
 

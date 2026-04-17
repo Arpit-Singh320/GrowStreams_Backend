@@ -211,6 +211,9 @@ async function start() {
     // Run database migrations (creates tables if not exist)
     try {
       await migrate();
+      // Run one-time migration to fix repeatable quests
+      const { fixRepeatableQuests } = await import('./migrations/fix-repeatable-quests.mjs');
+      await fixRepeatableQuests();
     } catch (dbErr) {
       console.warn(`[db] Migration warning: ${dbErr.message}`);
     }
