@@ -22,6 +22,7 @@ import leaderboardRouter from './routes/leaderboard.mjs';
 import usersRouter from './routes/users.mjs';
 import tokensRouter from './routes/tokens.mjs';
 import questsRouter from './routes/quests.mjs';
+import testMintRoutes from './routes/test-mint.mjs';
 import { startStream as startXStream, pollRecentTweets } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
 
@@ -51,6 +52,7 @@ app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/tokens', tokensRouter);
 app.use('/api/quests', questsRouter);
+app.use('/api/test', testMintRoutes);
 
 app.get('/', (req, res) => {
   res.json({
