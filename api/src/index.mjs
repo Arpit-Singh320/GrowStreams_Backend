@@ -30,7 +30,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(helmet());
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'growstreams.xyz,localhost,127.0.0.1').split(',');
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'growstreams.xyz,vercel.app,localhost,127.0.0.1').split(',');
 app.use(cors({
   origin: (origin, callback) => {
     // allow requests with no origin (like mobile apps or curl)
