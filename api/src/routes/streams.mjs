@@ -4,6 +4,7 @@ import { getToken, getTokenByVaraAddress, resolveVaraAddress } from '../config/t
 import { toBaseUnits, toDisplayUnits, flowRateFromInterval, flowRatePerInterval } from '../utils/decimals.mjs';
 import { logStreamEvent, getStreamHistory, getStreamEvents, getStreamStats } from '../services/stream-history.mjs';
 import { validateWalletParam } from '../middleware/validate-wallet.mjs';
+import { toActorId } from '../utils/actor-id.mjs';
 
 const router = Router();
 router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
@@ -78,14 +79,16 @@ router.get('/events/:streamId', async (req, res, next) => {
 
 router.get('/sender/:address', async (req, res, next) => {
   try {
-    const result = await query(C, 'GetSenderStreams', req.params.address);
+    const addrHex = toActorId(req.params.address);
+    const result = await query(C, 'GetSenderStreams', addrHex);
     res.json({ sender: req.params.address, streamIds: (result || []).map(toBigIntStr) });
   } catch (err) { next(err); }
 });
 
 router.get('/receiver/:address', async (req, res, next) => {
   try {
-    const result = await query(C, 'GetReceiverStreams', req.params.address);
+    const addrHex = toActorId(req.params.address);
+    const result = await query(C, 'GetReceiverStreams', addrHex);
     res.json({ receiver: req.params.address, streamIds: (result || []).map(toBigIntStr) });
   } catch (err) { next(err); }
 });
@@ -173,8 +176,10 @@ async function createStreamHandler(req, res, next) {
       depositBase = BigInt(initialDeposit);
     }
 
+    const receiverHex = toActorId(receiver);
+
     if (mode === 'payload') {
-      const payload = encodePayload(C, 'CreateStream', receiver, varaAddress, flowRateBase, depositBase);
+      const payload = encodePayload(C, 'CreateStream', receiverHex, varaAddress, flowRateBase, depositBase);
       return res.json({
         payload,
         resolved: {
@@ -185,11 +190,12 @@ async function createStreamHandler(req, res, next) {
         },
       });
     }
-    let { result, blockHash } = await command(C, 'CreateStream', receiver, varaAddress, flowRateBase, depositBase);
+    let { result, blockHash } = await command(C, 'CreateStream', receiverHex, varaAddress, flowRateBase, depositBase);
 
     // If result is null (decode warning), try to find the new stream ID via sender query
     if (result == null && req.body.sender) {
-      const streams = await query(C, 'GetSenderStreams', req.body.sender);
+      const senderHex = toActorId(req.body.sender);
+      const streams = await query(C, 'GetSenderStreams', senderHex);
       if (streams && streams.length > 0) {
         result = streams[streams.length - 1]; // Assume newest
       }

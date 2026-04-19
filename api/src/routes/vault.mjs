@@ -4,6 +4,7 @@ import { getToken, getTokenByVaraAddress, resolveVaraAddress, listTokens } from 
 import { toBaseUnits, toDisplayUnits } from '../utils/decimals.mjs';
 import { logVaultEvent, getVaultHistory } from '../services/stream-history.mjs';
 import { validateWalletParam } from '../middleware/validate-wallet.mjs';
+import { toActorId } from '../utils/actor-id.mjs';
 
 const router = Router();
 router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
@@ -70,7 +71,8 @@ router.get('/balance/:owner/:token', async (req, res, next) => {
   try {
     // Accept token symbol or raw address
     const varaAddr = resolveVaraAddress(req.params.token) || req.params.token;
-    const result = await query(C, 'GetBalance', req.params.owner, varaAddr);
+    const ownerHex = toActorId(req.params.owner);
+    const result = await query(C, 'GetBalance', ownerHex, varaAddr);
     const bal = serializeVaultBalance(result);
 
     // Enrich with token metadata and human-readable amounts
@@ -95,12 +97,13 @@ router.get('/balance/:owner/:token', async (req, res, next) => {
 router.get('/balances/:wallet', async (req, res, next) => {
   try {
     const wallet = req.params.wallet;
+    const walletHex = toActorId(wallet);
     const tokens = listTokens().filter(t => t.vara !== 'native');
     const balances = [];
 
     for (const tok of tokens) {
       try {
-        const result = await query(C, 'GetBalance', wallet, tok.vara);
+        const result = await query(C, 'GetBalance', walletHex, tok.vara);
         const bal = serializeVaultBalance(result);
         balances.push({
           key: tok.key,
@@ -254,10 +257,12 @@ router.post('/allocate', async (req, res, next) => {
     if (!owner || !token || !amount || !streamId) {
       return res.status(400).json({ error: 'Missing: owner, token, amount, streamId' });
     }
+    const ownerHex = toActorId(owner);
+    const tokenAddr = resolveVaraAddress(token) || token;
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'AllocateToStream', owner, token, BigInt(amount), BigInt(streamId)) });
+      return res.json({ payload: encodePayload(C, 'AllocateToStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'AllocateToStream', owner, token, BigInt(amount), BigInt(streamId));
+    const { result, blockHash } = await command(C, 'AllocateToStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId));
     logVaultEvent({ wallet: owner, eventType: 'allocate', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
     res.json({ streamId, amount, blockHash });
   } catch (err) { next(err); }
@@ -269,10 +274,12 @@ router.post('/release', async (req, res, next) => {
     if (!owner || !token || !amount || !streamId) {
       return res.status(400).json({ error: 'Missing: owner, token, amount, streamId' });
     }
+    const ownerHex = toActorId(owner);
+    const tokenAddr = resolveVaraAddress(token) || token;
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'ReleaseFromStream', owner, token, BigInt(amount), BigInt(streamId)) });
+      return res.json({ payload: encodePayload(C, 'ReleaseFromStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'ReleaseFromStream', owner, token, BigInt(amount), BigInt(streamId));
+    const { result, blockHash } = await command(C, 'ReleaseFromStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId));
     logVaultEvent({ wallet: owner, eventType: 'release', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
     res.json({ streamId, amount, blockHash });
   } catch (err) { next(err); }
@@ -284,10 +291,12 @@ router.post('/transfer', async (req, res, next) => {
     if (!token || !receiver || !amount || !streamId) {
       return res.status(400).json({ error: 'Missing: token, receiver, amount, streamId' });
     }
+    const tokenAddr = resolveVaraAddress(token) || token;
+    const receiverHex = toActorId(receiver);
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'TransferToReceiver', token, receiver, BigInt(amount), BigInt(streamId)) });
+      return res.json({ payload: encodePayload(C, 'TransferToReceiver', tokenAddr, receiverHex, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'TransferToReceiver', token, receiver, BigInt(amount), BigInt(streamId));
+    const { result, blockHash } = await command(C, 'TransferToReceiver', tokenAddr, receiverHex, BigInt(amount), BigInt(streamId));
     logVaultEvent({ wallet: receiver, eventType: 'transfer', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
     res.json({ streamId, receiver, amount, blockHash });
   } catch (err) { next(err); }
