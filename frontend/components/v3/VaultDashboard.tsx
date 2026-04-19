@@ -64,11 +64,12 @@ export default function VaultDashboard() {
       });
       // Send approve payload to the VFT TOKEN contract (res.programId), NOT the vault
       await signAndSend(res.programId, res.payload);
-      toast.success(`${selectedToken.symbol} approved for vault`);
+      toast.success(`${selectedToken.symbol} approved! Please wait 10 seconds before depositing.`);
       setTimeout(refreshAll, 3000);
+      // Keep approving state for 10 seconds to prevent immediate deposit
+      setTimeout(() => setApproving(false), 10000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Approval failed');
-    } finally {
       setApproving(false);
     }
   };
@@ -94,6 +95,23 @@ export default function VaultDashboard() {
       } else {
         const baseAmt = toBaseUnits(amount, selectedToken.decimals).toString();
         if (mode === 'deposit') {
+          // Check allowance before deposit to prevent race condition
+          if (account?.decodedAddress) {
+            try {
+              const allowanceRes = await api.tokens.allowance(selectedToken.key, account.decodedAddress, PROGRAM_IDS.tokenVault);
+              const allowance = BigInt(allowanceRes.allowanceRaw || '0');
+              const required = BigInt(baseAmt);
+              
+              if (allowance < required) {
+                toast.error(`Insufficient allowance. Please approve ${selectedToken.symbol} first and wait 10 seconds before depositing.`);
+                setBusy(false);
+                return;
+              }
+            } catch (err) {
+              toast.warning('Could not verify allowance. Proceeding with deposit...');
+            }
+          }
+          
           await depositTokens(selectedToken.vara, baseAmt);
           toast.success(`Deposited ${amount} ${selectedToken.symbol}`);
         } else {
