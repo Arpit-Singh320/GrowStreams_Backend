@@ -48,19 +48,25 @@ async function resolveXUserId(xUsername) {
 // Resolve GrowStreams X account ID
 // ---------------------------------------------------------------------------
 let growstreamsXId = null;
+let cachedHandle = null;
 
 async function getGrowstreamsXId() {
-  if (growstreamsXId) return growstreamsXId;
+  // Re-resolve if handle changed (e.g., env var updated)
+  if (growstreamsXId && cachedHandle === GROWSTREAMS_X_HANDLE) {
+    return growstreamsXId;
+  }
+  
   try {
     const client = getReadClient();
     const user = await client.v2.userByUsername(GROWSTREAMS_X_HANDLE);
     if (user?.data?.id) {
       growstreamsXId = user.data.id;
-      console.log(`[quest-x] GrowStreams X ID resolved: ${growstreamsXId}`);
+      cachedHandle = GROWSTREAMS_X_HANDLE;
+      console.log(`[quest-x] GrowStreams X ID resolved for @${GROWSTREAMS_X_HANDLE}: ${growstreamsXId}`);
       return growstreamsXId;
     }
   } catch (err) {
-    console.warn(`[quest-x] Failed to resolve GrowStreams X ID: ${err.message}`);
+    console.warn(`[quest-x] Failed to resolve GrowStreams X ID for @${GROWSTREAMS_X_HANDLE}: ${err.message}`);
   }
   return null;
 }
