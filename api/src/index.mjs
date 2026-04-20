@@ -235,21 +235,26 @@ async function start() {
         console.warn(`[cron] Failed to initialize: ${err.message}`);
       }
 
-      // Start X/Twitter filtered stream (non-blocking, server runs even if this fails)
-      try {
-        await startXStream();
-      } catch (err) {
-        console.warn(`[x-agent] Failed to start: ${err.message}`);
-      }
+      // X/Twitter filtered stream DISABLED to save credits
+      // Users can use manual "Claim" button, and cron runs every 1-2 hours
+      console.log('[x-agent] Filtered stream DISABLED to save X API credits 💰');
+      console.log('[x-agent] Users should use manual "Claim" button for instant verification');
+      
+      // Disabled: Start X/Twitter filtered stream (too expensive)
+      // try {
+      //   await startXStream();
+      // } catch (err) {
+      //   console.warn(`[x-agent] Failed to start: ${err.message}`);
+      // }
 
-      // Run initial tweet poll 30s after startup (free-tier stream may not deliver data)
-      setTimeout(async () => {
-        try {
-          await pollRecentTweets();
-        } catch (err) {
-          console.warn(`[x-agent] Initial poll failed: ${err.message}`);
-        }
-      }, 30000);
+      // Disabled: Run initial tweet poll (use cron schedule instead)
+      // setTimeout(async () => {
+      //   try {
+      //     await pollRecentTweets();
+      //   } catch (err) {
+      //     console.warn(`[x-agent] Initial poll failed: ${err.message}`);
+      //   }
+      // }, 30000);
     });
   } catch (err) {
     console.error('[fatal]', err.message);
