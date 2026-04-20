@@ -100,8 +100,8 @@ export async function runFollowCheck() {
       if (!userId) continue;
 
       // Check if this user follows GrowStreams
-      // GET /2/users/:id/following and check if gsId is in the list
-      // Note: This can be rate-limited; we paginate if needed
+      // GET /2/users/:id/followers (GrowStreams' followers) and check if userId is in the list
+      // This works with Bearer Token (App-Only Auth)
       let isFollowing = false;
       let paginationToken = undefined;
 
@@ -109,16 +109,17 @@ export async function runFollowCheck() {
         const params = { max_results: 1000 };
         if (paginationToken) params.pagination_token = paginationToken;
 
-        const following = await client.v2.following(userId, params);
-        const data = following?.data || [];
+        // Get GrowStreams' followers and check if userId is in the list
+        const followers = await client.v2.followers(gsId, params);
+        const data = followers?.data || [];
 
-        if (data.some(f => f.id === gsId)) {
+        if (data.some(f => f.id === userId)) {
           isFollowing = true;
           break;
         }
 
-        paginationToken = following?.meta?.next_token;
-      } while (paginationToken);
+        paginationToken = followers?.meta?.next_token;
+      } while (paginationToken && !isFollowing);
 
       checked++;
 
