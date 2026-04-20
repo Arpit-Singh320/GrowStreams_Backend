@@ -216,6 +216,9 @@ async function start() {
       // Run one-time migration to fix repeatable quests
       const { fixRepeatableQuests } = await import('./migrations/fix-repeatable-quests.mjs');
       await fixRepeatableQuests();
+      // Run one-time migration to fix X handle
+      const { fixXHandle } = await import('./migrations/fix-x-handle.mjs');
+      await fixXHandle();
     } catch (dbErr) {
       console.warn(`[db] Migration warning: ${dbErr.message}`);
     }
