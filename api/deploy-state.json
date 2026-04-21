@@ -1,8 +1,8 @@
 {
   "stream-core": {
-    "programId": "0x4b41175ab4b8a73b5d115e360a353af57aef41842657d9855f8ed396d30c2dba",
-    "codeId": "0x23865c4df81b1705e3345fb4178db087094e0fd27aa0649a36b41caf7b7d188f",
-    "deployedAt": "2026-04-09T19:22:10.685Z",
+    "programId": "0x0998ba27a7b2a0d8a383dc23054164bac1fc2e4b64694f0d7ec4db3bd6265957",
+    "codeId": "0x5aa57ab23866112cac282f0820492aed40832d9d171d60dffcb7bdb9f07e78ce",
+    "deployedAt": "2026-04-21T11:30:48.628Z",
     "network": "vara-testnet",
     "node": "wss://testnet.vara.network"
   },

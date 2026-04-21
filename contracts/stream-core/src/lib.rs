@@ -6,6 +6,7 @@ use sails_rs::{
     prelude::*,
 };
 use gstd::msg as gstd_msg;
+use parity_scale_codec::Decode as ScaleDecode;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -17,6 +18,36 @@ fn encode_call(service: &str, method: &str, args: impl Encode) -> Vec<u8> {
     method.encode_to(&mut payload);
     args.encode_to(&mut payload);
     payload
+}
+
+/// Decode a Sails-routed `Result<(), VaultError>` reply.
+///
+/// Reply wire format: SCALE(service_name) + SCALE(method_name) + SCALE(Result).
+/// `Result<(), E>` discriminant: 0x00 = Ok (no payload for `()`), 0x01 = Err(_).
+///
+/// Returns `true` on definitive Ok, `false` on any decode failure or Err variant.
+fn decode_vault_result_ok(reply_bytes: &[u8]) -> bool {
+    let mut input = &reply_bytes[..];
+    if <String as ScaleDecode>::decode(&mut input).is_err() { return false; }
+    if <String as ScaleDecode>::decode(&mut input).is_err() { return false; }
+    match input.first() {
+        Some(&0x00) => true,
+        _ => false,
+    }
+}
+
+/// Send a call to the vault and await the reply, returning true only if the
+/// vault replied with `Ok(())`. Returns false on send error, reply error, or
+/// `Err(VaultError)` variant.
+async fn call_vault_checked(vault: ActorId, payload: Vec<u8>) -> bool {
+    let reply = match gstd_msg::send_bytes_for_reply(vault, payload, 0, 0) {
+        Ok(fut) => match fut.await {
+            Ok(bytes) => bytes,
+            Err(_) => return false,
+        },
+        Err(_) => return false,
+    };
+    decode_vault_result_ok(reply.as_slice())
 }
 
 // ---------------------------------------------------------------------------
@@ -172,7 +203,7 @@ impl StreamService {
 impl StreamService {
     // ---- Commands ----
 
-    pub fn create_stream(
+    pub async fn create_stream(
         &mut self,
         receiver: ActorId,
         token: ActorId,
@@ -192,7 +223,24 @@ impl StreamService {
             "Initial deposit must cover minimum buffer"
         );
 
+        // Reserve a stream id locally without committing state yet.
         let id = state.config.next_stream_id;
+        let vault = state.config.token_vault;
+        assert!(vault != ActorId::zero(), "Token vault not configured");
+
+        // Call vault.AllocateToStream and wait for confirmation BEFORE
+        // committing stream-core state. If the vault rejects (e.g. insufficient
+        // balance), this function panics and no state mutation persists.
+        let payload = encode_call(
+            "VaultService",
+            "AllocateToStream",
+            (sender, token, initial_deposit, id),
+        );
+        let ok = call_vault_checked(vault, payload).await;
+        assert!(ok, "Vault allocate failed");
+
+        // Vault has committed the allocation — now commit stream state.
+        let state = StreamCoreState::get();
         state.config.next_stream_id += 1;
 
         let stream = Stream {
@@ -213,18 +261,6 @@ impl StreamService {
         state.sender_streams.entry(sender).or_default().push(id);
         state.receiver_streams.entry(receiver).or_default().push(id);
         state.active_count += 1;
-
-        let payload = encode_call(
-            "VaultService",
-            "AllocateToStream",
-            (sender, token, initial_deposit, id)
-        );
-        gstd_msg::send_bytes_with_gas(
-            state.config.token_vault,
-            payload,
-            5_000_000_000,
-            0
-        ).expect("Vault allocate failed");
 
         id
     }
@@ -247,20 +283,43 @@ impl StreamService {
         stream.flow_rate = new_flow_rate;
     }
 
-    pub fn stop_stream(&mut self, stream_id: u64) {
+    pub async fn stop_stream(&mut self, stream_id: u64) {
         let state = StreamCoreState::get();
         let caller = msg::source();
         let now = exec::block_timestamp() / 1000;
+        let vault = state.config.token_vault;
 
+        // Read-only snapshot to compute release amount, then await vault.
+        let (sender, token, unstreamed, deposited, streamed_after_settle) = {
+            let stream = state.streams.get(&stream_id).expect("Stream not found");
+            assert!(stream.sender == caller, "Only sender can stop stream");
+            assert!(
+                stream.status != StreamStatus::Stopped,
+                "Stream already stopped"
+            );
+            let accrued = StreamCoreState::accrued_since_last_update(stream, now);
+            let new_streamed = stream.streamed.saturating_add(accrued).min(stream.deposited);
+            let unstreamed = stream.deposited.saturating_sub(new_streamed);
+            (stream.sender, stream.token, unstreamed, stream.deposited, new_streamed)
+        };
+        let _ = deposited;
+
+        // If there is unstreamed balance, ask vault to release it back to sender.
+        if unstreamed > 0 && vault != ActorId::zero() {
+            let payload = encode_call(
+                "VaultService",
+                "ReleaseFromStream",
+                (sender, token, unstreamed, stream_id),
+            );
+            let ok = call_vault_checked(vault, payload).await;
+            assert!(ok, "Vault release failed");
+        }
+
+        // Now commit stream state.
+        let state = StreamCoreState::get();
         let stream = state.streams.get_mut(&stream_id).expect("Stream not found");
-
-        assert!(stream.sender == caller, "Only sender can stop stream");
-        assert!(
-            stream.status != StreamStatus::Stopped,
-            "Stream already stopped"
-        );
-
-        StreamCoreState::settle(stream, now);
+        stream.streamed = streamed_after_settle;
+        stream.last_update = now;
         stream.status = StreamStatus::Stopped;
         stream.flow_rate = 0;
         state.active_count = state.active_count.saturating_sub(1);
@@ -299,51 +358,76 @@ impl StreamService {
         state.active_count += 1;
     }
 
-    pub fn deposit(&mut self, stream_id: u64, amount: u128) {
+    pub async fn deposit(&mut self, stream_id: u64, amount: u128) {
         let state = StreamCoreState::get();
         let caller = msg::source();
+        let vault = state.config.token_vault;
 
-        let stream = state.streams.get_mut(&stream_id).expect("Stream not found");
+        let (sender, token) = {
+            let stream = state.streams.get(&stream_id).expect("Stream not found");
+            assert!(stream.sender == caller, "Only sender can deposit");
+            assert!(
+                stream.status != StreamStatus::Stopped,
+                "Cannot deposit to a stopped stream"
+            );
+            assert!(amount > 0, "Deposit amount must be > 0");
+            (stream.sender, stream.token)
+        };
 
-        assert!(stream.sender == caller, "Only sender can deposit");
-        assert!(
-            stream.status != StreamStatus::Stopped,
-            "Cannot deposit to a stopped stream"
+        assert!(vault != ActorId::zero(), "Token vault not configured");
+
+        // Ask vault to allocate additional amount to this stream. Vault's
+        // `AllocateToStream` is additive for existing stream ids.
+        let payload = encode_call(
+            "VaultService",
+            "AllocateToStream",
+            (sender, token, amount, stream_id),
         );
-        assert!(amount > 0, "Deposit amount must be > 0");
+        let ok = call_vault_checked(vault, payload).await;
+        assert!(ok, "Vault allocate failed");
 
+        // Commit updated deposited amount.
+        let state = StreamCoreState::get();
+        let stream = state.streams.get_mut(&stream_id).expect("Stream not found");
         stream.deposited = stream.deposited.saturating_add(amount);
     }
 
-    pub fn withdraw(&mut self, stream_id: u64) -> u128 {
+    pub async fn withdraw(&mut self, stream_id: u64) -> u128 {
         let state = StreamCoreState::get();
         let caller = msg::source();
         let now = exec::block_timestamp() / 1000;
+        let vault = state.config.token_vault;
 
-        let stream = state.streams.get_mut(&stream_id).expect("Stream not found");
-
-        assert!(stream.receiver == caller, "Only receiver can withdraw");
-
-        StreamCoreState::settle(stream, now);
-
-        let withdrawable = stream
-            .streamed
-            .min(stream.deposited)
-            .saturating_sub(stream.withdrawn);
+        // Compute withdrawable from a read-only snapshot of the stream.
+        // State mutation happens ONLY after the vault confirms the transfer.
+        let (token, receiver, withdrawable, new_streamed) = {
+            let stream = state.streams.get(&stream_id).expect("Stream not found");
+            assert!(stream.receiver == caller, "Only receiver can withdraw");
+            let accrued = StreamCoreState::accrued_since_last_update(stream, now);
+            let mut new_streamed = stream.streamed.saturating_add(accrued);
+            if new_streamed > stream.deposited {
+                new_streamed = stream.deposited;
+            }
+            let withdrawable = new_streamed.saturating_sub(stream.withdrawn);
+            (stream.token, stream.receiver, withdrawable, new_streamed)
+        };
         assert!(withdrawable > 0, "Nothing to withdraw");
+        assert!(vault != ActorId::zero(), "Token vault not configured");
 
         let payload = encode_call(
             "VaultService",
             "TransferToReceiver",
-            (stream.token, stream.receiver, withdrawable, stream_id)
+            (token, receiver, withdrawable, stream_id),
         );
-        gstd_msg::send_bytes_with_gas(
-            state.config.token_vault,
-            payload,
-            5_000_000_000,
-            0
-        ).expect("Vault transfer failed");
+        let ok = call_vault_checked(vault, payload).await;
+        assert!(ok, "Vault transfer failed");
 
+        // Vault transfer succeeded (tokens actually moved to receiver). Now
+        // commit stream accounting.
+        let state = StreamCoreState::get();
+        let stream = state.streams.get_mut(&stream_id).expect("Stream not found");
+        stream.streamed = new_streamed;
+        stream.last_update = now;
         stream.withdrawn = stream.withdrawn.saturating_add(withdrawable);
 
         withdrawable
