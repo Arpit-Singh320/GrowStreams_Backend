@@ -148,7 +148,7 @@ router.get('/:id/buffer', async (req, res, next) => {
 
 async function createStreamHandler(req, res, next) {
   try {
-    const { receiver, token, flowRate, initialDeposit, mode, flowRateInterval } = req.body;
+    const { receiver, token, flowRate, initialDeposit, mode, flowRateInterval, raw } = req.body;
     if (!receiver || !token || !flowRate || !initialDeposit) {
       return res.status(400).json({ error: 'Missing: receiver, token, flowRate, initialDeposit' });
     }
@@ -160,7 +160,11 @@ async function createStreamHandler(req, res, next) {
     const tokMeta = getToken(token) || getTokenByVaraAddress(varaAddress);
 
     let flowRateBase, depositBase;
-    if (tokMeta) {
+    if (raw === true || raw === 'true') {
+      // Caller has already converted to base units — use as-is.
+      flowRateBase = BigInt(flowRate);
+      depositBase = BigInt(initialDeposit);
+    } else if (tokMeta) {
       // If a known token, accept human-readable amounts and convert
       if (flowRateInterval) {
         // e.g. flowRate: "100", flowRateInterval: "month" → per-second base units

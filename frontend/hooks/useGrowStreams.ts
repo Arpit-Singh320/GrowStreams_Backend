@@ -135,7 +135,7 @@ export function useStreamActions() {
   const { signAndSend, loading, error, account } = useGearSign();
 
   const createStream = async (receiver: string, token: string, flowRate: string, initialDeposit: string) => {
-    const res = await gsApi.streams.create({ receiver: toHex(receiver), token: toHex(token), flowRate, initialDeposit, mode: 'payload' });
+    const res = await gsApi.streams.create({ receiver: toHex(receiver), token: toHex(token), flowRate, initialDeposit, mode: 'payload', raw: true });
     return signAndSend('streamCore', getPayload(res));
   };
 

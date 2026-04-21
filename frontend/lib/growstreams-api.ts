@@ -390,7 +390,7 @@ export const api = {
     stats: (wallet: string) => get<StreamStats>(`/api/streams/stats/${wallet}`),
     events: (streamId: string | number) => get<{ streamId: string; events: StreamEvent[]; count: number }>(`/api/streams/events/${streamId}`),
 
-    create: (params: { receiver: string; token: string; flowRate: string; initialDeposit: string; mode?: string }) =>
+    create: (params: { receiver: string; token: string; flowRate: string; initialDeposit: string; mode?: string; raw?: boolean; flowRateInterval?: string }) =>
       post<TxResult | PayloadResult>('/api/streams', params as unknown as Record<string, unknown>),
     update: (id: number, params: { flowRate: string; mode?: string }) =>
       put<TxResult | PayloadResult>(`/api/streams/${id}`, params as unknown as Record<string, unknown>),
