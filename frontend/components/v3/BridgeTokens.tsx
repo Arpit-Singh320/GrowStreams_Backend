@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount } from '@gear-js/react-hooks';
 import {
   useBridgeInfo,
   useBridgeRoutes,
   useBridgeFeeEstimate,
   useBridgeHistory,
-  useBridgeActions,
   useBridgeTransactionTracker,
 } from '@/hooks/useBridge';
 import { getToken, type TokenConfig } from '@/lib/tokens';
@@ -203,18 +201,16 @@ function TxCard({ tx }: { tx: BridgeTransaction }) {
 // ─── Main Component ─────────────────────────────────────────────
 
 export default function BridgeTokens() {
-  const { account } = useAccount();
   const { info, loading: infoLoading } = useBridgeInfo();
   const { routes, loading: routesLoading } = useBridgeRoutes();
   const { transactions, loading: historyLoading, refresh: refreshHistory } = useBridgeHistory();
-  const { initiate, loading: initiating } = useBridgeActions();
 
   const [selectedToken, setSelectedToken] = useState<string>('');
   const [amount, setAmount] = useState('');
   const [direction, setDirection] = useState<'ethToVara' | 'varaToEth'>('ethToVara');
   const [sourceTxHash, setSourceTxHash] = useState('');
   const [showHistory, setShowHistory] = useState(false);
-  const [trackingTxId, setTrackingTxId] = useState<number | null>(null);
+  const [trackingTxId] = useState<number | null>(null);
 
   const { estimate, loading: estimating } = useBridgeFeeEstimate(selectedToken, amount, direction);
   const { transaction: trackedTx, isTerminal } = useBridgeTransactionTracker(trackingTxId);
@@ -228,31 +224,6 @@ export default function BridgeTokens() {
 
   const selectedRoute = routes.find(r => r.token === selectedToken);
   const selectedTok = selectedToken ? getToken(selectedToken) : null;
-
-  const handleBridge = async () => {
-    if (!selectedToken || !amount || parseFloat(amount) <= 0) {
-      toast.error('Select a token and enter an amount');
-      return;
-    }
-    try {
-      const tx = await initiate({
-        token: selectedToken,
-        amount,
-        amountRaw: estimate?.amountRaw,
-        direction,
-        sourceTxHash: sourceTxHash || undefined,
-        fee: estimate?.fee,
-        feeRaw: estimate?.feeRaw,
-      });
-      toast.success(`Bridge transaction initiated! ID: ${tx.id}`);
-      setTrackingTxId(tx.id);
-      setAmount('');
-      setSourceTxHash('');
-      setTimeout(refreshHistory, 2000);
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Bridge failed');
-    }
-  };
 
   const loading = infoLoading || routesLoading;
 
@@ -484,17 +455,27 @@ export default function BridgeTokens() {
                 </div>
               )}
 
-              <button
-                onClick={handleBridge}
-                disabled={initiating || !amount || parseFloat(amount) <= 0}
-                className="w-full py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3 flex items-start gap-2.5 text-[11px] text-provn-muted">
+                <Info className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-blue-400 font-medium">Bridging happens on the official Vara Bridge</p>
+                  <p>
+                    GrowStreams does not move tokens between chains directly. Click below to open the official
+                    <span className="font-mono"> bridge.vara.network </span>
+                    portal — connect your MetaMask there, approve the ERC-20, and send the tokens. They will arrive
+                    as wrapped VFT on your Vara address, ready to deposit into the vault and stream here.
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://bridge.vara.network/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
               >
-                {initiating ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Initiating Bridge...</>
-                ) : (
-                  <><ArrowRight className="w-4 h-4" /> Bridge {selectedRoute.symbol}</>
-                )}
-              </button>
+                <ExternalLink className="w-4 h-4" /> Open Vara Bridge to send {selectedRoute.symbol}
+              </a>
             </div>
           )}
 
