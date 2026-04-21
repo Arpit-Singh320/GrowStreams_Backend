@@ -15,7 +15,7 @@ const API = 'https://growstreams-api-v3-production.up.railway.app';
 const NODE = process.env.VARA_NODE || 'wss://testnet.vara.network';
 const USDC_VFT = '0x9f332e61589e0850dce6d8e6070ea5618de33d9f134a4a35d6d1164dc9002f48';
 const VAULT_ID = '0xc7647e6e6b47ab9390f081dff1373e58733c698ef0b9ce582dca8ebe9af66588';
-const STREAM_CORE_ID = '0x4b41175ab4b8a73b5d115e360a353af57aef41842657d9855f8ed396d30c2dba';
+const STREAM_CORE_ID = '0x0998ba27a7b2a0d8a383dc23054164bac1fc2e4b64694f0d7ec4db3bd6265957';
 
 function log(...a) { console.log('[e2e-full]', ...a); }
 
@@ -134,9 +134,9 @@ async function main() {
     // use /api/streams with raw string amounts
     const streamRes = await postJson('/api/streams', {
       receiver: receiverHex,
-      token: USDC_VFT,
-      flowRate: '1',         // 1 base / sec
-      initialDeposit: '300000', // 0.3 USDC
+      token: 'WUSDC',
+      flowRate: '0.000001',      // 1 micro-USDC/sec = 1 raw base unit/sec (display × 10^6)
+      initialDeposit: '0.3',     // 0.3 USDC = 300000 raw base units
       mode: 'payload',
     });
     const h = await sendPayload(api, sender, STREAM_CORE_ID, streamRes.payload);
