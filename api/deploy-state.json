@@ -7,9 +7,9 @@
     "node": "wss://testnet.vara.network"
   },
   "token-vault": {
-    "programId": "0xd464e92cf8c766b33c6a6abea3ceb2f3e1c850e812df55fd1b7e2a59e82963ec",
-    "codeId": "0x3f7333b091c9c17082ebf2fb0613e70b971aa29b6b09679e431e761736975fa7",
-    "deployedAt": "2026-04-14T11:24:14.492Z",
+    "programId": "0xc7647e6e6b47ab9390f081dff1373e58733c698ef0b9ce582dca8ebe9af66588",
+    "codeId": "0xa90a85211f786cd63fc823ec834f12f12bd94f742afb35b0ecbf645dccbe35e5",
+    "deployedAt": "2026-04-21T10:12:29.485Z",
     "network": "vara-testnet",
     "node": "wss://testnet.vara.network"
   },

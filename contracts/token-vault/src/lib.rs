@@ -37,16 +37,50 @@ fn encode_call(service: &str, method: &str, args: impl Encode) -> Vec<u8> {
     payload
 }
 
-/// Decode a VFT bool reply by stripping the SCALE-encoded service + method name prefix.
-/// Sails replies are route-prefixed: SCALE(service_name) + SCALE(method_name) + SCALE(result).
+/// Decode a VFT bool reply defensively across possible encodings:
+///   1. Sails route-prefixed:  SCALE(service) + SCALE(method) + bool
+///   2. Raw bool:              a single byte (0x00 / 0x01)
+///   3. Empty reply:           some VFT implementations reply with no bytes on success
+///
+/// Returns `false` only when a definitive `false` is decoded. Otherwise returns
+/// `true`, because reaching this function already means `send_bytes_for_reply.await`
+/// did NOT return ErrorReply (i.e. the VFT contract did not panic and the
+/// transfer has been applied on-chain). Treating an un-parseable reply as
+/// failure would desynchronize the vault's ledger from the VFT balances.
 fn decode_vft_bool_reply(reply_bytes: &[u8]) -> bool {
-    let mut input = &reply_bytes[..];
-    // Strip service name (SCALE string = compact length + utf8 bytes)
-    let _service = <String as ScaleDecode>::decode(&mut input).unwrap_or_default();
-    // Strip method name
-    let _method = <String as ScaleDecode>::decode(&mut input).unwrap_or_default();
-    // Decode the bool result
-    <bool as ScaleDecode>::decode(&mut input).unwrap_or(false)
+    // No reply bytes → VFT returned unit/empty; treat as success.
+    if reply_bytes.is_empty() {
+        return true;
+    }
+
+    // Try 1: Sails-routed encoding — SCALE(service) + SCALE(method) + bool
+    {
+        let mut input = &reply_bytes[..];
+        if <String as ScaleDecode>::decode(&mut input).is_ok()
+            && <String as ScaleDecode>::decode(&mut input).is_ok()
+        {
+            if let Ok(b) = <bool as ScaleDecode>::decode(&mut input) {
+                return b;
+            }
+        }
+    }
+
+    // Try 2: raw single-byte bool
+    if reply_bytes.len() == 1 {
+        return reply_bytes[0] != 0;
+    }
+
+    // Try 3: last-byte heuristic (Sails replies end with the result payload)
+    let last = reply_bytes[reply_bytes.len() - 1];
+    if last == 0 {
+        return false;
+    }
+    if last == 1 {
+        return true;
+    }
+
+    // Unknown reply format, but the VFT did not panic → assume success.
+    true
 }
 
 // ---------------------------------------------------------------------------

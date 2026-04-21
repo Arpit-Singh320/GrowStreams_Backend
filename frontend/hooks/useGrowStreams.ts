@@ -9,7 +9,7 @@ import { api as gsApi, type PayloadResult, type TxResult } from '@/lib/growstrea
 
 export const PROGRAM_IDS: Record<string, string> = {
   streamCore: '0x4b41175ab4b8a73b5d115e360a353af57aef41842657d9855f8ed396d30c2dba',
-  tokenVault: '0x97957dc484e56eb80703f63169a5cf0d12d850aae337788a416a22470a12166f',
+  tokenVault: '0xc7647e6e6b47ab9390f081dff1373e58733c698ef0b9ce582dca8ebe9af66588',
   growToken: '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf',
   splitsRouter: '0x8f9fcabb24ae57404b6c3a9fde57331a32e457326652fc535e773389d90b4395',
   permissionManager: '0x467b350648690279e9bbf16fbc7c0525d8e5628d967382a36253c1c095fa4a0f',
