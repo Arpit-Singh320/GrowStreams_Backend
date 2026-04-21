@@ -22,7 +22,7 @@ export default function VaultDashboard() {
   const [paused, setPaused] = useState(false);
 
   const streamableTokens = listStreamableTokens();
-  const allTokens = [...streamableTokens, getToken('VARA')!].filter(Boolean);
+  const allTokens = streamableTokens;
 
   const [selectedToken, setSelectedToken] = useState<TokenConfig>(streamableTokens[0] || allTokens[0]);
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
