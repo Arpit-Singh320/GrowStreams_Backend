@@ -1,4 +1,7 @@
 import { query, queryOne, queryAll } from './db.mjs';
+import { executeVftTransfer } from './token-service.mjs';
+import { toBaseUnits } from '../utils/decimals.mjs';
+import { getToken } from '../config/tokens.mjs';
 
 // ---------------------------------------------------------------------------
 // Campaign CRUD
@@ -14,9 +17,8 @@ export async function createCampaign({
   githubRepoUrl, githubIssueLabels,
   maxOssContributions, maxContentContributions, scoreThreshold,
 }) {
-  // If start_date is now or in the past, start the campaign immediately as ACTIVE
-  const startMs = new Date(startDate).getTime();
-  const initialStatus = startMs <= Date.now() ? 'ACTIVE' : 'FUNDED';
+  // Always start as DRAFT — becomes FUNDED/ACTIVE only after creator funds the pool on-chain.
+  const initialStatus = 'DRAFT';
 
   const campaign = await queryOne(
     `INSERT INTO campaigns (
@@ -445,22 +447,41 @@ export async function executeCampaignPayout(campaignId) {
   );
 
   // -----------------------------------------------------------------
-  // V2 TODO: Execute on-chain WUSDC transfers here.
-  // For each payout row with status=PENDING:
-  //   1. Call V3 stablecoin transfer route (POST /api/vault/withdraw or direct VFT transfer)
-  //   2. Store tx_hash on campaign_payouts row
-  //   3. Update status to EXECUTED (or FAILED on error)
-  // After all transfers complete, transition campaign to CLOSED.
-  // For now, we just transition directly.
+  // Execute on-chain VFT transfers from the platform escrow wallet to each winner.
+  // For each payout row with status=PENDING, call executeVftTransfer and record tx_hash.
   // -----------------------------------------------------------------
+  const tokenSymbol = campaign.token || 'WUSDC';
+  const tok = getToken(tokenSymbol);
+  if (!tok || tok.vara === 'native') {
+    console.error(`[campaigns] Cannot execute payout: unsupported token ${tokenSymbol}`);
+  } else {
+    for (const row of payoutRows) {
+      if (row.status !== 'PENDING') continue;
+      try {
+        const amountBase = toBaseUnits(String(row.usdc_amount), tok.decimals).toString();
+        const { txHash, blockHash } = await executeVftTransfer(tokenSymbol, row.wallet, amountBase);
+        await query(
+          `UPDATE campaign_payouts SET status = 'EXECUTED', tx_hash = $1, executed_at = NOW() WHERE id = $2`,
+          [txHash || blockHash || null, row.id]
+        );
+        console.log(`[campaigns] Paid ${row.usdc_amount} ${tok.symbol} to ${row.wallet} (tx: ${txHash?.slice(0, 14) || '?'})`);
+      } catch (err) {
+        console.error(`[campaigns] Payout failed for ${row.wallet}: ${err.message}`);
+        await query(
+          `UPDATE campaign_payouts SET status = 'FAILED', error = $1 WHERE id = $2`,
+          [err.message?.slice(0, 500) || 'unknown error', row.id]
+        );
+      }
+    }
+  }
 
-  // Transition to CLOSED (V1: immediate since no on-chain transfers)
+  // Transition to CLOSED once all transfers attempted
   await query(
     `UPDATE campaigns SET status = 'CLOSED', updated_at = NOW() WHERE id = $1`,
     [campaignId]
   );
 
-  console.log(`[campaigns] Payout executed for campaign ${campaignId}: ${payoutRows.length} rows, $${totalPaidOut} USDC`);
+  console.log(`[campaigns] Payout executed for campaign ${campaignId}: ${payoutRows.length} rows, $${totalPaidOut} ${tokenSymbol}`);
 
   return {
     campaignId,

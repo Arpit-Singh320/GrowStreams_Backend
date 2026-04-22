@@ -362,6 +362,8 @@ export const api = {
       get<{ owner: string; spender: string; symbol: string; allowance: string; allowanceRaw: string; decimals: number }>(`/api/tokens/${symbol}/allowance/${owner}/${spender}`),
     approve: (symbol: string, params: { spender: string; amount?: string; amountRaw?: string }) =>
       post<{ payload: string; programId: string; token: string; spender: string; amount: string }>(`/api/tokens/${symbol}/approve`, params as unknown as Record<string, unknown>),
+    transfer: (symbol: string, params: { to: string; amount?: string; amountRaw?: string }) =>
+      post<{ payload: string; programId: string; token: string; to: string; amount: string }>(`/api/tokens/${symbol}/transfer`, params as unknown as Record<string, unknown>),
     convert: (symbol: string, params: { amount: string; direction?: 'toBase' | 'toDisplay' }) =>
       post<Record<string, unknown>>(`/api/tokens/${symbol}/convert`, params as unknown as Record<string, unknown>),
     flowRate: (symbol: string, params: { amount: string; fromInterval?: string; toInterval?: string }) =>
@@ -567,6 +569,7 @@ export const api = {
   },
 
   campaigns: {
+    platformEscrow: () => get<{ ss58: string; actorId: string }>('/api/campaigns/platform-escrow'),
     list: (params?: { status?: string; track_type?: string; page?: number; limit?: number }) => {
       const q = new URLSearchParams();
       if (params?.status) q.set('status', params.status);

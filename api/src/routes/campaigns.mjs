@@ -11,6 +11,8 @@ import {
   getCampaignPayoutPreview,
   executeCampaignPayout,
 } from '../services/campaign-service.mjs';
+import { getKeyring } from '../sails-client.mjs';
+import { decodeAddress } from '@polkadot/keyring';
 
 const router = Router();
 
@@ -62,6 +64,28 @@ function requireAdmin(req) {
     throw Object.assign(new Error('Invalid admin secret'), { status: 401 });
   }
 }
+
+// ---------------------------------------------------------------------------
+// GET /api/campaigns/platform-escrow — returns platform server wallet address
+// Users transfer their campaign pool WUSDC to this address at creation time.
+// ---------------------------------------------------------------------------
+router.get('/platform-escrow', async (req, res, next) => {
+  try {
+    const keyring = getKeyring();
+    if (!keyring) {
+      return res.status(500).json({ error: 'Platform escrow wallet not configured (VARA_SEED missing)' });
+    }
+    const ss58 = keyring.address;
+    let actorId = null;
+    try {
+      const decoded = decodeAddress(ss58);
+      actorId = '0x' + Buffer.from(decoded).toString('hex').padStart(64, '0');
+    } catch (err) {
+      return res.status(500).json({ error: `Failed to decode platform address: ${err.message}` });
+    }
+    res.json({ ss58, actorId });
+  } catch (err) { next(err); }
+});
 
 // ---------------------------------------------------------------------------
 // GET /api/campaigns — list all campaigns (filterable)

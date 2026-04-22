@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
 import { api, Campaign, CampaignLeaderboardEntry } from '@/lib/growstreams-api';
+import { useGearSign } from '@/hooks/useGrowStreams';
+import { toBaseUnits } from '@/lib/tokens';
 import {
   Trophy, GitBranch, Twitter, Zap, ArrowRight, CheckCircle,
   AlertCircle, Loader2, DollarSign, Users, Calendar, Star,
@@ -128,6 +130,7 @@ function shortenWallet(w: string) {
 // Create Campaign Modal
 // ---------------------------------------------------------------------------
 function CreateCampaignModal({ wallet, onClose, onCreated }: { wallet: string; onClose: () => void; onCreated: (c: Campaign) => void }) {
+  const { signAndSend } = useGearSign();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [trackType, setTrackType] = useState<'OSS' | 'CONTENT' | 'BOTH'>('BOTH');
@@ -138,11 +141,23 @@ function CreateCampaignModal({ wallet, onClose, onCreated }: { wallet: string; o
   const [repoUrl, setRepoUrl] = useState('');
   const [scoreThreshold, setScoreThreshold] = useState('70');
   const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState<'idle' | 'creating' | 'escrow' | 'signing' | 'funding' | 'done'>('idle');
   const [error, setError] = useState('');
+
+  const stepLabel: Record<string, string> = {
+    creating: 'Creating campaign...',
+    escrow: 'Fetching escrow address...',
+    signing: `Sign WUSDC transfer in your wallet (${poolAmount} USDC)...`,
+    funding: 'Confirming funding on-chain...',
+    done: 'Done!',
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) { setError('Title is required'); return; }
     if (!wallet) { setError('Connect your wallet first'); return; }
+    const pool = parseFloat(poolAmount);
+    if (!pool || pool <= 0) { setError('Pool amount must be greater than zero'); return; }
+
     setSubmitting(true);
     setError('');
 
@@ -154,8 +169,8 @@ function CreateCampaignModal({ wallet, onClose, onCreated }: { wallet: string; o
       title: title.trim(),
       description: description.trim() || null,
       track_type: trackType,
-      pool_amount: parseFloat(poolAmount),
-      token: 'USDC',
+      pool_amount: pool,
+      token: 'WUSDC',
       start_date: startDate.toISOString(),
       end_date: endDate.toISOString(),
       score_threshold: parseInt(scoreThreshold),
@@ -164,13 +179,42 @@ function CreateCampaignModal({ wallet, onClose, onCreated }: { wallet: string; o
     };
     if (repoUrl.trim()) params.github_repo_url = repoUrl.trim();
 
+    let created: Campaign | null = null;
     try {
-      const created = await api.campaigns.create(params);
-      onCreated(created);
+      // Step 1: Create DRAFT campaign
+      setStep('creating');
+      created = await api.campaigns.create(params);
+
+      // Step 2: Get platform escrow address
+      setStep('escrow');
+      const escrow = await api.campaigns.platformEscrow();
+
+      // Step 3: Build VFT.Transfer payload for poolAmount WUSDC → escrow
+      const amountRaw = toBaseUnits(poolAmount, 6).toString(); // USDC decimals = 6
+      const transferRes = await api.tokens.transfer('WUSDC', {
+        to: escrow.actorId,
+        amountRaw,
+      });
+
+      // Step 4: Have the creator sign & send the transfer
+      setStep('signing');
+      const sendResult = await signAndSend(transferRes.programId, transferRes.payload);
+      const txHash = (sendResult as { txHash?: string; blockHash?: string } | undefined)?.txHash ||
+        (sendResult as { blockHash?: string } | undefined)?.blockHash || '';
+
+      // Step 5: Fund the campaign on the backend (DRAFT → FUNDED/ACTIVE)
+      setStep('funding');
+      const funded = await api.campaigns.fund(created.id, { wallet, tx_hash: txHash });
+
+      setStep('done');
+      onCreated(funded);
       onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create campaign';
-      setError(msg);
+      setError(created
+        ? `Campaign was created (id: ${created.id}) but funding failed: ${msg}. Retry funding from the campaign detail page.`
+        : msg);
+      setStep('idle');
     } finally {
       setSubmitting(false);
     }
@@ -277,9 +321,18 @@ function CreateCampaignModal({ wallet, onClose, onCreated }: { wallet: string; o
             </div>
           )}
 
+          <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-3 text-[11px] text-provn-muted flex items-start gap-2">
+            <AlertCircle className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
+            <div>
+              Creating this campaign will prompt your wallet to transfer <span className="font-mono text-blue-400">{poolAmount} WUSDC</span> to the platform escrow. These tokens are held on-chain and automatically distributed to participants based on campaign XP when the campaign ends.
+            </div>
+          </div>
+
           <button onClick={handleSubmit} disabled={submitting || !wallet}
             className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-            {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</> : <><Plus className="w-4 h-4" /> Create Campaign</>}
+            {submitting
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> {stepLabel[step] || 'Working...'}</>
+              : <><Plus className="w-4 h-4" /> Create & Fund Campaign</>}
           </button>
         </div>
       </div>

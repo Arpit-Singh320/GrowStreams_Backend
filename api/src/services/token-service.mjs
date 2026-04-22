@@ -242,6 +242,68 @@ export async function generateApprovePayload(tokenSymbol, spenderAddress, amount
 }
 
 /**
+ * Generate an encoded VFT.Transfer payload for client-side signing.
+ * Used when a user must send tokens to another address (e.g. campaign pool escrow).
+ * @param {string} tokenSymbol
+ * @param {string} toAddress - recipient (SS58 or 0x hex)
+ * @param {string|bigint} amount - base units amount
+ * @returns {{ payload: string, programId: string, token: string, to: string, amount: string }}
+ */
+export async function generateTransferPayload(tokenSymbol, toAddress, amount) {
+  const tok = getToken(tokenSymbol);
+  if (!tok) throw new Error(`Unknown token: ${tokenSymbol}`);
+  if (tok.vara === 'native') throw new Error('Use native VARA transfer for native token');
+
+  const sails = await getVftInstance(tok.vara);
+  const service = getVftService(sails);
+  const fn = service.functions.Transfer;
+  if (!fn) throw new Error('Transfer function not found in VFT IDL');
+
+  const toActor = toActorId(toAddress);
+  const payload = fn.encodePayload(toActor, BigInt(amount));
+  const hex = typeof payload === 'string' ? payload : '0x' + Buffer.from(payload).toString('hex');
+
+  return {
+    payload: hex,
+    programId: tok.vara,
+    token: tok.symbol,
+    to: toActor,
+    amount: amount.toString(),
+  };
+}
+
+/**
+ * Server-signed VFT transfer. Used by the backend (platform escrow wallet)
+ * to distribute campaign payouts to winners.
+ * @param {string} tokenSymbol
+ * @param {string} toAddress
+ * @param {string|bigint} amount - base units
+ * @returns {Promise<{ txHash: string, blockHash: string }>}
+ */
+export async function executeVftTransfer(tokenSymbol, toAddress, amount) {
+  const tok = getToken(tokenSymbol);
+  if (!tok) throw new Error(`Unknown token: ${tokenSymbol}`);
+  if (tok.vara === 'native') throw new Error('executeVftTransfer does not support native VARA');
+
+  const keyring = getKeyring();
+  if (!keyring) throw new Error('Server keyring not configured (VARA_SEED missing)');
+
+  const sails = await getVftInstance(tok.vara);
+  const service = getVftService(sails);
+  const fn = service.functions.Transfer;
+  if (!fn) throw new Error('Transfer function not found in VFT IDL');
+
+  const toActor = toActorId(toAddress);
+  const tx = fn(toActor, BigInt(amount));
+  tx.withAccount(keyring);
+  await tx.calculateGas();
+  const { blockHash, txHash } = await tx.signAndSend();
+  try { await tx.response?.(); } catch { /* response decoding may fail but the tx succeeded */ }
+
+  return { txHash: txHash?.toString() || '', blockHash: blockHash?.toString() || '' };
+}
+
+/**
  * Get balances for all supported tokens for a wallet.
  * @param {string} walletAddress
  * @returns {Array<{ key, symbol, name, balance, balanceRaw, decimals }>}

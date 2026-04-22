@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { SUPPORTED_TOKENS, getToken, listTokens, listStablecoins, resolveVaraAddress } from '../config/tokens.mjs';
 import { toBaseUnits, toDisplayUnits, flowRateFromInterval, flowRatePerInterval, calculateMinDeposit, INTERVALS } from '../utils/decimals.mjs';
-import { getVftBalance, getVftAllowance, generateApprovePayload, getAllBalances } from '../services/token-service.mjs';
+import { getVftBalance, getVftAllowance, generateApprovePayload, generateTransferPayload, getAllBalances } from '../services/token-service.mjs';
 import { getProgramIds } from '../sails-client.mjs';
 import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
@@ -87,6 +87,27 @@ router.post('/:symbol/approve', async (req, res, next) => {
 
     const baseAmount = amountRaw ? BigInt(amountRaw) : toBaseUnits(amount, tok.decimals);
     const result = await generateApprovePayload(req.params.symbol, spender, baseAmount);
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+// ─── Transfer Payload (user-signed) ──────────────────────────
+
+/**
+ * POST /api/tokens/:symbol/transfer — generate VFT.Transfer payload for client-side signing
+ * Body: { to: "<recipient>", amount?: "100.50", amountRaw?: "100500000" }
+ */
+router.post('/:symbol/transfer', async (req, res, next) => {
+  try {
+    const { to, amount, amountRaw } = req.body;
+    if (!to) return res.status(400).json({ error: 'Missing: to' });
+    if (!amount && !amountRaw) return res.status(400).json({ error: 'Missing: amount or amountRaw' });
+
+    const tok = getToken(req.params.symbol);
+    if (!tok) return res.status(404).json({ error: `Token not found: ${req.params.symbol}` });
+
+    const baseAmount = amountRaw ? BigInt(amountRaw) : toBaseUnits(amount, tok.decimals);
+    const result = await generateTransferPayload(req.params.symbol, to, baseAmount);
     res.json(result);
   } catch (err) { next(err); }
 });
