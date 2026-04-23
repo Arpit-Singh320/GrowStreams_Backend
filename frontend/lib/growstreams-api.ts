@@ -404,8 +404,11 @@ export const api = {
       get<QuestProgress>(`/api/quests/me?wallet=${wallet}`),
     seeds: (wallet: string) =>
       get<{ wallet: string; seeds: number }>(`/api/quests/seeds/${wallet}`),
-    claim: (slug: string, wallet: string) =>
-      post<{ message: string; slug: string; wallet: string; status: string }>(`/api/quests/${slug}/claim`, { wallet } as Record<string, unknown>),
+    claim: (slug: string, wallet: string, tweetUrl?: string) =>
+      post<{ message: string; slug: string; wallet: string; status: string }>(
+        `/api/quests/${slug}/claim`,
+        (tweetUrl ? { wallet, tweet_url: tweetUrl } : { wallet }) as Record<string, unknown>
+      ),
     stats: () =>
       get<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>('/api/quests/stats'),
   },

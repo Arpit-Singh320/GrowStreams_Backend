@@ -282,13 +282,26 @@ function QuestDashboard({ wallet }: { wallet: string }) {
   useEffect(() => { loadProgress(); }, [loadProgress]);
 
   const handleClaim = async (slug: string) => {
+    let tweetUrl: string | undefined;
+    if (slug === 'follow-x' || slug === 'mention-x') {
+      const prompted = window.prompt(
+        `Post a tweet mentioning @growwstreams with your wallet address:\n\n${wallet}\n\nThen paste the tweet URL here:`
+      );
+      if (!prompted) return;
+      tweetUrl = prompted.trim();
+    }
+
     setClaiming(slug);
     try {
-      await api.quests.claim(slug, wallet);
-      // Refresh progress after a brief delay to let backend process
+      const result = await api.quests.claim(slug, wallet, tweetUrl);
+      if ((result as { status?: string }).status === 'VERIFIED') {
+        window.alert('✅ Quest verified and Seeds awarded!');
+      }
       setTimeout(() => loadProgress(), 2000);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Claim failed';
       console.error('Claim failed:', err);
+      window.alert(`❌ ${msg}`);
     } finally {
       setClaiming(null);
     }

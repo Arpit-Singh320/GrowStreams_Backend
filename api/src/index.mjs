@@ -219,6 +219,9 @@ async function start() {
       // Run one-time migration to fix X handle
       const { fixXHandle } = await import('./migrations/fix-x-handle.mjs');
       await fixXHandle();
+      // Update X quest descriptions for new tweet-proof flow
+      const { updateXQuestDescriptions } = await import('./migrations/update-x-quest-descriptions.mjs');
+      await updateXQuestDescriptions();
     } catch (dbErr) {
       console.warn(`[db] Migration warning: ${dbErr.message}`);
     }

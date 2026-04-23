@@ -15,6 +15,8 @@ import {
 } from '../services/quest-service.mjs';
 import { runFollowCheck, runMentionCheck } from '../cron/quest-x-monitor.mjs';
 import { runStreamCheck } from '../cron/quest-stream-monitor.mjs';
+import { verifyTweetProof, extractTweetId } from '../services/x-tweet-verify.mjs';
+import { queryOne } from '../services/db.mjs';
 
 const router = Router();
 
@@ -123,7 +125,7 @@ router.get('/seeds/:wallet', async (req, res, next) => {
 router.post('/:slug/claim', async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const { wallet } = req.body;
+    const { wallet, tweet_url } = req.body;
 
     if (!wallet) return res.status(400).json({ error: 'Wallet is required' });
 
@@ -143,7 +145,48 @@ router.post('/:slug/claim', async (req, res, next) => {
       }
     }
 
-    // Return 200 immediately, trigger async verification
+    // Synchronous tweet-proof verification for X quests (cheap: ~$0.002 per check)
+    if (slug === 'follow-x' || slug === 'mention-x') {
+      if (!tweet_url) {
+        return res.status(400).json({
+          error: `Please post a tweet mentioning @${process.env.GROWSTREAMS_X_HANDLE || 'growwstreams'} with your wallet address, then submit the tweet URL.`,
+        });
+      }
+
+      const tweetId = extractTweetId(tweet_url);
+      if (!tweetId) return res.status(400).json({ error: 'Invalid tweet URL format' });
+
+      // Anti-reuse: same tweet can't be used twice across any wallet
+      const existing = await queryOne(
+        `SELECT wallet FROM quest_completions WHERE proof->>'tweet_id' = $1`,
+        [tweetId]
+      );
+      if (existing) {
+        return res.status(400).json({ error: 'This tweet has already been used for a quest claim' });
+      }
+
+      const verifyResult = await verifyTweetProof(tweet_url, registration.x_username, wallet);
+      if (!verifyResult.valid) {
+        return res.status(400).json({ error: verifyResult.error });
+      }
+
+      await awardSeeds(wallet, slug, {
+        tweet_id: verifyResult.tweet.id,
+        tweet_text: verifyResult.tweet.text,
+        author: verifyResult.tweet.author,
+        source: 'tweet-proof',
+      });
+
+      return res.json({
+        message: 'Quest verified via tweet proof and Seeds awarded!',
+        slug,
+        wallet,
+        status: 'VERIFIED',
+        tweet: verifyResult.tweet,
+      });
+    }
+
+    // Return 200 immediately, trigger async verification for other quest types
     res.json({
       message: 'Quest claim submitted. Verification in progress — this may take a few minutes.',
       slug,
@@ -154,11 +197,7 @@ router.post('/:slug/claim', async (req, res, next) => {
     // Fire-and-forget verification depending on quest type
     setImmediate(async () => {
       try {
-        if (slug === 'follow-x' || slug === 'mention-x') {
-          // 🚨 X API VERIFICATION DISABLED - burns ~$5/claim due to per-user-record pricing
-          // Requires manual admin review via POST /api/quests/admin/award
-          console.warn(`[quest-claim] ${slug} verification is DISABLED (X API too expensive). Needs admin review.`);
-        } else if (slug === 'star-repo') {
+        if (slug === 'star-repo') {
           // Instant GitHub star check via API
           console.log(`[quest-claim] Checking GitHub star for @${registration.github_username}...`);
           const ghToken = process.env.GITHUB_TOKEN;
