@@ -32,24 +32,17 @@ export function initCrons() {
   // Leaderboard snapshot — 00:05 UTC (after daily XP)
   cron.schedule('5 0 * * *', () => withLock('snapshot', runSnapshot), { timezone: 'UTC' });
 
-  // X tweet re-evaluation — every 24 hours (minimal to save credits)
-  cron.schedule('0 0 * * *', () => withLock('x-reevaluate', runReevaluate), { timezone: 'UTC' });
-
-  // X tweet polling — every 12 hours (minimal to save credits)
-  cron.schedule('0 */12 * * *', () => withLock('x-poll', pollRecentTweets), { timezone: 'UTC' });
-
-  // Poll registered users' timelines — DISABLED (too expensive, use manual claim instead)
+  // 🚨 ALL X API CRONS DISABLED - BURNING CREDITS 🚨
+  // X reads are billed per user-record returned. Pagination was consuming ~$5/request.
+  // Do NOT re-enable without redesigning verification strategy.
+  // cron.schedule('0 0 * * *', () => withLock('x-reevaluate', runReevaluate), { timezone: 'UTC' });
+  // cron.schedule('0 */12 * * *', () => withLock('x-poll', pollRecentTweets), { timezone: 'UTC' });
   // cron.schedule('*/30 * * * *', () => withLock('x-user-poll', pollRegisteredUsers), { timezone: 'UTC' });
+  // cron.schedule('0 2 * * *', () => withLock('quest-follow', runFollowCheck), { timezone: 'UTC' });
+  // cron.schedule('0 4 * * *', () => withLock('quest-mention', runMentionCheck), { timezone: 'UTC' });
 
-  // Campaign status check — every 12 hours
+  // Campaign status check — every 12 hours (DB-only, no API cost)
   cron.schedule('0 */12 * * *', () => withLock('campaign-status', runCampaignStatusCheck), { timezone: 'UTC' });
-
-  // Quest monitoring crons
-  // Q1: X follow check — every 24 hours (minimal - users should use manual claim)
-  cron.schedule('0 2 * * *', () => withLock('quest-follow', runFollowCheck), { timezone: 'UTC' });
-
-  // Q2: X mention check — every 24 hours (minimal - users should use manual claim)
-  cron.schedule('0 4 * * *', () => withLock('quest-mention', runMentionCheck), { timezone: 'UTC' });
 
   // Q5: Stream creation check — every 5 minutes
   cron.schedule('*/5 * * * *', () => withLock('quest-stream', runStreamCheck), { timezone: 'UTC' });
@@ -57,12 +50,7 @@ export function initCrons() {
   console.log('[cron] Campaign jobs scheduled:');
   console.log('[cron]   daily-xp:         0 0 * * *     (midnight UTC)');
   console.log('[cron]   snapshot:         5 0 * * *     (00:05 UTC)');
-  console.log('[cron]   x-reeval:         0 0 * * *     (every 24h) 💰 MINIMAL');
-  console.log('[cron]   x-poll:           0 */12 * * *  (every 12h) 💰 MINIMAL');
-  console.log('[cron]   x-user-poll:      DISABLED     💰 DISABLED TO SAVE CREDITS');
+  console.log('[cron]   � ALL X API CRONS DISABLED (burning credits)');
   console.log('[cron]   campaign-status:  0 */12 * * *  (every 12h)');
-  console.log('[cron] Quest monitoring jobs scheduled:');
-  console.log('[cron]   quest-follow:     0 2 * * *     (every 24h) 💰 USE MANUAL CLAIM!');
-  console.log('[cron]   quest-mention:    0 4 * * *     (every 24h) 💰 USE MANUAL CLAIM!');
   console.log('[cron]   quest-stream:     */5 * * * *   (every 5min) ✅ on-chain, no API cost');
 }

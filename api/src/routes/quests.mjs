@@ -155,9 +155,9 @@ router.post('/:slug/claim', async (req, res, next) => {
     setImmediate(async () => {
       try {
         if (slug === 'follow-x' || slug === 'mention-x') {
-          console.log(`[quest-claim] Triggering X verification for ${slug}...`);
-          if (slug === 'follow-x') await runFollowCheck();
-          else await runMentionCheck();
+          // 🚨 X API VERIFICATION DISABLED - burns ~$5/claim due to per-user-record pricing
+          // Requires manual admin review via POST /api/quests/admin/award
+          console.warn(`[quest-claim] ${slug} verification is DISABLED (X API too expensive). Needs admin review.`);
         } else if (slug === 'star-repo') {
           // Instant GitHub star check via API
           console.log(`[quest-claim] Checking GitHub star for @${registration.github_username}...`);
