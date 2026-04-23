@@ -17,6 +17,36 @@ const QUEST_ICONS: Record<string, React.ElementType> = {
   waves: Waves,
 };
 
+// External action links per quest slug
+const GROWSTREAMS_X_URL = 'https://x.com/growwstreams';
+const GROWSTREAMS_REPO_URL = 'https://github.com/BlockX-AI/GrowStreams_Backend';
+
+const QUEST_LINKS: Record<string, { label: string; href: (wallet: string) => string }> = {
+  'follow-x': {
+    label: 'Open @growwstreams',
+    href: () => GROWSTREAMS_X_URL,
+  },
+  'mention-x': {
+    label: 'Compose tweet',
+    href: (wallet) =>
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+        `Joining @growwstreams 🌱 wallet: ${wallet}`
+      )}`,
+  },
+  'star-repo': {
+    label: 'Open repo',
+    href: () => GROWSTREAMS_REPO_URL,
+  },
+  'raise-pr': {
+    label: 'Open repo',
+    href: () => GROWSTREAMS_REPO_URL,
+  },
+  'create-stream': {
+    label: 'Go to Streams',
+    href: () => '/app/streams',
+  },
+};
+
 function QuestIcon({ icon }: { icon: string }) {
   const Icon = QUEST_ICONS[icon] || Sprout;
   return <Icon className="w-5 h-5" />;
@@ -187,8 +217,35 @@ function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string
 }
 
 // ─── Quest Card ──────────────────────────────────────────────────────────────
-function QuestCard({ quest, wallet, onClaim }: { quest: QuestData; wallet: string; onClaim: (slug: string) => void }) {
+function QuestCard({
+  quest,
+  wallet,
+  onClaim,
+  claiming,
+}: {
+  quest: QuestData;
+  wallet: string;
+  onClaim: (slug: string, tweetUrl?: string) => void;
+  claiming: boolean;
+}) {
   const isCompleted = quest.completed;
+  const needsTweetUrl = quest.slug === 'follow-x' || quest.slug === 'mention-x';
+  const [tweetUrl, setTweetUrl] = useState('');
+  const [showInput, setShowInput] = useState(false);
+  const link = QUEST_LINKS[quest.slug];
+
+  const handleClaimClick = () => {
+    if (needsTweetUrl) {
+      if (!showInput) {
+        setShowInput(true);
+        return;
+      }
+      if (!tweetUrl.trim()) return;
+      onClaim(quest.slug, tweetUrl.trim());
+    } else {
+      onClaim(quest.slug);
+    }
+  };
 
   return (
     <div className={`relative bg-provn-surface border rounded-xl p-5 transition-all ${
@@ -219,8 +276,37 @@ function QuestCard({ quest, wallet, onClaim }: { quest: QuestData; wallet: strin
         <div className="min-w-0 pr-16">
           <h3 className="font-semibold text-sm">{quest.title}</h3>
           <p className="text-xs text-provn-muted mt-0.5">{quest.description}</p>
+
+          {/* External action link */}
+          {link && !isCompleted && (
+            <a
+              href={link.href(wallet)}
+              target={link.href(wallet).startsWith('http') ? '_blank' : undefined}
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 mt-2 text-xs text-emerald-400 hover:text-emerald-300"
+            >
+              <ExternalLink className="w-3 h-3" /> {link.label}
+            </a>
+          )}
         </div>
       </div>
+
+      {/* Tweet URL input for X quests */}
+      {needsTweetUrl && !isCompleted && showInput && (
+        <div className="mb-3 space-y-2">
+          <div className="text-[11px] text-provn-muted">
+            Your tweet must include your wallet address:{' '}
+            <code className="text-emerald-400 text-[10px]">{wallet.slice(0, 10)}…{wallet.slice(-6)}</code>
+          </div>
+          <input
+            type="text"
+            value={tweetUrl}
+            onChange={(e) => setTweetUrl(e.target.value)}
+            placeholder="https://x.com/yourhandle/status/123..."
+            className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none"
+          />
+        </div>
+      )}
 
       {/* Reward + Action */}
       <div className="flex items-center justify-between mt-4 pt-3 border-t border-provn-border/50">
@@ -235,16 +321,23 @@ function QuestCard({ quest, wallet, onClaim }: { quest: QuestData; wallet: strin
 
         {!isCompleted && (
           <button
-            onClick={() => onClaim(quest.slug)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+            onClick={handleClaimClick}
+            disabled={claiming || (needsTweetUrl && showInput && !tweetUrl.trim())}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Claim <ArrowRight className="w-3 h-3" />
+            {claiming ? (
+              <><Loader2 className="w-3 h-3 animate-spin" /> Verifying</>
+            ) : needsTweetUrl && !showInput ? (
+              <>Submit tweet <ArrowRight className="w-3 h-3" /></>
+            ) : (
+              <>Claim <ArrowRight className="w-3 h-3" /></>
+            )}
           </button>
         )}
 
         {isCompleted && quest.repeatable && (
           <button
-            onClick={() => onClaim(quest.slug)}
+            onClick={handleClaimClick}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
           >
             Claim Again <ArrowRight className="w-3 h-3" />
@@ -281,16 +374,7 @@ function QuestDashboard({ wallet }: { wallet: string }) {
 
   useEffect(() => { loadProgress(); }, [loadProgress]);
 
-  const handleClaim = async (slug: string) => {
-    let tweetUrl: string | undefined;
-    if (slug === 'follow-x' || slug === 'mention-x') {
-      const prompted = window.prompt(
-        `Post a tweet mentioning @growwstreams with your wallet address:\n\n${wallet}\n\nThen paste the tweet URL here:`
-      );
-      if (!prompted) return;
-      tweetUrl = prompted.trim();
-    }
-
+  const handleClaim = async (slug: string, tweetUrl?: string) => {
     setClaiming(slug);
     try {
       const result = await api.quests.claim(slug, wallet, tweetUrl);
@@ -380,6 +464,7 @@ function QuestDashboard({ wallet }: { wallet: string }) {
               quest={quest}
               wallet={wallet}
               onClaim={handleClaim}
+              claiming={claiming === quest.slug}
             />
           ))}
         </div>

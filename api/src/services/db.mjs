@@ -220,8 +220,8 @@ export async function migrate() {
   if (parseInt(questCount?.cnt || '0', 10) === 0) {
     await p.query(`
       INSERT INTO quests (slug, title, description, quest_type, seeds_reward, icon, repeatable, sort_order) VALUES
-        ('follow-x',       'Follow @growwstreams on X',             'Follow @growwstreams, then post a tweet mentioning @growwstreams with your wallet address as proof. Submit the tweet URL to claim.',          'X_FOLLOW',        100, 'twitter',    FALSE, 1),
-        ('mention-x',      'Post on X mentioning @growwstreams',    'Post a tweet mentioning @growwstreams with your wallet address. Submit the tweet URL to claim.',                   'X_MENTION',       150, 'megaphone',  FALSE, 2),
+        ('follow-x',       'Follow X',                               'Follow @growwstreams, then post a tweet mentioning @growwstreams with your wallet address as proof. Submit the tweet URL to claim.',          'X_FOLLOW',        100, 'twitter',    FALSE, 1),
+        ('mention-x',      'Post on X',                              'Post a tweet mentioning @growwstreams with your wallet address. Submit the tweet URL to claim.',                   'X_MENTION',       150, 'megaphone',  FALSE, 2),
         ('star-repo',      'Star the GrowStreams repo',            'Star the GrowStreams repository on GitHub.',                       'GITHUB_STAR',     100, 'star',       FALSE, 3),
         ('raise-pr',       'Raise a PR on GrowStreams repo',       'Open a pull request on the GrowStreams GitHub repository.',        'GITHUB_PR',       200, 'git-pull-request', FALSE, 4),
         ('create-stream',  'Create a stream on testnet',           'Create a token stream on the GrowStreams testnet application.',    'ONCHAIN_STREAM',  300, 'waves',      FALSE, 5)
