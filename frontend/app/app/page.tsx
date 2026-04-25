@@ -6,9 +6,11 @@ import { api, type StreamData } from '@/lib/growstreams-api';
 import {
   Waves, Vault, Coins, Activity, ArrowRight, RefreshCw,
   TrendingUp, TrendingDown, Zap, ChevronRight, Wallet, Trophy,
+  ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
 import WelcomeModal from '@/components/welcome-modal';
+import { listTokens, type TokenConfig } from '@/lib/tokens';
 
 const GROW_TOKEN = '0x05a2a482f1a1a7ebf74643f3cc2099597dac81ff92535cbd647948febee8fe36';
 const ONE_GROW = 1_000_000_000_000;
@@ -22,6 +24,22 @@ function fmtGrow(raw: string | number): string {
   if (g >= 1) return g.toFixed(2);
   if (g >= 0.0001) return g.toFixed(4);
   return '< 0.0001';
+}
+
+function fmtNum(val: string | number): string {
+  const n = parseFloat(String(val));
+  if (isNaN(n) || n === 0) return '0';
+  const dotFmt = (num: number, frac: number) => {
+    const parts = num.toFixed(frac).split('.');
+    const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const fracPart = parts[1] ? parts[1].replace(/0+$/, '') : '';
+    return fracPart ? `${intPart},${fracPart}` : intPart;
+  };
+  if (n >= 1_000_000) return dotFmt(n, 0);
+  if (n >= 1_000) return dotFmt(n, 2);
+  if (n >= 1) return dotFmt(n, 4);
+  if (n >= 0.0001) return dotFmt(n, 6);
+  return '< 0,0001';
 }
 
 function fmtFlowRate(raw: number): string {
@@ -46,6 +64,8 @@ export default function DashboardPage() {
   const [campaignXP, setCampaignXP] = useState<number | null>(null);
   const [campaignRank, setCampaignRank] = useState<number | null>(null);
   const [campaignUSDC, setCampaignUSDC] = useState<number | null>(null);
+  const [tokenBalances, setTokenBalances] = useState<Record<string, { wallet: string; vault: string }>>({});
+  const [showTokenBalances, setShowTokenBalances] = useState(true);
 
   const loadDashboard = useCallback(async () => {
     if (!account?.decodedAddress) return;
@@ -92,6 +112,34 @@ export default function DashboardPage() {
         }
       } catch {
         // Not registered or API unavailable — ignore
+      }
+
+      // Load multi-token balances (V3 — non-blocking)
+      try {
+        const [walletBalsRes, vaultBalsRes] = await Promise.all([
+          api.tokens.allBalances(hex).catch(() => null),
+          api.vault.balances(hex).catch(() => null),
+        ]);
+        const bals: Record<string, { wallet: string; vault: string }> = {};
+        // API returns balances as arrays — convert to lookup maps
+        const wbArr = (walletBalsRes as { balances?: { key: string; balance?: string }[] } | null)?.balances || [];
+        const vbArr = (vaultBalsRes as { balances?: { key: string; available?: string }[] } | null)?.balances || [];
+        const wbMap: Record<string, string> = {};
+        const vbMap: Record<string, string> = {};
+        for (const item of wbArr) { if (item.key) wbMap[item.key] = item.balance || '0'; }
+        for (const item of vbArr) {
+          const vi = item as { key: string; available_display?: string; available?: string };
+          if (vi.key) vbMap[vi.key] = vi.available_display || vi.available || '0';
+        }
+        for (const tok of listTokens()) {
+          bals[tok.key] = {
+            wallet: wbMap[tok.key] || '0',
+            vault: vbMap[tok.key] || '0',
+          };
+        }
+        setTokenBalances(bals);
+      } catch {
+        // V3 endpoints may not be available
       }
     } catch (err) {
       console.error('Dashboard load failed:', err);
@@ -158,6 +206,72 @@ export default function DashboardPage() {
           <p className="text-2xl font-bold font-mono text-orange-400">{fmtGrow(vaultAllocated)}</p>
           <p className="text-[10px] text-provn-muted mt-1">GROW locked in streams</p>
         </div>
+      </div>
+
+      {/* Multi-Token Balances */}
+      <div className="bg-provn-surface border border-provn-border rounded-xl overflow-hidden">
+        <button
+          onClick={() => setShowTokenBalances(!showTokenBalances)}
+          className="w-full flex items-center justify-between px-5 py-3 hover:bg-provn-bg/30 transition-colors"
+        >
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Coins className="w-4 h-4 text-blue-400" /> Token Balances
+          </h2>
+          <ChevronDown className={`w-4 h-4 text-provn-muted transition-transform ${showTokenBalances ? 'rotate-180' : ''}`} />
+        </button>
+        {showTokenBalances && (
+          <div className="px-5 pb-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+              {listTokens().filter((t: TokenConfig) => t.key !== 'GROW').map((tok: TokenConfig) => {
+                const b = tokenBalances[tok.key] || { wallet: '0', vault: '0' };
+                // Values are already in display units from the API
+                const walletVal = parseFloat(b.wallet) || 0;
+                const vaultVal = parseFloat(b.vault) || 0;
+                const totalVal = walletVal + vaultVal;
+                const hasBalance = totalVal > 0;
+                return (
+                  <Link key={tok.key} href="/app/vault" className={`bg-provn-bg/50 border rounded-xl p-3 hover:border-blue-500/30 transition-colors group ${
+                    hasBalance ? 'border-provn-border' : 'border-provn-border/50'
+                  }`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center overflow-hidden ${
+                        tok.colorAccent === 'blue' ? 'bg-blue-500/15' :
+                        tok.colorAccent === 'green' ? 'bg-green-500/15' :
+                        tok.colorAccent === 'purple' ? 'bg-purple-500/15' :
+                        tok.colorAccent === 'orange' ? 'bg-orange-500/15' :
+                        tok.colorAccent === 'emerald' ? 'bg-emerald-500/15' :
+                        'bg-provn-border'
+                      }`}>
+                        <img src={tok.icon} alt={tok.symbol} className="w-7 h-7 object-contain p-0.5"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                      <div>
+                        <span className={`text-xs font-semibold ${tok.color}`}>{tok.symbol}</span>
+                        {tok.isStablecoin && (
+                          <span className="ml-1 px-1 py-0 rounded text-[8px] bg-blue-500/10 text-blue-400 font-medium">Stable</span>
+                        )}
+                      </div>
+                    </div>
+                    {hasBalance && (
+                      <p className={`text-lg font-bold font-mono mb-1.5 ${tok.color}`}>{fmtNum(totalVal)}</p>
+                    )}
+                    <div className="space-y-1">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[10px] text-provn-muted">Wallet</span>
+                        <span className="text-xs font-mono font-medium">{fmtNum(walletVal)}</span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-[10px] text-provn-muted">Vault</span>
+                        <span className="text-xs font-mono font-medium text-purple-400">{fmtNum(vaultVal)}</span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Campaign XP Ticker */}

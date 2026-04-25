@@ -12,8 +12,8 @@ import {
   TrendingUp, Lock, ChevronRight, Settings, UserPlus, Trash2,
 } from 'lucide-react';
 
-const GROW_TOKEN_ID = '0x05a2a482f1a1a7ebf74643f3cc2099597dac81ff92535cbd647948febee8fe36';
-const VAULT_ID = '0x7e081c0f82e31e35d845d1932eb36c84bbbb50568eef3c209f7104fabb2c254b';
+const GROW_TOKEN_ID = '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf';
+const VAULT_ID = '0x97957dc484e56eb80703f63169a5cf0d12d850aae337788a416a22470a12166f';
 const DECIMALS = 12;
 const ONE_GROW = 1_000_000_000_000;
 
@@ -290,7 +290,7 @@ export default function GrowTokenPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-px bg-provn-border/50">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-provn-border/50">
           {[
             { icon: Wallet, label: 'Wallet Balance', value: balance, color: 'text-emerald-400', sub: 'in your wallet' },
             { icon: Shield, label: 'Vault Allowance', value: allowance, color: 'text-blue-400', sub: 'approved to vault' },
@@ -384,22 +384,18 @@ export default function GrowTokenPage() {
                   <span className="text-xs text-provn-muted">Your wallet balance</span>
                   <span className="font-mono font-bold text-emerald-400">{formatGrow(balance)}</span>
                 </div>
-                <div className="relative group">
-                  <button onClick={handleFaucet} disabled={busy === 'faucet' || !account}
-                    className="w-full py-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium transition-colors flex items-center justify-center gap-2">
-                    {busy === 'faucet' ? (
-                      <><RefreshCw className="w-4 h-4 animate-spin" /> Minting...</>
-                    ) : (
-                      <><Coins className="w-4 h-4" /> Mint 1,000 GROW</>
-                    )}
-                  </button>
-                  {!account && (
-                    <p className="text-xs text-amber-400 mt-2 text-center bg-amber-500/5 rounded-lg px-3 py-2 border border-amber-500/10">
-                      Connect your Vara wallet to mint tokens
-                    </p>
+                <button onClick={handleFaucet} disabled={busy === 'faucet' || !account}
+                  className="w-full py-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-medium transition-colors flex items-center justify-center gap-2">
+                  {busy === 'faucet' ? (
+                    <><RefreshCw className="w-4 h-4 animate-spin" /> Minting...</>
+                  ) : (
+                    <><Coins className="w-4 h-4" /> Mint 1,000 GROW</>
                   )}
-                </div>
+                </button>
               </div>
+              {!account && (
+                <p className="text-xs text-amber-400">Connect your Vara wallet first.</p>
+              )}
               {faucetMode === 'whitelist' && (
                 <p className="text-xs text-amber-400/80 bg-amber-500/5 rounded-lg px-3 py-2 border border-amber-500/10">
                   Faucet is in whitelist mode. Only whitelisted addresses can mint.
@@ -431,8 +427,7 @@ export default function GrowTokenPage() {
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-provn-muted">GROW</span>
                     </div>
                     <button onClick={handleApprove} disabled={busy === 'approve' || !approveAmount}
-                      title={!approveAmount ? 'Enter an amount to approve' : ''}
-                      className="px-5 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors">
+                      className="px-5 py-2.5 rounded-lg bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm font-medium transition-colors">
                       {busy === 'approve' ? 'Signing...' : 'Approve'}
                     </button>
                   </div>
@@ -491,8 +486,7 @@ export default function GrowTokenPage() {
                     </div>
                   </div>
                   <button onClick={handleDeposit} disabled={busy === 'deposit' || !depositAmount}
-                    title={!depositAmount ? 'Enter an amount to deposit' : ''}
-                    className="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors">
+                    className="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-sm font-medium transition-colors">
                     {busy === 'deposit' ? 'Signing...' : 'Deposit to Vault'}
                   </button>
                 </div>
@@ -525,8 +519,7 @@ export default function GrowTokenPage() {
                     </div>
                   </div>
                   <button onClick={handleWithdraw} disabled={busy === 'withdraw' || !withdrawAmount}
-                    title={!withdrawAmount ? 'Enter an amount to withdraw' : ''}
-                    className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors">
+                    className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-medium transition-colors">
                     {busy === 'withdraw' ? 'Signing...' : 'Withdraw from Vault'}
                   </button>
                 </div>
@@ -559,8 +552,7 @@ export default function GrowTokenPage() {
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-provn-muted">GROW</span>
                     </div>
                     <button onClick={handleTransfer} disabled={busy === 'transfer' || !transferTo || !transferAmount}
-                      title={!transferTo ? 'Enter a recipient address' : !transferAmount ? 'Enter an amount' : ''}
-                      className="px-5 py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors">
+                      className="px-5 py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600 disabled:opacity-50 text-white text-sm font-medium transition-colors">
                       {busy === 'transfer' ? 'Sending...' : 'Send'}
                     </button>
                   </div>

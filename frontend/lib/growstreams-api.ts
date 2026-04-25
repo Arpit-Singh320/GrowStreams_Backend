@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'https://growstreams-launch-production.up.railway.app';
+﻿const API_BASE = process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'https://growstreams-api-v3-production.up.railway.app';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -8,13 +8,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data as T;
-}
-
-function authedRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
-  return request<T>(path, {
-    ...options,
-    headers: { Authorization: `Bearer ${token}`, ...(options?.headers || {}) },
-  });
 }
 
 function get<T>(path: string) {
@@ -55,6 +48,16 @@ export interface StreamConfig {
   token_vault: string;
 }
 
+export interface TokenMeta {
+  key: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  icon: string;
+  category?: string;
+  isStablecoin?: boolean;
+}
+
 export interface StreamData {
   id: number;
   sender: string;
@@ -67,6 +70,10 @@ export interface StreamData {
   withdrawn: string;
   streamed: string;
   status: string;
+  tokenMeta?: TokenMeta;
+  flowRateDisplay?: string;
+  flowRatePerMonth?: string;
+  depositDisplay?: string;
 }
 
 export interface VaultBalance {
@@ -75,6 +82,89 @@ export interface VaultBalance {
   total_deposited: string;
   total_allocated: string;
   available: string;
+  tokenMeta?: TokenMeta;
+  total_deposited_display?: string;
+  total_allocated_display?: string;
+  available_display?: string;
+}
+
+export interface MultiTokenBalance {
+  key: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  icon: string;
+  category?: string;
+  isStablecoin?: boolean;
+  total_deposited: string;
+  total_allocated: string;
+  available: string;
+  total_deposited_display: string;
+  total_allocated_display: string;
+  available_display: string;
+  error?: string;
+}
+
+export interface TokenInfo {
+  key: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  vara: string;
+  eth: string | null;
+  icon: string;
+  category: string;
+  isStablecoin: boolean;
+  minBuffer: number;
+}
+
+export interface WalletBalance {
+  key: string;
+  symbol: string;
+  name: string;
+  icon: string;
+  balance: string;
+  balanceRaw: string;
+  decimals: number;
+  category?: string;
+  isStablecoin?: boolean;
+  vara?: string;
+  eth?: string | null;
+  error?: string;
+}
+
+export interface StreamEvent {
+  id: number;
+  stream_id: string;
+  event_type: string;
+  sender: string | null;
+  receiver: string | null;
+  token_address: string | null;
+  token_symbol: string | null;
+  flow_rate: string | null;
+  amount: string | null;
+  block_hash: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  tokenMeta?: TokenMeta;
+  amountDisplay?: string;
+  flowRateDisplay?: string;
+  flowRatePerMonth?: string;
+}
+
+export interface StreamStats {
+  wallet: string;
+  totalStreamsCreated: number;
+  tokens: {
+    symbol: string;
+    tokenAddress: string;
+    activeStreams?: number;
+    totalDeposited?: string;
+    totalDepositedDisplay?: string;
+    totalWithdrawn?: string;
+    totalWithdrawnDisplay?: string;
+    decimals?: number;
+  }[];
 }
 
 export interface SplitGroup {
@@ -104,48 +194,88 @@ export interface BindingData {
   updated_at: number;
 }
 
-export interface TokenMeta {
+export interface BridgeRoute {
+  token: string;
   symbol: string;
-  displaySymbol: string;
   name: string;
   decimals: number;
-  category: string;
   icon: string;
-  vara: string;
-  eth: string | null;
-  priceUSD: number | null;
+  category: string;
+  isStablecoin: boolean;
+  source: {
+    chain: string;
+    chainName: string;
+    address: string;
+    explorer?: string;
+  };
+  destination: {
+    chain: string;
+    chainName: string;
+    address: string;
+    explorer?: string;
+  };
+  bidirectional: boolean;
 }
 
-export interface TokenVaultBalance {
+export interface BridgeInfo {
+  supported: boolean;
+  version: string;
+  chains: {
+    ethereum: { name: string; chainId: number; explorer: string; bridgeContract: string; blockTime: number };
+    vara: { name: string; chainId: string; explorer: string; bridgeContract: string; blockTime: number };
+  };
+  routes: BridgeRoute[];
+  routeCount: number;
+  fees: { percentBps: number; percentDisplay: string; minBps: number; maxBps: number };
+  timing: { estimatedMinutes: number; minConfirmations: number; maxConfirmations: number };
+  faucets: { vara: string; holesky: string };
+  guides: { bridging: string; testnetTokens: string };
+}
+
+export interface BridgeFeeEstimate {
   token: string;
-  displaySymbol: string;
-  owner: string;
-  totalDeposited: string;
-  totalAllocated: string;
-  available: string;
-  rawTotalDeposited: string;
-  rawTotalAllocated: string;
-  rawAvailable: string;
-  decimals: number;
+  amount: string;
+  amountRaw: string;
+  fee: string;
+  feeRaw: string;
+  feePercent: string;
+  netAmount: string;
+  netAmountRaw: string;
+  direction: string;
+  estimatedTimeMinutes: number;
+  estimatedConfirmations: number;
 }
 
-export interface FlowRateBreakdown {
-  perSecond: string;
-  perMinute: string;
-  perHour: string;
-  perDay: string;
-  perMonth: string;
+export interface BridgeTransaction {
+  id: number;
+  wallet: string;
+  token_symbol: string;
+  token_key: string;
+  amount: string;
+  amount_raw: string;
+  direction: 'ethToVara' | 'varaToEth';
+  source_tx_hash: string | null;
+  destination_tx_hash: string | null;
+  source_chain: string;
+  destination_chain: string;
+  fee: string;
+  fee_raw: string;
+  status: 'initiated' | 'source_confirmed' | 'bridging' | 'destination_confirmed' | 'completed' | 'failed';
+  confirmations: number;
+  error: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  tokenMeta?: TokenMeta;
 }
 
-export interface StreamV3Result {
-  streamId?: string;
-  token: string;
-  flowRatePerSecond: string;
-  flowRateBreakdown: FlowRateBreakdown;
-  rawDeposit: string;
-  displayDeposit: string;
-  blockHash?: string;
-  payload?: string;
+export interface BridgeStats {
+  wallet: string;
+  totalBridges: number;
+  completed: number;
+  failed: number;
+  pending: number;
 }
 
 export interface TxResult {
@@ -158,71 +288,88 @@ export interface PayloadResult {
   value?: string;
 }
 
-export interface QuestData {
-  id: number;
-  slug: string;
+// ---------------------------------------------------------------------------
+// Multi-Campaign types
+// ---------------------------------------------------------------------------
+export interface Campaign {
+  id: string;
+  creator_wallet: string;
   title: string;
-  description: string;
-  quest_type: string;
-  seeds_reward: number;
-  icon: string;
-  repeatable: boolean;
-  active: boolean;
-  sort_order: number;
-  completed?: boolean;
-  completionCount?: number;
-  totalEarned?: number;
-  latestCompletion?: Record<string, unknown> | null;
-  pendingSubmission?: {
-    id: number;
-    status: string;
-    proof: Record<string, unknown> | null;
-    created_at: string;
-  } | null;
-  rejectedSubmission?: {
-    id: number;
-    status: string;
-    proof: Record<string, unknown> | null;
-    created_at: string;
-  } | null;
-}
-
-export interface QuestSubmission {
-  id: number;
-  wallet: string;
-  quest_id: number;
-  proof: Record<string, unknown> | null;
+  description: string | null;
+  status: 'DRAFT' | 'FUNDED' | 'ACTIVE' | 'ENDED' | 'SETTLING' | 'CLOSED';
+  pool_amount: string;
+  pool_remaining: string;
+  token: string;
+  track_type: 'OSS' | 'CONTENT' | 'BOTH';
+  start_date: string;
+  end_date: string;
+  ended_at: string | null;
+  funding_tx_hash: string | null;
+  required_hashtags: string[];
+  required_mentions: string[];
+  github_repo_url: string | null;
+  github_issue_labels: string[];
+  max_oss_contributions: number | null;
+  max_content_contributions: number | null;
+  score_threshold: number;
   created_at: string;
-  quest_slug: string;
-  quest_title: string;
-  seeds_reward: number;
-  email: string | null;
-  x_username: string | null;
-  github_username: string | null;
+  updated_at: string;
 }
 
-export interface QuestProgress {
-  registered: boolean;
-  registration?: Record<string, unknown>;
-  totalSeeds?: number;
-  questsCompleted?: number;
-  questsTotal?: number;
-  quests?: QuestData[];
-  recentActivity?: Array<{
-    id: number;
-    wallet: string;
-    delta: number;
-    reason: string;
-    quest_id: number;
-    tx_hash: string | null;
-    created_at: string;
-    slug: string;
-    quest_title: string;
-  }>;
+export interface CampaignParticipant {
+  wallet: string;
+  campaign_xp: number;
+  enrolled_at: string;
+}
+
+export interface CampaignLeaderboardEntry {
+  rank: number;
+  wallet: string;
+  campaign_xp: number;
+  enrolled_at: string;
+}
+
+export interface CampaignPayoutEntry {
+  wallet: string;
+  xp_earned: number;
+  xp_share: number;
+  usdc_amount: number;
+  status: string;
+}
+
+export interface UserCampaign {
+  campaign_id: string;
+  title: string;
+  status: string;
+  campaign_xp: number;
+  enrolled_at: string;
+  start_date: string;
+  end_date: string;
+  pool_amount: string;
 }
 
 export const api = {
   health: () => get<HealthData>('/health'),
+
+  tokens: {
+    list: () => get<{ tokens: TokenInfo[]; count: number }>('/api/tokens'),
+    stablecoins: () => get<{ tokens: TokenInfo[]; count: number }>('/api/tokens/stablecoins'),
+    addresses: () => get<{ tokens: Record<string, { vara: string; eth: string | null }>; contracts: Record<string, string> }>('/api/tokens/addresses'),
+    get: (symbol: string) => get<TokenInfo>(`/api/tokens/${symbol}`),
+    balance: (symbol: string, wallet: string) => get<{ wallet: string; symbol: string; balance: string; balanceRaw: string; decimals: number }>(`/api/tokens/${symbol}/balance/${wallet}`),
+    allBalances: (wallet: string) => get<{ wallet: string; balances: WalletBalance[] }>(`/api/tokens/balances/${wallet}`),
+    allowance: (symbol: string, owner: string, spender: string) =>
+      get<{ owner: string; spender: string; symbol: string; allowance: string; allowanceRaw: string; decimals: number }>(`/api/tokens/${symbol}/allowance/${owner}/${spender}`),
+    approve: (symbol: string, params: { spender: string; amount?: string; amountRaw?: string }) =>
+      post<{ payload: string; programId: string; token: string; spender: string; amount: string }>(`/api/tokens/${symbol}/approve`, params as unknown as Record<string, unknown>),
+    transfer: (symbol: string, params: { to: string; amount?: string; amountRaw?: string }) =>
+      post<{ payload: string; programId: string; token: string; to: string; amount: string }>(`/api/tokens/${symbol}/transfer`, params as unknown as Record<string, unknown>),
+    convert: (symbol: string, params: { amount: string; direction?: 'toBase' | 'toDisplay' }) =>
+      post<Record<string, unknown>>(`/api/tokens/${symbol}/convert`, params as unknown as Record<string, unknown>),
+    flowRate: (symbol: string, params: { amount: string; fromInterval?: string; toInterval?: string }) =>
+      post<Record<string, unknown>>(`/api/tokens/${symbol}/flow-rate`, params as unknown as Record<string, unknown>),
+    resolve: (symbol: string) => get<{ input: string; varaAddress: string; symbol: string | null; decimals: number | null }>(`/api/tokens/${symbol}/resolve`),
+  },
 
   streams: {
     config: () => get<StreamConfig>('/api/streams/config'),
@@ -233,8 +380,19 @@ export const api = {
     byReceiver: (addr: string) => get<{ receiver: string; streamIds: string[] }>(`/api/streams/receiver/${addr}`),
     balance: (id: number) => get<{ streamId: number; withdrawable: string }>(`/api/streams/${id}/balance`),
     buffer: (id: number) => get<{ streamId: number; remainingBuffer: string }>(`/api/streams/${id}/buffer`),
+    history: (wallet: string, params?: { limit?: number; offset?: number; eventType?: string; token?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.limit) q.set('limit', String(params.limit));
+      if (params?.offset) q.set('offset', String(params.offset));
+      if (params?.eventType) q.set('eventType', params.eventType);
+      if (params?.token) q.set('token', params.token);
+      const qs = q.toString();
+      return get<{ wallet: string; events: StreamEvent[]; total: number; limit: number; offset: number }>(`/api/streams/history/${wallet}${qs ? '?' + qs : ''}`);
+    },
+    stats: (wallet: string) => get<StreamStats>(`/api/streams/stats/${wallet}`),
+    events: (streamId: string | number) => get<{ streamId: string; events: StreamEvent[]; count: number }>(`/api/streams/events/${streamId}`),
 
-    create: (params: { receiver: string; token: string; flowRate: string; initialDeposit: string; mode?: string }) =>
+    create: (params: { receiver: string; token: string; flowRate: string; initialDeposit: string; mode?: string; raw?: boolean; flowRateInterval?: string }) =>
       post<TxResult | PayloadResult>('/api/streams', params as unknown as Record<string, unknown>),
     update: (id: number, params: { flowRate: string; mode?: string }) =>
       put<TxResult | PayloadResult>(`/api/streams/${id}`, params as unknown as Record<string, unknown>),
@@ -256,11 +414,21 @@ export const api = {
     config: () => get<Record<string, unknown>>('/api/vault/config'),
     paused: () => get<{ paused: boolean }>('/api/vault/paused'),
     balance: (owner: string, token: string) => get<VaultBalance>(`/api/vault/balance/${owner}/${token}`),
+    balances: (wallet: string) => get<{ wallet: string; balances: MultiTokenBalance[] }>(`/api/vault/balances/${wallet}`),
     allocation: (streamId: number) => get<{ streamId: number; allocated: string }>(`/api/vault/allocation/${streamId}`),
+    history: (wallet: string, params?: { limit?: number; offset?: number; eventType?: string; token?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.limit) q.set('limit', String(params.limit));
+      if (params?.offset) q.set('offset', String(params.offset));
+      if (params?.eventType) q.set('eventType', params.eventType);
+      if (params?.token) q.set('token', params.token);
+      const qs = q.toString();
+      return get<{ wallet: string; events: StreamEvent[]; total: number; limit: number; offset: number }>(`/api/vault/history/${wallet}${qs ? '?' + qs : ''}`);
+    },
 
-    deposit: (params: { token: string; amount: string; mode?: string }) =>
+    deposit: (params: { token: string; amount?: string; amountRaw?: string; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/vault/deposit', params as unknown as Record<string, unknown>),
-    withdraw: (params: { token: string; amount: string; mode?: string }) =>
+    withdraw: (params: { token: string; amount?: string; amountRaw?: string; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/vault/withdraw', params as unknown as Record<string, unknown>),
     depositNative: (params: { amount: string; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/vault/deposit-native', params as unknown as Record<string, unknown>),
@@ -355,41 +523,6 @@ export const api = {
       post<{ mode: string }>('/api/grow-token/admin/faucet-mode', { mode } as Record<string, unknown>),
   },
 
-  tokens: {
-    list: () => get<{ tokens: TokenMeta[] }>('/api/tokens'),
-    stablecoins: () => get<{ tokens: TokenMeta[] }>('/api/tokens/stablecoins'),
-    prices: () => get<{ prices: Record<string, number | null> }>('/api/tokens/prices'),
-    get: (symbol: string) => get<TokenMeta>(`/api/tokens/${symbol}`),
-    resolve: (symbol: string) => get<{ symbol: string; varaAddress: string }>(`/api/tokens/${symbol}/resolve`),
-    vaultBalance: (symbol: string, wallet: string) => get<TokenVaultBalance>(`/api/tokens/${symbol}/vault-balance/${wallet}`),
-    allVaultBalances: (wallet: string) => get<{ wallet: string; balances: TokenVaultBalance[] }>(`/api/tokens/vault-balances/${wallet}`),
-    approve: (symbol: string, params: { spender: string; amount: string }) =>
-      post<{ programId: string; service: string; method: string; args: string[]; token: string; displayAmount: string; rawAmount: string; decimals: number }>(
-        `/api/tokens/${symbol}/approve`, params as unknown as Record<string, unknown>
-      ),
-    convert: (params: { symbol: string; amount: string; direction: 'toBase' | 'toDisplay' }) =>
-      post<{ symbol: string; input: string; baseUnits?: string; displayUnits?: string; decimals: number }>(
-        '/api/tokens/convert', params as unknown as Record<string, unknown>
-      ),
-    flowRate: (params: { symbol: string; amount: string; interval: string }) =>
-      post<{ symbol: string; perSecondRaw: string; breakdown: FlowRateBreakdown }>(
-        '/api/tokens/flow-rate', params as unknown as Record<string, unknown>
-      ),
-  },
-
-  vaultV3: {
-    balances: (wallet: string) => get<{ wallet: string; balances: TokenVaultBalance[] }>(`/api/vault/balances/${wallet}`),
-    depositToken: (params: { symbol: string; amount: string; mode?: string }) =>
-      post<TxResult | PayloadResult>('/api/vault/deposit-token', params as unknown as Record<string, unknown>),
-    withdrawToken: (params: { symbol: string; amount: string; mode?: string }) =>
-      post<TxResult | PayloadResult>('/api/vault/withdraw-token', params as unknown as Record<string, unknown>),
-  },
-
-  streamsV3: {
-    create: (params: { receiver: string; symbol: string; amount: string; interval: string; initialDeposit: string; mode?: string }) =>
-      post<StreamV3Result | PayloadResult>('/api/streams/create', params as unknown as Record<string, unknown>),
-  },
-
   campaign: {
     register: (params: { wallet: string; github_handle?: string; x_handle?: string; track: string }) =>
       post<Record<string, unknown>>('/api/campaign/register', params as unknown as Record<string, unknown>),
@@ -411,6 +544,69 @@ export const api = {
       get<Record<string, unknown>>(`/api/leaderboard/${wallet}`),
   },
 
+  bridge: {
+    info: () => get<BridgeInfo>('/api/bridge/info'),
+    routes: () => get<{ routes: BridgeRoute[]; count: number }>('/api/bridge/routes'),
+    routeForToken: (token: string) => get<BridgeRoute>(`/api/bridge/routes/${token}`),
+    estimate: (params: { token: string; amount: string; direction?: string }) =>
+      post<BridgeFeeEstimate>('/api/bridge/estimate', params as unknown as Record<string, unknown>),
+    initiate: (params: { wallet: string; token: string; amount: string; amountRaw?: string; direction?: string; sourceTxHash?: string; fee?: string; feeRaw?: string }) =>
+      post<{ transaction: BridgeTransaction }>('/api/bridge/initiate', params as unknown as Record<string, unknown>),
+    updateStatus: (id: number, params: { status: string; destinationTxHash?: string; confirmations?: number; error?: string }) =>
+      put<{ transaction: BridgeTransaction }>(`/api/bridge/status/${id}`, params as unknown as Record<string, unknown>),
+    getTransaction: (id: number) => get<{ transaction: BridgeTransaction }>(`/api/bridge/tx/${id}`),
+    getByTxHash: (txHash: string) => get<{ transaction: BridgeTransaction }>(`/api/bridge/status/${txHash}`),
+    history: (wallet: string, params?: { limit?: number; offset?: number; status?: string; token?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.limit) q.set('limit', String(params.limit));
+      if (params?.offset) q.set('offset', String(params.offset));
+      if (params?.status) q.set('status', params.status);
+      if (params?.token) q.set('token', params.token);
+      const qs = q.toString();
+      return get<{ wallet: string; transactions: BridgeTransaction[]; total: number; limit: number; offset: number }>(`/api/bridge/history/${wallet}${qs ? '?' + qs : ''}`);
+    },
+    stats: (wallet: string) => get<BridgeStats>(`/api/bridge/stats/${wallet}`),
+  },
+
+  campaigns: {
+    platformEscrow: () => get<{ ss58: string; actorId: string }>('/api/campaigns/platform-escrow'),
+    list: (params?: { status?: string; track_type?: string; page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.status) q.set('status', params.status);
+      if (params?.track_type) q.set('track_type', params.track_type);
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.limit) q.set('limit', String(params.limit));
+      const qs = q.toString();
+      return get<{ campaigns: Campaign[]; count: number; page: number; limit: number }>(`/api/campaigns${qs ? '?' + qs : ''}`);
+    },
+    active: () => get<{ campaigns: Campaign[]; count: number }>('/api/campaigns/active'),
+    get: (id: string) => get<Campaign>(`/api/campaigns/${id}`),
+    create: (params: Record<string, unknown>) =>
+      post<Campaign>('/api/campaigns', params),
+    fund: (id: string, params: { wallet: string; tx_hash?: string }) =>
+      post<Campaign>(`/api/campaigns/${id}/fund`, params as unknown as Record<string, unknown>),
+    enroll: (id: string, params: { wallet: string }) =>
+      post<Record<string, unknown>>(`/api/campaigns/${id}/enroll`, params as unknown as Record<string, unknown>),
+    leaderboard: (id: string, params?: { page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.limit) q.set('limit', String(params.limit));
+      const qs = q.toString();
+      return get<{ campaign_id: string; leaderboard: CampaignLeaderboardEntry[]; total: number; page: number; limit: number }>(`/api/campaigns/${id}/leaderboard${qs ? '?' + qs : ''}`);
+    },
+    participants: (id: string, params?: { page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.limit) q.set('limit', String(params.limit));
+      const qs = q.toString();
+      return get<{ campaign_id: string; participants: CampaignParticipant[]; total: number; page: number; limit: number }>(`/api/campaigns/${id}/participants${qs ? '?' + qs : ''}`);
+    },
+    payoutPreview: (id: string) =>
+      get<{ campaign_id: string; pool_amount: number; total_xp: number; payouts: CampaignPayoutEntry[] }>(`/api/campaigns/${id}/payout-preview`),
+    userCampaigns: (wallet: string) =>
+      get<{ wallet: string; campaigns: UserCampaign[]; count: number }>(`/api/users/${wallet}/campaigns`),
+  },
+
   identity: {
     config: () => get<{ oracle: string; total_bindings: number }>('/api/identity/config'),
     oracle: () => get<{ oracle: string }>('/api/identity/oracle'),
@@ -424,53 +620,5 @@ export const api = {
       post<TxResult | PayloadResult>('/api/identity/revoke', params as unknown as Record<string, unknown>),
     updateScore: (params: { actorId: string; newScore: number; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/identity/update-score', params as unknown as Record<string, unknown>),
-  },
-
-  quests: {
-    verifyInvite: (code: string) =>
-      post<{ valid: boolean; message?: string }>('/api/quests/verify-invite', { code } as Record<string, unknown>),
-    register: (params: { wallet: string; email: string; x_username: string; github_username: string; invite_code: string }) =>
-      post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
-    list: () =>
-      get<{ quests: QuestData[] }>('/api/quests'),
-    me: (wallet: string) =>
-      get<QuestProgress>(`/api/quests/me?wallet=${wallet}`),
-    seeds: (wallet: string) =>
-      get<{ wallet: string; seeds: number }>(`/api/quests/seeds/${wallet}`),
-    claim: (slug: string, wallet: string, payload?: { x_username?: string; tweet_url?: string }) =>
-      post<{ message: string; slug: string; wallet: string; status: string }>(
-        `/api/quests/${slug}/claim`,
-        { wallet, ...(payload || {}) } as Record<string, unknown>
-      ),
-    stats: () =>
-      get<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>('/api/quests/stats'),
-    leaderboard: () =>
-      get<{
-        leaderboard: Array<{
-          wallet: string;
-          x_username: string;
-          github_username: string;
-          registered_at: string;
-          total_xp: number;
-          quests_completed: number;
-          last_completed_at: string | null;
-        }>;
-        total: number;
-      }>('/api/quests/leaderboard'),
-
-    // Admin (requires Bearer token)
-    adminListSubmissions: (token: string) =>
-      authedRequest<{ submissions: QuestSubmission[]; total: number }>(token, '/api/quests/admin/submissions'),
-    adminApproveSubmission: (token: string, id: number) =>
-      authedRequest<{ message: string; completion: Record<string, unknown> }>(token, `/api/quests/admin/submissions/${id}/approve`, {
-        method: 'POST',
-      }),
-    adminRejectSubmission: (token: string, id: number, reason?: string) =>
-      authedRequest<{ message: string; completion: Record<string, unknown> }>(token, `/api/quests/admin/submissions/${id}/reject`, {
-        method: 'POST',
-        body: JSON.stringify({ reason: reason || '' }),
-      }),
-    adminStats: (token: string) =>
-      authedRequest<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>(token, '/api/quests/admin/stats'),
   },
 };

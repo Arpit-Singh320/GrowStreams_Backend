@@ -2,18 +2,19 @@
 
 import { useState, useCallback } from 'react';
 import { useApi, useAccount } from '@gear-js/react-hooks';
-import { web3Enable, web3FromSource, web3FromAddress } from '@polkadot/extension-dapp';
+// Dynamic import to avoid SSR "window is not defined" crash
+const getExtensionDapp = () => import('@polkadot/extension-dapp');
 import { decodeAddress } from '@gear-js/api';
 import { api as gsApi, type PayloadResult, type TxResult } from '@/lib/growstreams-api';
 
-const PROGRAM_IDS: Record<string, string> = {
-  streamCore: '0x2e7c2064344449504c9c638261bab78238ae50b8a47faac5beae2d1915d70a56',
-  tokenVault: '0x7e081c0f82e31e35d845d1932eb36c84bbbb50568eef3c209f7104fabb2c254b',
-  growToken: '0x05a2a482f1a1a7ebf74643f3cc2099597dac81ff92535cbd647948febee8fe36',
-  splitsRouter: '0xe4fe59166d824a0f710488b02e039f3fe94980756e3571fc93ba083b5b88b894',
-  permissionManager: '0x6cce66023765a57cbc6adf5dfe7df66ee636af56ab7d92a8f614bd8c229f88cb',
-  bountyAdapter: '0xd5377611a285d3efcbe9369361647d13f3a9c60ed70d648eaa21c08c72268f81',
-  identityRegistry: '0xb6389d1da594b84a73f3a5178caa25ff56ec0f57f2f8a9d42f8b1b6fba9d948a',
+export const PROGRAM_IDS: Record<string, string> = {
+  streamCore: '0x0998ba27a7b2a0d8a383dc23054164bac1fc2e4b64694f0d7ec4db3bd6265957',
+  tokenVault: '0xc7647e6e6b47ab9390f081dff1373e58733c698ef0b9ce582dca8ebe9af66588',
+  growToken: '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf',
+  splitsRouter: '0x8f9fcabb24ae57404b6c3a9fde57331a32e457326652fc535e773389d90b4395',
+  permissionManager: '0x467b350648690279e9bbf16fbc7c0525d8e5628d967382a36253c1c095fa4a0f',
+  bountyAdapter: '0xc34b86ada8fcbb18c2b6efcd4f9299592e4d909bc7b803ed047ba5cfaf76eb32',
+  identityRegistry: '0xd07d3da386ad769e8ef37923666cb22efef479d2d5b32c1bbbd01e37c3cdeff7',
 };
 
 interface SendResult {
@@ -34,10 +35,6 @@ function getPayload(res: TxResult | PayloadResult): string {
 
 function toHex(address: string): string {
   if (address.startsWith('0x') && address.length === 66) return address;
-  // Pad short hex addresses (e.g. 20-byte Ethereum) to 32-byte actor_id
-  if (address.startsWith('0x') && address.length < 66) {
-    return '0x' + address.slice(2).padStart(64, '0');
-  }
   try {
     return decodeAddress(address);
   } catch {
@@ -52,7 +49,7 @@ export function useGearSign() {
   const [error, setError] = useState<string | null>(null);
 
   const signAndSend = useCallback(
-    async (contract: keyof typeof PROGRAM_IDS, payloadHex: string, value = 0): Promise<SendResult> => {
+    async (contractOrProgramId: keyof typeof PROGRAM_IDS | string, payloadHex: string, value = 0): Promise<SendResult> => {
       if (!api) throw new Error('Gear API not connected. Please wait for the network connection.');
       if (!account) throw new Error('Wallet not connected. Please connect your Vara wallet first.');
 
@@ -60,8 +57,11 @@ export function useGearSign() {
       setError(null);
 
       try {
-        const programId = PROGRAM_IDS[contract] as `0x${string}`;
+        const programId = (contractOrProgramId.startsWith('0x')
+          ? contractOrProgramId
+          : PROGRAM_IDS[contractOrProgramId]) as `0x${string}`;
 
+        const { web3Enable, web3FromSource, web3FromAddress } = await getExtensionDapp();
         await web3Enable('GrowStreams');
 
         let injector;
@@ -135,7 +135,7 @@ export function useStreamActions() {
   const { signAndSend, loading, error, account } = useGearSign();
 
   const createStream = async (receiver: string, token: string, flowRate: string, initialDeposit: string) => {
-    const res = await gsApi.streams.create({ receiver: toHex(receiver), token: toHex(token), flowRate, initialDeposit, mode: 'payload' });
+    const res = await gsApi.streams.create({ receiver: toHex(receiver), token: toHex(token), flowRate, initialDeposit, mode: 'payload', raw: true });
     return signAndSend('streamCore', getPayload(res));
   };
 
@@ -184,13 +184,13 @@ export function useStreamActions() {
 export function useVaultActions() {
   const { signAndSend, loading, error } = useGearSign();
 
-  const depositTokens = async (token: string, amount: string) => {
-    const res = await gsApi.vault.deposit({ token, amount, mode: 'payload' });
+  const depositTokens = async (token: string, amountRaw: string) => {
+    const res = await gsApi.vault.deposit({ token, amountRaw, mode: 'payload' });
     return signAndSend('tokenVault', getPayload(res));
   };
 
-  const withdrawTokens = async (token: string, amount: string) => {
-    const res = await gsApi.vault.withdraw({ token, amount, mode: 'payload' });
+  const withdrawTokens = async (token: string, amountRaw: string) => {
+    const res = await gsApi.vault.withdraw({ token, amountRaw, mode: 'payload' });
     return signAndSend('tokenVault', getPayload(res));
   };
 
@@ -205,32 +205,6 @@ export function useVaultActions() {
   };
 
   return { depositTokens, withdrawTokens, depositNative, withdrawNative, loading, error };
-}
-
-export function useVaultActionsV3() {
-  const { signAndSend, loading, error } = useGearSign();
-
-  const depositToken = async (symbol: string, amount: string) => {
-    const res = await gsApi.vaultV3.depositToken({ symbol, amount, mode: 'payload' });
-    return signAndSend('tokenVault', getPayload(res));
-  };
-
-  const withdrawToken = async (symbol: string, amount: string) => {
-    const res = await gsApi.vaultV3.withdrawToken({ symbol, amount, mode: 'payload' });
-    return signAndSend('tokenVault', getPayload(res));
-  };
-
-  return { depositToken, withdrawToken, loading, error };
-}
-
-export function useStreamActionsV3() {
-  const { loading, error, account } = useGearSign();
-
-  const createStream = async (_receiver: string, _symbol: string, _amount: string, _interval: string, _initialDeposit: string) => {
-    throw new Error('V3 streams not available in this deployment');
-  };
-
-  return { createStream, loading, error, account };
 }
 
 export function useSplitsActions() {
