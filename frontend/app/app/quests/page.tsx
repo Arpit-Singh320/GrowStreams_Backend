@@ -555,7 +555,7 @@ function QuestDashboard({ wallet }: { wallet: string }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm">
-                    <span className="font-medium text-emerald-400">+{activity.delta} XP</span>
+                    <span className="font-medium text-emerald-400">+{activity.delta} Seeds</span>
                     {' — '}
                     <span className="text-provn-muted">{activity.quest_title || activity.reason}</span>
                   </p>
