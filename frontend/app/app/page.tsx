@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import WelcomeModal from '@/components/welcome-modal';
-import { listTokens, type TokenConfig } from '@/lib/tokens';
+import { listTokens, getTokenByVaraAddress, type TokenConfig } from '@/lib/tokens';
 
 const GROW_TOKEN = '0x05a2a482f1a1a7ebf74643f3cc2099597dac81ff92535cbd647948febee8fe36';
 const ONE_GROW = 1_000_000_000_000;
@@ -389,8 +389,11 @@ export default function DashboardPage() {
           <div className="divide-y divide-provn-border/50">
             {recentStreams.map(s => {
               const isSender = s.sender?.toLowerCase() === account?.decodedAddress?.toLowerCase();
-              const deposited = Number(s.deposited) / ONE_GROW;
-              const streamed = Number(s.streamed) / ONE_GROW;
+              const tok = getTokenByVaraAddress(s.token);
+              const symbol = tok?.symbol || 'GROW';
+              const divisor = tok ? Math.pow(10, tok.decimals) : ONE_GROW;
+              const deposited = Number(s.deposited) / divisor;
+              const streamed = Number(s.streamed) / divisor;
               const pct = deposited > 0 ? Math.min((streamed / deposited) * 100, 100) : 0;
               const isDepleted = s.status === 'Active' && pct >= 99.9;
               return (
@@ -420,8 +423,8 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs font-mono font-medium">{deposited.toFixed(2)} GROW</p>
-                    <p className="text-[10px] text-provn-muted">{(Number(s.flow_rate) / ONE_GROW).toFixed(4)}/s</p>
+                    <p className="text-xs font-mono font-medium">{deposited.toFixed(2)} {symbol}</p>
+                    <p className="text-[10px] text-provn-muted">{(Number(s.flow_rate) / divisor).toFixed(4)} {symbol}/s</p>
                   </div>
                 </Link>
               );
