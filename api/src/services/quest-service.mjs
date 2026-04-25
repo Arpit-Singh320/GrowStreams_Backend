@@ -184,6 +184,8 @@ export async function getQuestProgress(wallet) {
   const questsWithStatus = quests.map(q => {
     const questCompletions = completionMap[q.id] || [];
     const verified = questCompletions.filter(c => c.status === 'VERIFIED');
+    const pending = questCompletions.find(c => c.status === 'PENDING') || null;
+    const rejected = questCompletions.find(c => c.status === 'REJECTED') || null;
     const isCompleted = verified.length > 0;
     const totalEarned = verified.reduce((sum, c) => sum + c.seeds_awarded, 0);
 
@@ -193,6 +195,8 @@ export async function getQuestProgress(wallet) {
       completionCount: verified.length,
       totalEarned,
       latestCompletion: verified[0] || null,
+      pendingSubmission: pending,
+      rejectedSubmission: rejected && !pending && !isCompleted ? rejected : null,
     };
   });
 
@@ -281,6 +285,144 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
   return completion;
 }
 
+// ---------------------------------------------------------------------------
+// Manual review submissions (X quests are now reviewed by admin)
+// ---------------------------------------------------------------------------
+
+/**
+ * Submit proof for a quest as PENDING for admin review.
+ * Returns { status: 'SUBMITTED' | 'ALREADY_PENDING' | 'ALREADY_VERIFIED' }
+ */
+export async function submitQuestProof(wallet, questSlug, proof = {}) {
+  const quest = await getQuestBySlug(questSlug);
+  if (!quest) throw new Error(`Quest not found: ${questSlug}`);
+  if (!quest.active) throw new Error(`Quest is not active: ${questSlug}`);
+
+  // Already verified?
+  const verified = await queryOne(
+    `SELECT id FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'`,
+    [wallet, quest.id]
+  );
+  if (verified) return { status: 'ALREADY_VERIFIED' };
+
+  // Already pending? Update proof instead of creating duplicate.
+  const pending = await queryOne(
+    `SELECT id FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'PENDING'`,
+    [wallet, quest.id]
+  );
+  if (pending) {
+    const updated = await queryOne(
+      `UPDATE quest_completions SET proof = $1, created_at = NOW() WHERE id = $2 RETURNING *`,
+      [JSON.stringify(proof), pending.id]
+    );
+    return { status: 'UPDATED', completion: updated };
+  }
+
+  const completion = await queryOne(
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded)
+     VALUES ($1, $2, 'PENDING', $3, 0) RETURNING *`,
+    [wallet, quest.id, JSON.stringify(proof)]
+  );
+  console.log(`[quest] Submitted PENDING ${questSlug} for ${wallet}`);
+  return { status: 'SUBMITTED', completion };
+}
+
+/**
+ * List PENDING quest completions joined with quest + registration data.
+ */
+export async function listPendingSubmissions() {
+  return queryAll(`
+    SELECT qc.id, qc.wallet, qc.quest_id, qc.proof, qc.created_at,
+           q.slug AS quest_slug, q.title AS quest_title, q.seeds_reward,
+           r.email, r.x_username, r.github_username
+    FROM quest_completions qc
+    JOIN quests q ON q.id = qc.quest_id
+    LEFT JOIN quest_registrations r ON r.wallet = qc.wallet
+    WHERE qc.status = 'PENDING'
+    ORDER BY qc.created_at ASC
+  `);
+}
+
+/**
+ * Approve a pending submission: mint Seeds on-chain (if possible),
+ * mark completion VERIFIED, write seeds_ledger entry.
+ */
+export async function approvePendingSubmission(completionId) {
+  const row = await queryOne(
+    `SELECT qc.*, q.slug, q.seeds_reward, q.repeatable
+     FROM quest_completions qc JOIN quests q ON q.id = qc.quest_id
+     WHERE qc.id = $1`,
+    [completionId]
+  );
+  if (!row) throw new Error('Submission not found');
+  if (row.status !== 'PENDING') throw new Error(`Submission is not pending (status=${row.status})`);
+
+  const wallet = row.wallet;
+  const seedsReward = row.seeds_reward;
+
+  // Attempt on-chain mint via quest-seeds contract (same logic as awardSeeds)
+  let onChainTxHash = null;
+  const seedsContract = getContract('questSeeds');
+  if (seedsContract) {
+    try {
+      const reason = `quest:${row.slug}`;
+      console.log(`[quest] Approving submission ${completionId}: minting ${seedsReward} XP to ${wallet}`);
+
+      let walletHex = wallet;
+      if (!wallet.startsWith('0x')) {
+        const { decodeAddress } = await import('@polkadot/util-crypto');
+        const publicKey = decodeAddress(wallet);
+        walletHex = '0x' + Buffer.from(publicKey).toString('hex');
+      }
+
+      const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, seedsReward, reason);
+      onChainTxHash = mintResult.blockHash || null;
+      console.log(`[quest] On-chain mint SUCCESS for submission ${completionId}, tx=${onChainTxHash}`);
+    } catch (mintErr) {
+      console.warn(`[quest] On-chain mint failed for submission ${completionId}: ${mintErr.message}. Recording DB-only.`);
+    }
+  } else {
+    console.warn(`[quest] questSeeds contract not loaded — Seeds will be DB-only`);
+  }
+
+  // Mark as VERIFIED
+  const completion = await queryOne(
+    `UPDATE quest_completions
+     SET status = 'VERIFIED', seeds_awarded = $1, tx_hash = $2, verified_at = NOW()
+     WHERE id = $3 RETURNING *`,
+    [seedsReward, onChainTxHash, completionId]
+  );
+
+  // Insert seeds ledger entry
+  await queryOne(
+    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4) RETURNING *`,
+    [wallet, seedsReward, row.quest_id, onChainTxHash]
+  );
+
+  console.log(`[quest] Approved submission ${completionId}: ${seedsReward} XP to ${wallet}`);
+  return completion;
+}
+
+/**
+ * Reject a pending submission.
+ */
+export async function rejectPendingSubmission(completionId, reason = '') {
+  const row = await queryOne(`SELECT * FROM quest_completions WHERE id = $1`, [completionId]);
+  if (!row) throw new Error('Submission not found');
+  if (row.status !== 'PENDING') throw new Error(`Submission is not pending (status=${row.status})`);
+
+  const existingProof = row.proof || {};
+  const updatedProof = { ...existingProof, reject_reason: reason || null };
+
+  const completion = await queryOne(
+    `UPDATE quest_completions SET status = 'REJECTED', proof = $1 WHERE id = $2 RETURNING *`,
+    [JSON.stringify(updatedProof), completionId]
+  );
+  console.log(`[quest] Rejected submission ${completionId} (reason=${reason})`);
+  return completion;
+}
+
 /**
  * Get total Seeds for a wallet.
  */
@@ -297,6 +439,38 @@ export async function getSeedsBalance(wallet) {
  */
 export async function getAllRegisteredUsers() {
   return queryAll(`SELECT * FROM quest_registrations ORDER BY registered_at ASC`);
+}
+
+/**
+ * Quest leaderboard: every registered user with their total XP, quests completed,
+ * and registered handles. Ranked by total XP descending.
+ */
+export async function getQuestLeaderboard() {
+  return queryAll(`
+    SELECT
+      r.wallet,
+      r.x_username,
+      r.github_username,
+      r.registered_at,
+      COALESCE(s.total_xp, 0)::int       AS total_xp,
+      COALESCE(c.completed_count, 0)::int AS quests_completed,
+      COALESCE(c.last_completed_at, NULL) AS last_completed_at
+    FROM quest_registrations r
+    LEFT JOIN (
+      SELECT wallet, SUM(delta) AS total_xp
+      FROM seeds_ledger
+      GROUP BY wallet
+    ) s ON s.wallet = r.wallet
+    LEFT JOIN (
+      SELECT wallet,
+             COUNT(DISTINCT quest_id) AS completed_count,
+             MAX(verified_at)         AS last_completed_at
+      FROM quest_completions
+      WHERE status = 'VERIFIED'
+      GROUP BY wallet
+    ) c ON c.wallet = r.wallet
+    ORDER BY total_xp DESC, r.registered_at ASC
+  `);
 }
 
 /**

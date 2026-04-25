@@ -12,11 +12,13 @@ import {
   listInvites,
   getQuestStats,
   getQuestBySlug,
+  submitQuestProof,
+  listPendingSubmissions,
+  approvePendingSubmission,
+  rejectPendingSubmission,
+  getQuestLeaderboard,
 } from '../services/quest-service.mjs';
-import { runFollowCheck, runMentionCheck } from '../cron/quest-x-monitor.mjs';
 import { runStreamCheck } from '../cron/quest-stream-monitor.mjs';
-import { verifyTweetProof, extractTweetId } from '../services/x-tweet-verify.mjs';
-import { queryOne } from '../services/db.mjs';
 
 const router = Router();
 
@@ -125,7 +127,7 @@ router.get('/seeds/:wallet', async (req, res, next) => {
 router.post('/:slug/claim', async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const { wallet, tweet_url } = req.body;
+    const { wallet, x_username, tweet_url } = req.body;
 
     if (!wallet) return res.status(400).json({ error: 'Wallet is required' });
 
@@ -145,44 +147,42 @@ router.post('/:slug/claim', async (req, res, next) => {
       }
     }
 
-    // Synchronous tweet-proof verification for X quests (cheap: ~$0.002 per check)
-    if (slug === 'follow-x' || slug === 'mention-x') {
-      if (!tweet_url) {
-        return res.status(400).json({
-          error: `Please post a tweet mentioning @${process.env.GROWSTREAMS_X_HANDLE || 'growwstreams'} with your wallet address, then submit the tweet URL.`,
-        });
-      }
+    // Manual review submissions for X quests (no X API usage)
+    if (slug === 'follow-x') {
+      const handle = (x_username || '').trim().replace(/^@/, '');
+      if (!handle) return res.status(400).json({ error: 'Please enter your X username' });
 
-      const tweetId = extractTweetId(tweet_url);
-      if (!tweetId) return res.status(400).json({ error: 'Invalid tweet URL format' });
-
-      // Anti-reuse: same tweet can't be used twice across any wallet
-      const existing = await queryOne(
-        `SELECT wallet FROM quest_completions WHERE proof->>'tweet_id' = $1`,
-        [tweetId]
-      );
-      if (existing) {
-        return res.status(400).json({ error: 'This tweet has already been used for a quest claim' });
-      }
-
-      const verifyResult = await verifyTweetProof(tweet_url, registration.x_username, wallet);
-      if (!verifyResult.valid) {
-        return res.status(400).json({ error: verifyResult.error });
-      }
-
-      await awardSeeds(wallet, slug, {
-        tweet_id: verifyResult.tweet.id,
-        tweet_text: verifyResult.tweet.text,
-        author: verifyResult.tweet.author,
-        source: 'tweet-proof',
+      const result = await submitQuestProof(wallet, slug, {
+        x_username: handle,
+        source: 'manual-review',
       });
-
       return res.json({
-        message: 'Quest verified via tweet proof and Seeds awarded!',
+        message: 'Submitted for review. An admin will award XP shortly.',
         slug,
         wallet,
-        status: 'VERIFIED',
-        tweet: verifyResult.tweet,
+        status: 'PENDING_REVIEW',
+        submission: result,
+      });
+    }
+
+    if (slug === 'mention-x') {
+      const url = (tweet_url || '').trim();
+      if (!url) return res.status(400).json({ error: 'Please paste your tweet URL' });
+      // basic URL sanity check
+      if (!/^https?:\/\/(x\.com|twitter\.com)\//i.test(url)) {
+        return res.status(400).json({ error: 'Invalid X/Twitter URL' });
+      }
+
+      const result = await submitQuestProof(wallet, slug, {
+        tweet_url: url,
+        source: 'manual-review',
+      });
+      return res.json({
+        message: 'Submitted for review. An admin will award XP shortly.',
+        slug,
+        wallet,
+        status: 'PENDING_REVIEW',
+        submission: result,
       });
     }
 
@@ -232,6 +232,17 @@ router.post('/:slug/claim', async (req, res, next) => {
         console.error(`[quest-claim] Async verification failed for ${slug}: ${verifyErr.message}`);
       }
     });
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/quests/leaderboard (public)
+// Ranked list of all quest-registered users with total XP, completions, handles.
+// ---------------------------------------------------------------------------
+router.get('/leaderboard', async (req, res, next) => {
+  try {
+    const rows = await getQuestLeaderboard();
+    res.json({ leaderboard: rows, total: rows.length });
   } catch (err) { next(err); }
 });
 
@@ -290,6 +301,46 @@ router.post('/admin/award', requireAdmin, async (req, res, next) => {
     }
     res.json({ message: 'Seeds awarded', completion });
   } catch (err) { next(err); }
+});
+
+// GET /api/quests/admin/submissions
+// List PENDING quest submissions awaiting manual review
+router.get('/admin/submissions', requireAdmin, async (req, res, next) => {
+  try {
+    const submissions = await listPendingSubmissions();
+    res.json({ submissions, total: submissions.length });
+  } catch (err) { next(err); }
+});
+
+// POST /api/quests/admin/submissions/:id/approve
+router.post('/admin/submissions/:id/approve', requireAdmin, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+    const completion = await approvePendingSubmission(id);
+    res.json({ message: 'Submission approved', completion });
+  } catch (err) {
+    if (err.message?.includes('not found') || err.message?.includes('not pending')) {
+      return res.status(400).json({ error: err.message });
+    }
+    next(err);
+  }
+});
+
+// POST /api/quests/admin/submissions/:id/reject
+router.post('/admin/submissions/:id/reject', requireAdmin, async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid id' });
+    const { reason = '' } = req.body || {};
+    const completion = await rejectPendingSubmission(id, reason);
+    res.json({ message: 'Submission rejected', completion });
+  } catch (err) {
+    if (err.message?.includes('not found') || err.message?.includes('not pending')) {
+      return res.status(400).json({ error: err.message });
+    }
+    next(err);
+  }
 });
 
 // GET /api/quests/admin/stats

@@ -10,14 +10,14 @@ export async function updateXQuestDescriptions() {
       `UPDATE quests SET title = $1, description = $2 WHERE slug = 'follow-x'`,
       [
         'Follow X',
-        'Follow @growwstreams, then post a tweet mentioning @growwstreams with your wallet address as proof. Submit the tweet URL to claim.',
+        'Follow @growwstreams on X, then submit your X username for review. An admin will verify and award XP.',
       ]
     );
     await query(
       `UPDATE quests SET title = $1, description = $2 WHERE slug = 'mention-x'`,
       [
         'Post on X',
-        'Post a tweet mentioning @growwstreams with your wallet address. Submit the tweet URL to claim.',
+        'Post a tweet mentioning @growwstreams with your wallet address, then paste the tweet URL for admin review.',
       ]
     );
     console.log('[migration] ✅ Updated X quest titles and descriptions');

@@ -397,7 +397,7 @@ router.post('/reprocess-prs', async (req, res, next) => {
       return res.status(500).json({ error: 'GitHub token not configured' });
     }
 
-    const owner = process.env.GITHUB_REPO_OWNER || 'BlockXAI';
+    const owner = process.env.GITHUB_REPO_OWNER || 'BlockX-AI';
     const repo = process.env.GITHUB_REPO_NAME || 'GrowStreams_Backend';
     
     const headers = {

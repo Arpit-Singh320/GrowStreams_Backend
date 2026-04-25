@@ -12,7 +12,7 @@ function getToken() {
 
 function getRepoConfig() {
   return {
-    owner: process.env.GITHUB_REPO_OWNER || 'BlockXAI',
+    owner: process.env.GITHUB_REPO_OWNER || 'BlockX-AI',
     repo: process.env.GITHUB_REPO_NAME || 'GrowStreams_Backend',
   };
 }
