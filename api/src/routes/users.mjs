@@ -5,8 +5,11 @@ import {
   getUserProfile,
   getUserReferrals,
 } from '../services/user-service.mjs';
+import { getUserCampaigns } from '../services/campaign-service.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 
 // ---------------------------------------------------------------------------
 // Simple in-memory rate limiter: max 5 registrations per IP per minute
@@ -78,24 +81,13 @@ router.post('/register', async (req, res, next) => {
 router.get('/:wallet', async (req, res, next) => {
   try {
     const { wallet } = req.params;
-    if (!wallet || wallet.length < 10) {
-      return res.status(400).json({ error: 'Invalid wallet address' });
-    }
-
     const profile = await getUserProfile(wallet);
 
     if (!profile) {
-      return res.status(404).json({ error: 'User not found', wallet });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({
-      wallet,
-      user: profile.user,
-      referralCount: profile.referralCount ?? 0,
-      totalXP: profile.totalXP ?? 0,
-      track: profile.track ?? null,
-      rank: profile.rank ?? null,
-    });
+    res.json(profile);
   } catch (err) { next(err); }
 });
 
@@ -105,24 +97,31 @@ router.get('/:wallet', async (req, res, next) => {
 router.get('/:wallet/referrals', async (req, res, next) => {
   try {
     const { wallet } = req.params;
-    if (!wallet || wallet.length < 10) {
-      return res.status(400).json({ error: 'Invalid wallet address' });
-    }
-
     const user = await getUserByWallet(wallet);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found', wallet });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     const referrals = await getUserReferrals(user.id);
 
     res.json({
       wallet,
-      referral_code: user.referral_code || null,
-      referral_count: referrals?.length ?? 0,
-      referrals: referrals || [],
+      referral_code: user.referral_code,
+      referral_count: referrals.length,
+      referrals,
     });
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/users/:wallet/campaigns
+// ---------------------------------------------------------------------------
+router.get('/:wallet/campaigns', async (req, res, next) => {
+  try {
+    const { wallet } = req.params;
+    const campaigns = await getUserCampaigns(wallet);
+    res.json({ wallet, campaigns, count: campaigns.length });
   } catch (err) { next(err); }
 });
 

@@ -1,107 +1,142 @@
-// ---------------------------------------------------------------------------
-// Supported token registry for GrowStreams V3
-// ---------------------------------------------------------------------------
-
-// Vara ActorId requires 32-byte (64-char) hex with 0x prefix.
-// ETH addresses are standard 20-byte (40-char) hex with 0x prefix.
+// Token Registry — all supported tokens with full metadata
+// Vara addresses are VFT contract ActorIds on Vara testnet
+// ETH addresses are ERC-20 contract addresses on Ethereum Hoodi testnet
 
 export const SUPPORTED_TOKENS = {
   WUSDC: {
-    symbol: 'WUSDC',
-    displaySymbol: 'USDC',
-    name: 'Wrapped USD Coin',
+    symbol: 'USDC',
+    name: 'USD Coin',
     decimals: 6,
     vara: '0x9f332e61589e0850dce6d8e6070ea5618de33d9f134a4a35d6d1164dc9002f48',
     eth: '0x263898d2f6f8E153F1e4DD4CAEF86C93784fCf33',
     icon: '/tokens/usdc.svg',
     category: 'stablecoin',
-    coingeckoId: 'usd-coin',
+    isStablecoin: true,
+    minBuffer: 3600, // seconds of flow required as buffer
   },
   WUSDT: {
-    symbol: 'WUSDT',
-    displaySymbol: 'USDT',
-    name: 'Wrapped Tether USD',
+    symbol: 'USDT',
+    name: 'Tether USD',
     decimals: 6,
     vara: '0x464511231a1afe9108a689ed3dbbb047ca308d6f5dfb86453e4df5612a2d668a',
     eth: '0x7728A33EBEBCfa852cf7f7Fc377BfC87C24a701A',
     icon: '/tokens/usdt.svg',
     category: 'stablecoin',
-    coingeckoId: 'tether',
+    isStablecoin: true,
+    minBuffer: 3600,
   },
   WETH: {
     symbol: 'WETH',
-    displaySymbol: 'ETH',
     name: 'Wrapped Ether',
     decimals: 18,
     vara: '0xba764e2836b28806be10fe6f674d89d1e0c86898d25728f776588f03bddc6f58',
     eth: '0xE0decAa66aED871ac9eb924443D1Bf333Fdb062E',
-    icon: '/tokens/eth.svg',
-    category: 'crypto',
-    coingeckoId: 'ethereum',
+    icon: '/tokens/weth.svg',
+    category: 'volatile',
+    isStablecoin: false,
+    minBuffer: 3600,
   },
   WBTC: {
     symbol: 'WBTC',
-    displaySymbol: 'BTC',
     name: 'Wrapped Bitcoin',
     decimals: 8,
     vara: '0xc1ec06d99efcffd863f9c2ad2bc76f656aff861acf06f438046c64e5b41e3fd9',
     eth: '0xa56a332d34b2db33ebc41dc0194afd28cb20d19b',
-    icon: '/tokens/btc.svg',
-    category: 'crypto',
-    coingeckoId: 'bitcoin',
+    icon: '/tokens/wbtc.svg',
+    category: 'volatile',
+    isStablecoin: false,
+    minBuffer: 3600,
+  },
+  GROW: {
+    symbol: 'GROW',
+    name: 'GrowStreams Token',
+    decimals: 18,
+    vara: '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf',
+    eth: null,
+    icon: '/tokens/grow.svg',
+    category: 'utility',
+    isStablecoin: false,
+    minBuffer: 3600,
+  },
+  WTVARA: {
+    symbol: 'WTVARA',
+    name: 'Tokenized VARA',
+    decimals: 12,
+    vara: 'native',           // native VARA is locked on Vara side
+    eth: '0xE1ab85A8B4d5d5B6af0bbD0203EB322DF33d0464',
+    icon: '/tokens/vara.svg',
+    category: 'native',
+    isStablecoin: false,
+    minBuffer: 3600,
   },
   VARA: {
     symbol: 'VARA',
-    displaySymbol: 'VARA',
-    name: 'Vara Network',
+    name: 'Vara',
     decimals: 12,
-    vara: '0x0000000000000000000000000000000000000000000000000000000000000000',
+    vara: 'native',
     eth: null,
     icon: '/tokens/vara.svg',
     category: 'native',
-    coingeckoId: 'vara-network',
+    isStablecoin: false,
+    minBuffer: 3600,
   },
 };
 
 // Lookup helpers
-const _byVara = new Map();
-const _byEth = new Map();
-const _bySymbol = new Map();
 
-for (const [key, token] of Object.entries(SUPPORTED_TOKENS)) {
-  _byVara.set(token.vara.toLowerCase(), token);
-  if (token.eth) _byEth.set(token.eth.toLowerCase(), token);
-  _bySymbol.set(token.symbol.toUpperCase(), token);
-  _bySymbol.set(token.displaySymbol.toUpperCase(), token);
-}
-
-export function getTokenBySymbol(symbol) {
-  return _bySymbol.get(symbol.toUpperCase()) || null;
-}
-
-export function getTokenByVaraAddress(varaAddress) {
-  return _byVara.get(varaAddress.toLowerCase()) || null;
-}
-
-export function getTokenByEthAddress(ethAddress) {
-  return _byEth.get(ethAddress.toLowerCase()) || null;
-}
-
-export function resolveTokenAddress(symbolOrAddress) {
-  // If it looks like a 0x address, return as-is
-  if (symbolOrAddress.startsWith('0x') && symbolOrAddress.length >= 42) {
-    return symbolOrAddress;
+/** Get token config by symbol (case-insensitive, accepts WUSDC or USDC) */
+export function getToken(symbolOrKey) {
+  if (!symbolOrKey) return null;
+  const upper = symbolOrKey.toUpperCase();
+  // Direct key match (WUSDC, WUSDT, WETH, WBTC, VARA)
+  if (SUPPORTED_TOKENS[upper]) return { key: upper, ...SUPPORTED_TOKENS[upper] };
+  // Match by display symbol (USDC → WUSDC, USDT → WUSDT)
+  for (const [key, tok] of Object.entries(SUPPORTED_TOKENS)) {
+    if (tok.symbol.toUpperCase() === upper) return { key, ...tok };
   }
-  // Otherwise treat as symbol and resolve to Vara address
-  const token = getTokenBySymbol(symbolOrAddress);
-  if (!token) return null;
-  return token.vara;
+  return null;
 }
 
-export function getAllTokens() {
-  return Object.values(SUPPORTED_TOKENS);
+/** Get token config by Vara contract address */
+export function getTokenByVaraAddress(varaAddress) {
+  if (!varaAddress) return null;
+  const lower = varaAddress.toLowerCase();
+  for (const [key, tok] of Object.entries(SUPPORTED_TOKENS)) {
+    if (tok.vara && tok.vara.toLowerCase() === lower) return { key, ...tok };
+  }
+  return null;
 }
 
-export function getStablecoins() {
-  return getAllTokens().filter(t => t.category === 'stablecoin');
+/** Get token config by ETH contract address */
+export function getTokenByEthAddress(ethAddress) {
+  if (!ethAddress) return null;
+  const lower = ethAddress.toLowerCase();
+  for (const [key, tok] of Object.entries(SUPPORTED_TOKENS)) {
+    if (tok.eth && tok.eth.toLowerCase() === lower) return { key, ...tok };
+  }
+  return null;
+}
+
+/** List all tokens as array */
+export function listTokens() {
+  return Object.entries(SUPPORTED_TOKENS).map(([key, tok]) => ({ key, ...tok }));
+}
+
+/** List only stablecoins */
+export function listStablecoins() {
+  return listTokens().filter(t => t.isStablecoin);
+}
+
+/** Resolve a token identifier (symbol, key, or vara address) to its Vara ActorId */
+export function resolveVaraAddress(tokenIdentifier) {
+  // If it looks like a hex address, try direct lookup
+  if (tokenIdentifier && tokenIdentifier.startsWith('0x') && tokenIdentifier.length > 20) {
+    const byAddr = getTokenByVaraAddress(tokenIdentifier);
+    if (byAddr) return byAddr.vara;
+    // Already a raw address — pass through
+    return tokenIdentifier;
+  }
+  const tok = getToken(tokenIdentifier);
+  if (!tok) return null;
+  return tok.vara;
 }

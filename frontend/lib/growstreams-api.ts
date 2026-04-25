@@ -10,6 +10,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return data as T;
 }
 
+function authedRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
+  return request<T>(path, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, ...(options?.headers || {}) },
+  });
+}
+
 function get<T>(path: string) {
   return request<T>(path);
 }
@@ -348,6 +355,70 @@ export interface UserCampaign {
   pool_amount: string;
 }
 
+// ─── Quest types (M1-beta: ported from Launch branch) ────────────────────────
+export interface QuestData {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  quest_type: string;
+  seeds_reward: number;
+  icon: string;
+  repeatable: boolean;
+  active: boolean;
+  sort_order: number;
+  completed?: boolean;
+  completionCount?: number;
+  totalEarned?: number;
+  latestCompletion?: Record<string, unknown> | null;
+  pendingSubmission?: {
+    id: number;
+    status: string;
+    proof: Record<string, unknown> | null;
+    created_at: string;
+  } | null;
+  rejectedSubmission?: {
+    id: number;
+    status: string;
+    proof: Record<string, unknown> | null;
+    created_at: string;
+  } | null;
+}
+
+export interface QuestSubmission {
+  id: number;
+  wallet: string;
+  quest_id: number;
+  proof: Record<string, unknown> | null;
+  created_at: string;
+  quest_slug: string;
+  quest_title: string;
+  seeds_reward: number;
+  email: string | null;
+  x_username: string | null;
+  github_username: string | null;
+}
+
+export interface QuestProgress {
+  registered: boolean;
+  registration?: Record<string, unknown>;
+  totalSeeds?: number;
+  questsCompleted?: number;
+  questsTotal?: number;
+  quests?: QuestData[];
+  recentActivity?: Array<{
+    id: number;
+    wallet: string;
+    delta: number;
+    reason: string;
+    quest_id: number;
+    tx_hash: string | null;
+    created_at: string;
+    slug: string;
+    quest_title: string;
+  }>;
+}
+
 export const api = {
   health: () => get<HealthData>('/health'),
 
@@ -620,5 +691,54 @@ export const api = {
       post<TxResult | PayloadResult>('/api/identity/revoke', params as unknown as Record<string, unknown>),
     updateScore: (params: { actorId: string; newScore: number; mode?: string }) =>
       post<TxResult | PayloadResult>('/api/identity/update-score', params as unknown as Record<string, unknown>),
+  },
+
+  // ─── Quests (M1-beta: ported from Launch branch) ───────────────────────────
+  quests: {
+    verifyInvite: (code: string) =>
+      post<{ valid: boolean; message?: string }>('/api/quests/verify-invite', { code } as Record<string, unknown>),
+    register: (params: { wallet: string; email: string; x_username: string; github_username: string; invite_code: string }) =>
+      post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
+    list: () =>
+      get<{ quests: QuestData[] }>('/api/quests'),
+    me: (wallet: string) =>
+      get<QuestProgress>(`/api/quests/me?wallet=${wallet}`),
+    seeds: (wallet: string) =>
+      get<{ wallet: string; seeds: number }>(`/api/quests/seeds/${wallet}`),
+    claim: (slug: string, wallet: string, payload?: { x_username?: string; tweet_url?: string }) =>
+      post<{ message: string; slug: string; wallet: string; status: string }>(
+        `/api/quests/${slug}/claim`,
+        { wallet, ...(payload || {}) } as Record<string, unknown>
+      ),
+    stats: () =>
+      get<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>('/api/quests/stats'),
+    leaderboard: () =>
+      get<{
+        leaderboard: Array<{
+          wallet: string;
+          x_username: string;
+          github_username: string;
+          registered_at: string;
+          total_xp: number;
+          quests_completed: number;
+          last_completed_at: string | null;
+        }>;
+        total: number;
+      }>('/api/quests/leaderboard'),
+
+    // Admin (requires Bearer token)
+    adminListSubmissions: (token: string) =>
+      authedRequest<{ submissions: QuestSubmission[]; total: number }>(token, '/api/quests/admin/submissions'),
+    adminApproveSubmission: (token: string, id: number) =>
+      authedRequest<{ message: string; completion: Record<string, unknown> }>(token, `/api/quests/admin/submissions/${id}/approve`, {
+        method: 'POST',
+      }),
+    adminRejectSubmission: (token: string, id: number, reason?: string) =>
+      authedRequest<{ message: string; completion: Record<string, unknown> }>(token, `/api/quests/admin/submissions/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: reason || '' }),
+      }),
+    adminStats: (token: string) =>
+      authedRequest<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>(token, '/api/quests/admin/stats'),
   },
 };

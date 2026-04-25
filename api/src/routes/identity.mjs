@@ -52,10 +52,7 @@ router.post('/bind', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'CreateBinding', actorId, githubUsername, proofBytes, Number(score)) });
     }
     const { result, blockHash } = await command(C, 'CreateBinding', actorId, githubUsername, proofBytes, Number(score));
-    // Re-query to confirm the binding is reflected immediately
-    let binding = null;
-    try { binding = await query(C, 'GetBinding', actorId); } catch { /* not critical */ }
-    res.status(201).json({ actorId, githubUsername, blockHash, binding });
+    res.status(201).json({ actorId, githubUsername, blockHash });
   } catch (err) { next(err); }
 });
 
@@ -67,10 +64,7 @@ router.post('/revoke', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'RevokeBinding', actorId) });
     }
     const { result, blockHash } = await command(C, 'RevokeBinding', actorId);
-    // Verify revocation was applied
-    let binding = null;
-    try { binding = await query(C, 'GetBinding', actorId); } catch { /* expected if revoked */ }
-    res.json({ actorId, revoked: true, blockHash, binding });
+    res.json({ actorId, revoked: true, blockHash });
   } catch (err) { next(err); }
 });
 
@@ -82,10 +76,7 @@ router.post('/update-score', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'UpdateScore', actorId, Number(newScore)) });
     }
     const { result, blockHash } = await command(C, 'UpdateScore', actorId, Number(newScore));
-    // Re-query to confirm score update is reflected
-    let binding = null;
-    try { binding = await query(C, 'GetBinding', actorId); } catch { /* not critical */ }
-    res.json({ actorId, newScore, blockHash, binding });
+    res.json({ actorId, newScore, blockHash });
   } catch (err) { next(err); }
 });
 

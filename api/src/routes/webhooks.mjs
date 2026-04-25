@@ -6,8 +6,6 @@ import {
   handlePRMerged,
   handlePRClosed,
 } from '../services/github-agent.mjs';
-import { awardSeeds, isQuestCompleted } from '../services/quest-service.mjs';
-import { queryOne } from '../services/db.mjs';
 
 const router = Router();
 
@@ -79,71 +77,22 @@ router.post('/github', async (req, res) => {
 
   // Route to handler
   try {
-    console.log(`[webhook] Processing event: ${event}, delivery: ${deliveryId}`);
-    
     if (event === 'pull_request') {
       const action = payload.action;
       const merged = payload.pull_request?.merged;
-      const prNumber = payload.pull_request?.number;
-      const author = payload.pull_request?.user?.login;
 
-      console.log(`[webhook] pull_request.${action} #${prNumber} by @${author} (merged=${merged})`);
+      console.log(`[webhook] pull_request.${action} #${payload.pull_request?.number} (merged=${merged})`);
 
       if (action === 'opened') {
-        console.log(`[webhook] Calling handlePROpened for PR #${prNumber}`);
         await handlePROpened(payload);
-        console.log(`[webhook] handlePROpened completed for PR #${prNumber}`);
       } else if (action === 'synchronize') {
-        console.log(`[webhook] Calling handlePRSynchronized for PR #${prNumber}`);
         await handlePRSynchronized(payload);
-        console.log(`[webhook] handlePRSynchronized completed for PR #${prNumber}`);
       } else if (action === 'closed' && merged) {
-        console.log(`[webhook] Calling handlePRMerged for PR #${prNumber}`);
         await handlePRMerged(payload);
-        console.log(`[webhook] handlePRMerged completed for PR #${prNumber}`);
       } else if (action === 'closed' && !merged) {
-        console.log(`[webhook] Calling handlePRClosed for PR #${prNumber}`);
         await handlePRClosed(payload);
-        console.log(`[webhook] handlePRClosed completed for PR #${prNumber}`);
       } else {
-        console.log(`[webhook] Ignoring pull_request.${action} for PR #${prNumber}`);
-      }
-      // Quest Q4: Award Seeds for PR opened by a quest-registered user
-      if (action === 'opened' && author) {
-        try {
-          const questReg = await queryOne(
-            `SELECT wallet FROM quest_registrations WHERE github_username = $1`,
-            [author.toLowerCase()]
-          );
-          if (questReg) {
-            const completion = await awardSeeds(questReg.wallet, 'raise-pr', { pr_number: prNumber, author });
-            if (completion) {
-              console.log(`[webhook] Quest Q4: Awarded Seeds to ${questReg.wallet} for PR #${prNumber}`);
-            }
-          }
-        } catch (questErr) {
-          console.warn(`[webhook] Quest PR award failed: ${questErr.message}`);
-        }
-      }
-    } else if (event === 'star') {
-      // Quest Q3: Star event
-      const action = payload.action;
-      const sender = payload.sender?.login;
-      console.log(`[webhook] star.${action} by @${sender}`);
-
-      if (action === 'created' && sender) {
-        try {
-          const questReg = await queryOne(
-            `SELECT wallet FROM quest_registrations WHERE github_username = $1`,
-            [sender.toLowerCase()]
-          );
-          if (questReg && !(await isQuestCompleted(questReg.wallet, 'star-repo'))) {
-            await awardSeeds(questReg.wallet, 'star-repo', { github_user: sender });
-            console.log(`[webhook] Quest Q3: Awarded Seeds to ${questReg.wallet} for starring repo`);
-          }
-        } catch (questErr) {
-          console.warn(`[webhook] Quest star award failed: ${questErr.message}`);
-        }
+        console.log(`[webhook] Ignoring pull_request.${action}`);
       }
     } else if (event === 'ping') {
       console.log('[webhook] Ping received, webhook configured correctly');
@@ -151,8 +100,7 @@ router.post('/github', async (req, res) => {
       console.log(`[webhook] Ignoring event: ${event}`);
     }
   } catch (err) {
-    console.error(`[webhook] Handler error for ${event}:`, err);
-    console.error(`[webhook] Error stack:`, err.stack);
+    console.error(`[webhook] Handler error for ${event}: ${err.message}`);
   }
 });
 

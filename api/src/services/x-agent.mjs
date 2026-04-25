@@ -1,7 +1,8 @@
 import { TwitterApi } from 'twitter-api-v2';
 import { scoreContent } from './llm-scorer.mjs';
 import { awardXP, getInitialXP } from './xp-service.mjs';
-import { queryOne, query, queryAll } from './db.mjs';
+import { queryOne, query } from './db.mjs';
+import { matchCampaignsForTweet, awardCampaignXP, checkContributionLimit } from './campaign-service.mjs';
 
 let readClient = null;
 let writeClient = null;
@@ -49,16 +50,79 @@ function isCampaignActive() {
   const now = new Date();
 
   if (start && new Date(start) > now) return false;
-  if (end) {
-    // Treat end date as end-of-day (23:59:59.999 UTC) so the campaign is active on its final day
-    const endOfDay = new Date(end);
-    endOfDay.setUTCHours(23, 59, 59, 999);
-    if (endOfDay < now) {
-      console.log(`[x-agent] Campaign ended on ${end}, skipping`);
-      return false;
-    }
-  }
+  if (end && new Date(end) < now) return false;
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Extract hashtags and mentions from tweet text
+// ---------------------------------------------------------------------------
+function extractHashtags(text) {
+  if (!text) return [];
+  const matches = text.match(/#[\w]+/g);
+  return matches ? [...new Set(matches.map(h => h.toLowerCase()))] : [];
+}
+
+function extractMentions(text) {
+  if (!text) return [];
+  const matches = text.match(/@[\w]+/g);
+  return matches ? [...new Set(matches.map(m => m.toLowerCase().replace(/^@/, '')))] : [];
+}
+
+// ---------------------------------------------------------------------------
+// Match tweet against active campaigns and award campaign XP
+// ---------------------------------------------------------------------------
+async function matchAndAwardTweetCampaigns(wallet, tweetId, contributionId, xpAmount, tweetText) {
+  try {
+    const hashtags = extractHashtags(tweetText);
+    const mentions = extractMentions(tweetText);
+    const matchedCampaigns = await matchCampaignsForTweet(hashtags, mentions);
+
+    if (matchedCampaigns.length === 0) return null;
+
+    if (matchedCampaigns.length > 1) {
+      console.warn(`[x-agent] Tweet ${tweetId} matched ${matchedCampaigns.length} campaigns for wallet ${wallet}`);
+    }
+
+    // Set campaign_id (first match) and campaign_count on the contribution
+    await query(
+      `UPDATE contributions SET campaign_id = $1, campaign_count = $2, updated_at = NOW() WHERE id = $3`,
+      [matchedCampaigns[0].id, matchedCampaigns.length, contributionId]
+    );
+
+    const firstCampaignId = matchedCampaigns[0].id;
+
+    for (const campaign of matchedCampaigns) {
+      try {
+        // Check if participant is enrolled
+        const enrollment = await queryOne(
+          `SELECT id FROM campaign_participants WHERE campaign_id = $1 AND wallet = $2`,
+          [campaign.id, wallet]
+        );
+        if (!enrollment) {
+          console.log(`[x-agent] ${wallet} not enrolled in campaign ${campaign.id}, skipping campaign XP`);
+          continue;
+        }
+
+        // Check content contribution limit
+        const limitCheck = await checkContributionLimit(campaign.id, wallet, 'CONTENT');
+        if (!limitCheck.allowed) {
+          console.log(`[x-agent] ${wallet} hit limit in campaign ${campaign.id}: ${limitCheck.reason}`);
+          continue;
+        }
+
+        await awardCampaignXP(campaign.id, wallet, xpAmount, contributionId);
+        console.log(`[x-agent] +${xpAmount} campaign XP to ${wallet} in campaign ${campaign.id}`);
+      } catch (campErr) {
+        console.error(`[x-agent] Campaign XP failed for ${wallet} in ${campaign.id}: ${campErr.message}`);
+      }
+    }
+
+    return firstCampaignId;
+  } catch (err) {
+    console.error(`[x-agent] Campaign matching failed for tweet ${tweetId}: ${err.message}`);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -124,9 +188,8 @@ async function updateContribution(id, updates) {
 // Calculate engagement velocity
 // ---------------------------------------------------------------------------
 function calculateEngagementVelocity(likes, retweets, replies, followerCount) {
-  const raw = likes + retweets * 2 + replies * 1.5;
-  const effectiveFollowers = Math.max(followerCount || 0, 100); // floor at 100 to avoid tiny-denominator spikes
-  return raw / effectiveFollowers;
+  if (!followerCount || followerCount === 0) return 0;
+  return (likes + retweets * 2 + replies * 1.5) / followerCount;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,37 +309,36 @@ async function processTweet(tweet, authorUsername, authorMetrics) {
     return;
   }
 
-  // 8. TWO-PHASE SCORING
-  //    Phase 1 (now): use LLM quality score ONLY (engagement is near-zero for fresh tweets)
-  //    Phase 2 (6h re-eval): combine LLM + engagement for final score, adjust XP
-  const qualityScore = llmResult.score;
-  const threshold = parseInt(process.env.SCORE_THRESHOLD || '70', 10);
-  const reevalThreshold = 40; // tweets scoring 40-69 get a second chance at 6h re-eval
+  // 8. Combined score: 65% LLM + 35% engagement
+  const combinedScore = Math.round(llmResult.score * 0.65 + engagementScore * 0.35);
 
-  if (qualityScore >= threshold) {
-    // HIGH QUALITY — award provisional XP (70% of full), finalize at 6h re-eval
-    const fullXP = getInitialXP(qualityScore, 'CONTENT');
-    let provisionalXP = Math.round(fullXP * 0.7);
+  const threshold = parseInt(process.env.SCORE_THRESHOLD || '70', 10);
+
+  if (combinedScore >= threshold) {
+    let xpAmount = getInitialXP(combinedScore, 'CONTENT');
 
     // Thread bonus: +30% if thread with 5+ tweets
     if (isThread && threadLength >= 5) {
-      provisionalXP = Math.round(provisionalXP * 1.3);
+      xpAmount = Math.round(xpAmount * 1.3);
     }
 
     const contribution = await insertContribution(
-      participant.wallet, tweetId, qualityScore, provisionalXP,
-      'PROVISIONAL', llmResult.feedback, {
+      participant.wallet, tweetId, combinedScore, xpAmount,
+      'ACTIVE', llmResult.feedback, {
         ...llmResult,
-        qualityScore,
+        combinedScore,
         engagementScore,
         velocity,
-        phase: 'initial',
-        followerCount,
       }
     );
 
+    // Match against active campaigns
+    const campaignId = await matchAndAwardTweetCampaigns(
+      participant.wallet, tweetId, contribution.id, xpAmount, tweetText
+    );
+
     try {
-      await awardXP(participant.wallet, provisionalXP, 'INITIAL_AWARD', contribution.id);
+      await awardXP(participant.wallet, xpAmount, 'INITIAL_AWARD', contribution.id, campaignId);
     } catch (err) {
       console.error(`[x-agent] XP award failed for tweet ${tweetId}: ${err.message}`);
     }
@@ -284,56 +346,33 @@ async function processTweet(tweet, authorUsername, authorMetrics) {
     // Thread bonus as separate event if applicable
     if (isThread && threadLength >= 5) {
       try {
-        const threadBonusXP = Math.round(getInitialXP(qualityScore, 'CONTENT') * 0.3 * 0.7);
-        await awardXP(participant.wallet, threadBonusXP, 'THREAD_BONUS', contribution.id);
+        const threadBonusXP = Math.round(getInitialXP(combinedScore, 'CONTENT') * 0.3);
+        await awardXP(participant.wallet, threadBonusXP, 'THREAD_BONUS', contribution.id, campaignId);
       } catch (err) {
         console.error(`[x-agent] Thread bonus XP failed for tweet ${tweetId}: ${err.message}`);
       }
     }
 
     const rank = await getParticipantRank(participant.wallet);
-    await replyToTweet(tweetId, buildReplyText(qualityScore, provisionalXP, rank));
+    await replyToTweet(tweetId, buildReplyText(combinedScore, xpAmount, rank));
 
-    // Schedule Phase 2 re-evaluation at 6h and bonus check at 24h
+    // Schedule re-evaluations
     scheduleReevaluation(contribution.id, tweetId, participant.wallet, 6 * 60 * 60 * 1000);   // 6h
     scheduleReevaluation(contribution.id, tweetId, participant.wallet, 24 * 60 * 60 * 1000);  // 24h
 
-    console.log(`[x-agent] Tweet ${tweetId}: qualityScore=${qualityScore}, provisionalXP=${provisionalXP} (PROVISIONAL)`);
-
-  } else if (qualityScore >= reevalThreshold) {
-    // BORDERLINE — don't reject yet, give a second chance at 6h when engagement exists
-    const contribution = await insertContribution(
-      participant.wallet, tweetId, qualityScore, 0,
-      'PENDING_REEVAL', llmResult.feedback, {
-        ...llmResult,
-        qualityScore,
-        engagementScore,
-        velocity,
-        phase: 'initial',
-        followerCount,
-      }
-    );
-
-    // Schedule Phase 2 re-evaluation at 6h
-    scheduleReevaluation(contribution.id, tweetId, participant.wallet, 6 * 60 * 60 * 1000);
-
-    console.log(`[x-agent] Tweet ${tweetId}: qualityScore=${qualityScore}, PENDING_REEVAL (will re-check at 6h)`);
-
+    console.log(`[x-agent] Tweet ${tweetId}: combinedScore=${combinedScore}, xp=${xpAmount}`);
   } else {
-    // LOW QUALITY — reject immediately
     await insertContribution(
-      participant.wallet, tweetId, qualityScore, 0,
+      participant.wallet, tweetId, combinedScore, 0,
       'REJECTED', llmResult.feedback, {
         ...llmResult,
-        qualityScore,
+        combinedScore,
         engagementScore,
         velocity,
-        phase: 'initial',
-        followerCount,
       }
     );
 
-    console.log(`[x-agent] Tweet ${tweetId}: qualityScore=${qualityScore}, REJECTED (below ${reevalThreshold})`);
+    console.log(`[x-agent] Tweet ${tweetId}: combinedScore=${combinedScore}, below threshold`);
   }
 }
 
@@ -361,21 +400,18 @@ function scheduleReevaluation(contributionId, tweetId, wallet, delayMs) {
 
 // ---------------------------------------------------------------------------
 // Re-evaluate a tweet (called by timer or cron)
-// Handles three statuses:
-//   PROVISIONAL  → finalize with engagement boost, award remaining 30% XP
-//   PENDING_REEVAL → second chance: combine LLM + engagement, award if above threshold
-//   ACTIVE       → check for viral/reshare/engagement bonuses
 // ---------------------------------------------------------------------------
 export async function reevaluateTweet(contributionId, tweetId, wallet) {
   console.log(`[x-agent] Re-evaluating tweet ${tweetId}`);
 
+  // Fetch contribution
   const contribution = await queryOne(
     `SELECT * FROM contributions WHERE id = $1`,
     [contributionId]
   );
 
-  if (!contribution || !['ACTIVE', 'PROVISIONAL', 'PENDING_REEVAL'].includes(contribution.status)) {
-    console.log(`[x-agent] Contribution ${contributionId} status=${contribution?.status}, skipping re-eval`);
+  if (!contribution || contribution.status !== 'ACTIVE') {
+    console.log(`[x-agent] Contribution ${contributionId} not active, skipping re-eval`);
     return;
   }
 
@@ -388,6 +424,7 @@ export async function reevaluateTweet(contributionId, tweetId, wallet) {
     });
     tweet = data;
   } catch (err) {
+    // 404 or similar = tweet deleted
     if (err.code === 404 || err.data?.status === 404) {
       await updateContribution(contributionId, { status: 'DELETED' });
       console.log(`[x-agent] Tweet ${tweetId} deleted, status → DELETED`);
@@ -402,88 +439,16 @@ export async function reevaluateTweet(contributionId, tweetId, wallet) {
   const replies = tweet.public_metrics?.reply_count || 0;
   const totalEngagements = likes + retweets + replies;
 
-  const oldResponse = typeof contribution.agent_response === 'string'
-    ? JSON.parse(contribution.agent_response)
-    : contribution.agent_response || {};
-  const followerCount = oldResponse.followerCount || 100;
-  const qualityScore = oldResponse.qualityScore || oldResponse.score || contribution.score;
+  // Get campaign_id from the contribution for re-evaluation bonuses
+  const campaignId = contribution.campaign_id || null;
 
-  const newVelocity = calculateEngagementVelocity(likes, retweets, replies, followerCount);
-  const newEngagementScore = engagementToScore(newVelocity);
-
-  // --- PROVISIONAL: Finalize with engagement boost, award remaining 30% XP ---
-  if (contribution.status === 'PROVISIONAL') {
-    const combinedScore = Math.round(qualityScore * 0.65 + newEngagementScore * 0.35);
-    const fullXP = getInitialXP(combinedScore, 'CONTENT');
-    const alreadyAwarded = contribution.xp_awarded || 0;
-    const remainingXP = Math.max(0, fullXP - alreadyAwarded);
-
-    if (remainingXP > 0) {
-      try {
-        await awardXP(wallet, remainingXP, 'ENGAGEMENT_BONUS', contributionId);
-        console.log(`[x-agent] Tweet ${tweetId}: finalized PROVISIONAL → ACTIVE, +${remainingXP} XP (combined=${combinedScore})`);
-      } catch (err) {
-        console.error(`[x-agent] Failed to award finalization XP for ${tweetId}: ${err.message}`);
-      }
-    }
-
-    await updateContribution(contributionId, {
-      status: 'ACTIVE',
-      score: combinedScore,
-      xp_awarded: alreadyAwarded + remainingXP,
-      agent_response: { ...oldResponse, combinedScore, engagementScore: newEngagementScore, velocity: newVelocity, phase: 'finalized' },
-    });
-
-    console.log(`[x-agent] Tweet ${tweetId}: PROVISIONAL → ACTIVE (combined=${combinedScore}, engagement=${newEngagementScore})`);
-    return;
-  }
-
-  // --- PENDING_REEVAL: Second chance with engagement ---
-  if (contribution.status === 'PENDING_REEVAL') {
-    const combinedScore = Math.round(qualityScore * 0.65 + newEngagementScore * 0.35);
-    const threshold = parseInt(process.env.SCORE_THRESHOLD || '70', 10);
-
-    if (combinedScore >= threshold) {
-      const xpAmount = getInitialXP(combinedScore, 'CONTENT');
-
-      await updateContribution(contributionId, {
-        status: 'ACTIVE',
-        score: combinedScore,
-        xp_awarded: xpAmount,
-        agent_response: { ...oldResponse, combinedScore, engagementScore: newEngagementScore, velocity: newVelocity, phase: 'promoted' },
-      });
-
-      try {
-        await awardXP(wallet, xpAmount, 'INITIAL_AWARD', contributionId);
-      } catch (err) {
-        console.error(`[x-agent] XP award failed for promoted tweet ${tweetId}: ${err.message}`);
-      }
-
-      const rank = await getParticipantRank(wallet);
-      await replyToTweet(tweetId, buildReplyText(combinedScore, xpAmount, rank));
-
-      // Schedule 24h bonus check
-      scheduleReevaluation(contributionId, tweetId, wallet, 24 * 60 * 60 * 1000);
-
-      console.log(`[x-agent] Tweet ${tweetId}: PENDING_REEVAL → ACTIVE (combined=${combinedScore}, xp=${xpAmount})`);
-    } else {
-      await updateContribution(contributionId, {
-        status: 'REJECTED',
-        score: combinedScore,
-        agent_response: { ...oldResponse, combinedScore, engagementScore: newEngagementScore, velocity: newVelocity, phase: 'rejected_after_reeval' },
-      });
-
-      console.log(`[x-agent] Tweet ${tweetId}: PENDING_REEVAL → REJECTED (combined=${combinedScore}, still below threshold)`);
-    }
-    return;
-  }
-
-  // --- ACTIVE: Check for viral/reshare/engagement bonuses ---
+  // Check for viral bonus (500+ engagements)
   if (totalEngagements >= 500) {
-    await awardXP(wallet, 800, 'VIRAL_BONUS', contributionId);
+    await awardXP(wallet, 800, 'VIRAL_BONUS', contributionId, campaignId);
     console.log(`[x-agent] Tweet ${tweetId}: VIRAL_BONUS +800 XP (${totalEngagements} engagements)`);
   }
 
+  // Check for @VaraNetwork retweet
   try {
     const client = getReadClient();
     const { data: retweeters } = await client.v2.tweetRetweetedBy(tweetId, {
@@ -494,8 +459,9 @@ export async function reevaluateTweet(contributionId, tweetId, wallet) {
       const varaRetweeted = retweeters.data.some(
         user => user.username?.toLowerCase() === 'varanetwork'
       );
+
       if (varaRetweeted) {
-        await awardXP(wallet, 500, 'RESHARE_BONUS', contributionId);
+        await awardXP(wallet, 500, 'RESHARE_BONUS', contributionId, campaignId);
         console.log(`[x-agent] Tweet ${tweetId}: RESHARE_BONUS +500 XP (@VaraNetwork retweeted)`);
       }
     }
@@ -503,122 +469,20 @@ export async function reevaluateTweet(contributionId, tweetId, wallet) {
     console.error(`[x-agent] Failed to check retweeters for ${tweetId}: ${err.message}`);
   }
 
+  // Check if engagement score improved significantly
+  const oldResponse = contribution.agent_response;
+  const followerCount = oldResponse?.followerCount || 1;
+  const newVelocity = calculateEngagementVelocity(likes, retweets, replies, followerCount);
+  const newEngagementScore = engagementToScore(newVelocity);
   const oldEngagementScore = oldResponse?.engagementScore || 0;
+
   if (newEngagementScore - oldEngagementScore > 10) {
     const bonusXP = Math.round((newEngagementScore - oldEngagementScore) * 3);
-    await awardXP(wallet, bonusXP, 'ENGAGEMENT_BONUS', contributionId);
+    await awardXP(wallet, bonusXP, 'ENGAGEMENT_BONUS', contributionId, campaignId);
     console.log(`[x-agent] Tweet ${tweetId}: ENGAGEMENT_BONUS +${bonusXP} XP (engagement improved)`);
   }
 
   console.log(`[x-agent] Re-evaluation complete for tweet ${tweetId}`);
-}
-
-// ---------------------------------------------------------------------------
-// Poll for recent tweets (fallback for free-tier X API where filtered stream
-// connects but delivers no data). Called by cron every 15 minutes.
-// ---------------------------------------------------------------------------
-export async function pollRecentTweets() {
-  const bearerToken = process.env.X_BEARER_TOKEN;
-  if (!bearerToken) return;
-
-  console.log('[x-agent] Polling for recent GrowStreams tweets...');
-  const client = getReadClient();
-
-  try {
-    const result = await client.v2.search('(#GrowStreams OR @GrowStreams OR @GrowwStreams) -is:retweet lang:en', {
-      'tweet.fields': 'public_metrics,author_id,referenced_tweets,in_reply_to_user_id,attachments,created_at',
-      'user.fields': 'username,public_metrics',
-      'expansions': 'author_id,attachments.media_keys',
-      max_results: 10,
-    });
-
-    const tweets = result.data?.data || [];
-    const users = result.data?.includes?.users || [];
-
-    if (!tweets.length) {
-      console.log('[x-agent] Poll: no new tweets found');
-      return;
-    }
-
-    console.log(`[x-agent] Poll: found ${tweets.length} tweets`);
-
-    for (const tweet of tweets) {
-      const author = users.find(u => u.id === tweet.author_id);
-      if (!author) continue;
-
-      try {
-        await processTweet(tweet, author.username, author.public_metrics);
-      } catch (err) {
-        console.error(`[x-agent] Poll: error processing tweet ${tweet.id}: ${err.message}`);
-      }
-    }
-  } catch (err) {
-    console.error(`[x-agent] Poll failed: ${err.message}`);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Poll tweets from registered participants (bypasses search API limits).
-// Looks up each registered user's recent tweets and processes GrowStreams ones.
-// ---------------------------------------------------------------------------
-export async function pollRegisteredUsers() {
-  const bearerToken = process.env.X_BEARER_TOKEN;
-  if (!bearerToken) return;
-
-  console.log('[x-agent] Polling registered users for GrowStreams tweets...');
-  const client = getReadClient();
-
-  // Get all registered participants with x_handle
-  const participants = await queryAll(
-    `SELECT wallet, x_handle FROM participants WHERE x_handle IS NOT NULL AND x_handle != ''`
-  );
-
-  if (!participants?.length) {
-    console.log('[x-agent] No registered X users to poll');
-    return;
-  }
-
-  console.log(`[x-agent] Polling ${participants.length} registered users`);
-  const growPattern = /growstream|#growstreams|@growstreams|@growwstreams/i;
-
-  for (const p of participants) {
-    try {
-      // Look up user ID by username
-      const userResult = await client.v2.userByUsername(p.x_handle, {
-        'user.fields': 'public_metrics',
-      });
-      const user = userResult.data;
-      if (!user) {
-        console.log(`[x-agent] User @${p.x_handle} not found on X`);
-        continue;
-      }
-
-      // Fetch recent tweets from this user
-      const timeline = await client.v2.userTimeline(user.id, {
-        'tweet.fields': 'public_metrics,author_id,referenced_tweets,in_reply_to_user_id,attachments,created_at',
-        max_results: 5,
-        exclude: ['retweets', 'replies'],
-      });
-
-      const tweets = timeline.data?.data || [];
-      if (!tweets.length) continue;
-
-      for (const tweet of tweets) {
-        // Only process tweets mentioning GrowStreams
-        if (!growPattern.test(tweet.text)) continue;
-
-        try {
-          await processTweet(tweet, p.x_handle, user.public_metrics);
-        } catch (err) {
-          console.error(`[x-agent] Error processing tweet ${tweet.id} from @${p.x_handle}: ${err.message}`);
-        }
-      }
-    } catch (err) {
-      console.error(`[x-agent] Failed to poll @${p.x_handle}: ${err.message}`);
-    }
-  }
-
-  console.log('[x-agent] Registered user poll complete');
 }
 
 // ---------------------------------------------------------------------------

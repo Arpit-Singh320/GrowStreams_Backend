@@ -1,183 +1,195 @@
-// ---------------------------------------------------------------------------
-// GET /api/tokens — Token metadata and balance endpoints
-// ---------------------------------------------------------------------------
-
 import { Router } from 'express';
-import {
-  getAllTokens,
-  getTokenBySymbol,
-  getStablecoins,
-  resolveTokenAddress,
-} from '../config/tokens.mjs';
-import {
-  getVaultBalance,
-  getAllVaultBalances,
-  generateApprovalPayload,
-  fetchPrices,
-} from '../services/token-service.mjs';
-import { toBaseUnits, toDisplayUnits, flowRateBreakdown, toPerSecondRate } from '../utils/decimals.mjs';
+import { SUPPORTED_TOKENS, getToken, listTokens, listStablecoins, resolveVaraAddress } from '../config/tokens.mjs';
+import { toBaseUnits, toDisplayUnits, flowRateFromInterval, flowRatePerInterval, calculateMinDeposit, INTERVALS } from '../utils/decimals.mjs';
+import { getVftBalance, getVftAllowance, generateApprovePayload, generateTransferPayload, getAllBalances } from '../services/token-service.mjs';
+import { getProgramIds } from '../sails-client.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 
-// GET /api/tokens — list all supported tokens
-router.get('/', async (req, res, next) => {
-  try {
-    const tokens = getAllTokens();
-    const prices = await fetchPrices();
+// ─── Token Metadata ──────────────────────────────────────────
 
-    const result = tokens.map(t => ({
-      symbol: t.symbol,
-      displaySymbol: t.displaySymbol,
-      name: t.name,
-      decimals: t.decimals,
-      category: t.category,
-      icon: t.icon,
-      vara: t.vara,
-      eth: t.eth,
-      priceUSD: prices[t.symbol] ?? null,
-    }));
-
-    res.json({ tokens: result });
-  } catch (err) { next(err); }
+/** GET /api/tokens — list all supported tokens */
+router.get('/', (req, res) => {
+  const tokens = listTokens();
+  res.json({ tokens, count: tokens.length });
 });
 
-// GET /api/tokens/stablecoins — list only stablecoins
-router.get('/stablecoins', async (req, res, next) => {
-  try {
-    const tokens = getStablecoins();
-    res.json({ tokens: tokens.map(t => ({
-      symbol: t.symbol,
-      displaySymbol: t.displaySymbol,
-      name: t.name,
-      decimals: t.decimals,
-      vara: t.vara,
-      eth: t.eth,
-      icon: t.icon,
-    })) });
-  } catch (err) { next(err); }
+/** GET /api/tokens/stablecoins — list only stablecoins */
+router.get('/stablecoins', (req, res) => {
+  const tokens = listStablecoins();
+  res.json({ tokens, count: tokens.length });
 });
 
-// GET /api/tokens/prices — current USD prices
-router.get('/prices', async (req, res, next) => {
-  try {
-    const prices = await fetchPrices();
-    res.json({ prices });
-  } catch (err) { next(err); }
+/** GET /api/tokens/addresses — quick lookup of all Vara contract addresses */
+router.get('/addresses', (req, res) => {
+  const addresses = {};
+  for (const [key, tok] of Object.entries(SUPPORTED_TOKENS)) {
+    addresses[key] = { vara: tok.vara, eth: tok.eth };
+  }
+  const ids = getProgramIds();
+  res.json({ tokens: addresses, contracts: ids });
 });
 
-// GET /api/tokens/:symbol — single token metadata
-router.get('/:symbol', async (req, res, next) => {
+// ─── On-Chain Balance Queries ────────────────────────────────
+// NOTE: /balances/:wallet MUST be before /:symbol to avoid 'balances' matching as a symbol param
+
+/** GET /api/tokens/balances/:wallet — all token balances for a wallet */
+router.get('/balances/:wallet', async (req, res, next) => {
   try {
-    const token = getTokenBySymbol(req.params.symbol);
-    if (!token) return res.status(404).json({ error: `Token not found: ${req.params.symbol}` });
-
-    const prices = await fetchPrices();
-
-    res.json({
-      symbol: token.symbol,
-      displaySymbol: token.displaySymbol,
-      name: token.name,
-      decimals: token.decimals,
-      category: token.category,
-      icon: token.icon,
-      vara: token.vara,
-      eth: token.eth,
-      priceUSD: prices[token.symbol] ?? null,
-    });
-  } catch (err) { next(err); }
-});
-
-// GET /api/tokens/:symbol/resolve — resolve symbol to Vara ActorId
-router.get('/:symbol/resolve', async (req, res, next) => {
-  try {
-    const address = resolveTokenAddress(req.params.symbol);
-    if (!address) return res.status(404).json({ error: `Cannot resolve: ${req.params.symbol}` });
-    res.json({ symbol: req.params.symbol, varaAddress: address });
-  } catch (err) { next(err); }
-});
-
-// GET /api/tokens/:symbol/vault-balance/:wallet — vault balance for a token
-router.get('/:symbol/vault-balance/:wallet', async (req, res, next) => {
-  try {
-    const balance = await getVaultBalance(req.params.wallet, req.params.symbol);
-    res.json(balance);
-  } catch (err) { next(err); }
-});
-
-// GET /api/tokens/vault-balances/:wallet — all vault balances for a wallet
-router.get('/vault-balances/:wallet', async (req, res, next) => {
-  try {
-    const balances = await getAllVaultBalances(req.params.wallet);
+    const balances = await getAllBalances(req.params.wallet);
     res.json({ wallet: req.params.wallet, balances });
   } catch (err) { next(err); }
 });
 
-// POST /api/tokens/:symbol/approve — generate VFT approval payload
+/** GET /api/tokens/:symbol — single token metadata */
+router.get('/:symbol', (req, res) => {
+  const tok = getToken(req.params.symbol);
+  if (!tok) return res.status(404).json({ error: `Token not found: ${req.params.symbol}` });
+  res.json(tok);
+});
+
+/** GET /api/tokens/:symbol/balance/:wallet — on-chain VFT balance for a wallet */
+router.get('/:symbol/balance/:wallet', async (req, res, next) => {
+  try {
+    const result = await getVftBalance(req.params.symbol, req.params.wallet);
+    res.json({ wallet: req.params.wallet, ...result });
+  } catch (err) { next(err); }
+});
+
+// ─── Allowance ───────────────────────────────────────────────
+
+/** GET /api/tokens/:symbol/allowance/:owner/:spender — check VFT allowance */
+router.get('/:symbol/allowance/:owner/:spender', async (req, res, next) => {
+  try {
+    const result = await getVftAllowance(req.params.symbol, req.params.owner, req.params.spender);
+    res.json({ owner: req.params.owner, spender: req.params.spender, ...result });
+  } catch (err) { next(err); }
+});
+
+// ─── Approval Payload ────────────────────────────────────────
+
+/**
+ * POST /api/tokens/:symbol/approve — generate VFT.Approve payload for client-side signing
+ * Body: { spender: "<vault_address>", amount: "1000.50" }
+ * The amount is in human-readable units; it gets converted to base units.
+ * If amountRaw is provided, it is used directly (no conversion).
+ */
 router.post('/:symbol/approve', async (req, res, next) => {
   try {
-    const { spender, amount } = req.body;
-    if (!spender || !amount) return res.status(400).json({ error: 'Missing: spender, amount' });
+    const { spender, amount, amountRaw } = req.body;
+    if (!spender) return res.status(400).json({ error: 'Missing: spender' });
+    if (!amount && !amountRaw) return res.status(400).json({ error: 'Missing: amount or amountRaw' });
 
-    const token = getTokenBySymbol(req.params.symbol);
-    if (!token) return res.status(404).json({ error: `Token not found: ${req.params.symbol}` });
+    const tok = getToken(req.params.symbol);
+    if (!tok) return res.status(404).json({ error: `Token not found: ${req.params.symbol}` });
 
-    const rawAmount = toBaseUnits(amount, token.decimals).toString();
-    const approval = generateApprovalPayload(req.params.symbol, spender, rawAmount);
-
-    res.json({
-      ...approval,
-      token: token.symbol,
-      displayAmount: amount,
-      rawAmount,
-      decimals: token.decimals,
-    });
+    const baseAmount = amountRaw ? BigInt(amountRaw) : toBaseUnits(amount, tok.decimals);
+    const result = await generateApprovePayload(req.params.symbol, spender, baseAmount);
+    res.json(result);
   } catch (err) { next(err); }
 });
 
-// POST /api/tokens/convert — utility: convert between display and base units
-router.post('/convert', async (req, res, next) => {
+// ─── Transfer Payload (user-signed) ──────────────────────────
+
+/**
+ * POST /api/tokens/:symbol/transfer — generate VFT.Transfer payload for client-side signing
+ * Body: { to: "<recipient>", amount?: "100.50", amountRaw?: "100500000" }
+ */
+router.post('/:symbol/transfer', async (req, res, next) => {
   try {
-    const { symbol, amount, direction } = req.body;
-    if (!symbol || amount == null || !direction) {
-      return res.status(400).json({ error: 'Missing: symbol, amount, direction (toBase | toDisplay)' });
-    }
+    const { to, amount, amountRaw } = req.body;
+    if (!to) return res.status(400).json({ error: 'Missing: to' });
+    if (!amount && !amountRaw) return res.status(400).json({ error: 'Missing: amount or amountRaw' });
 
-    const token = getTokenBySymbol(symbol);
-    if (!token) return res.status(404).json({ error: `Token not found: ${symbol}` });
+    const tok = getToken(req.params.symbol);
+    if (!tok) return res.status(404).json({ error: `Token not found: ${req.params.symbol}` });
 
-    if (direction === 'toBase') {
-      const base = toBaseUnits(amount, token.decimals).toString();
-      res.json({ symbol, input: amount, baseUnits: base, decimals: token.decimals });
-    } else if (direction === 'toDisplay') {
-      const display = toDisplayUnits(amount, token.decimals);
-      res.json({ symbol, input: amount, displayUnits: display, decimals: token.decimals });
-    } else {
-      res.status(400).json({ error: 'direction must be "toBase" or "toDisplay"' });
-    }
+    const baseAmount = amountRaw ? BigInt(amountRaw) : toBaseUnits(amount, tok.decimals);
+    const result = await generateTransferPayload(req.params.symbol, to, baseAmount);
+    res.json(result);
   } catch (err) { next(err); }
 });
 
-// POST /api/tokens/flow-rate — utility: convert flow rate between intervals
-router.post('/flow-rate', async (req, res, next) => {
-  try {
-    const { symbol, amount, interval } = req.body;
-    if (!symbol || !amount || !interval) {
-      return res.status(400).json({ error: 'Missing: symbol, amount, interval (second|minute|hour|day|month)' });
-    }
+// ─── Utility: Decimal Conversion ─────────────────────────────
 
-    const token = getTokenBySymbol(symbol);
-    if (!token) return res.status(404).json({ error: `Token not found: ${symbol}` });
+/**
+ * POST /api/tokens/:symbol/convert — convert between human-readable and base units
+ * Body: { amount: "100.50", direction: "toBase" | "toDisplay" }
+ */
+router.post('/:symbol/convert', (req, res) => {
+  const { amount, direction = 'toBase' } = req.body;
+  if (amount == null) return res.status(400).json({ error: 'Missing: amount' });
 
-    const perSecond = toPerSecondRate(amount, token.decimals, interval);
-    const breakdown = flowRateBreakdown(perSecond, token.decimals);
+  const tok = getToken(req.params.symbol);
+  if (!tok) return res.status(404).json({ error: `Token not found: ${req.params.symbol}` });
 
-    res.json({
-      symbol: token.symbol,
-      input: { amount, interval },
-      perSecondRaw: perSecond.toString(),
-      breakdown,
-    });
-  } catch (err) { next(err); }
+  if (direction === 'toBase') {
+    const base = toBaseUnits(amount, tok.decimals);
+    res.json({ token: tok.symbol, decimals: tok.decimals, input: amount, baseUnits: base.toString() });
+  } else {
+    const display = toDisplayUnits(amount, tok.decimals);
+    res.json({ token: tok.symbol, decimals: tok.decimals, input: amount.toString(), displayUnits: display });
+  }
+});
+
+// ─── Utility: Flow Rate Conversion ───────────────────────────
+
+/**
+ * POST /api/tokens/:symbol/flow-rate — convert flow rates between intervals
+ * Body: { amount: "100", fromInterval: "month", toInterval: "second" }
+ * Returns the flow rate in base units per-second and per the target interval.
+ */
+router.post('/:symbol/flow-rate', (req, res) => {
+  const { amount, fromInterval = 'month', toInterval = 'second' } = req.body;
+  if (!amount) return res.status(400).json({ error: 'Missing: amount' });
+
+  const tok = getToken(req.params.symbol);
+  if (!tok) return res.status(404).json({ error: `Token not found: ${req.params.symbol}` });
+
+  if (!INTERVALS[fromInterval]) return res.status(400).json({ error: `Invalid interval: ${fromInterval}. Use: ${Object.keys(INTERVALS).join(', ')}` });
+  if (!INTERVALS[toInterval]) return res.status(400).json({ error: `Invalid interval: ${toInterval}` });
+
+  // Convert to per-second base units first
+  const perSecondBase = flowRateFromInterval(amount, tok.decimals, fromInterval);
+  // Then convert to target interval display
+  const perTargetDisplay = flowRatePerInterval(perSecondBase, tok.decimals, toInterval);
+  // Minimum deposit for this flow rate
+  const minDeposit = calculateMinDeposit(perSecondBase, tok.minBuffer || 3600);
+
+  res.json({
+    token: tok.symbol,
+    decimals: tok.decimals,
+    input: { amount, interval: fromInterval },
+    perSecond: {
+      baseUnits: perSecondBase.toString(),
+      display: toDisplayUnits(perSecondBase, tok.decimals),
+    },
+    [`per_${toInterval}`]: {
+      display: perTargetDisplay,
+    },
+    minDeposit: {
+      baseUnits: minDeposit.toString(),
+      display: toDisplayUnits(minDeposit, tok.decimals),
+      bufferSeconds: tok.minBuffer || 3600,
+    },
+  });
+});
+
+// ─── Resolve Token Address ───────────────────────────────────
+
+/** GET /api/tokens/:symbol/resolve — resolve symbol to Vara ActorId */
+router.get('/:symbol/resolve', (req, res) => {
+  const varaAddr = resolveVaraAddress(req.params.symbol);
+  if (!varaAddr) return res.status(404).json({ error: `Cannot resolve: ${req.params.symbol}` });
+  const tok = getToken(req.params.symbol);
+  res.json({
+    input: req.params.symbol,
+    varaAddress: varaAddr,
+    symbol: tok?.symbol || null,
+    decimals: tok?.decimals || null,
+  });
 });
 
 export default router;

@@ -38,6 +38,11 @@ router.get('/:id/preview/:amount', async (req, res, next) => {
   try {
     const id = BigInt(req.params.id);
     const amount = BigInt(req.params.amount);
+    
+    // Check if group exists first (prevent panic)
+    const group = await query(C, 'GetSplitGroup', id);
+    if (!group) return res.status(404).json({ error: 'Split group not found' });
+
     const result = await query(C, 'PreviewDistribution', id, amount);
     res.json({ groupId: Number(id), amount: req.params.amount, shares: result });
   } catch (err) { next(err); }
@@ -52,8 +57,17 @@ router.post('/', async (req, res, next) => {
     if (mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'CreateSplitGroup', recipients) });
     }
-    const { result, blockHash } = await command(C, 'CreateSplitGroup', recipients);
-    res.status(201).json({ result, blockHash });
+    let { result, blockHash } = await command(C, 'CreateSplitGroup', recipients);
+    
+    // If result is null (decode error), try to find the new group ID via owner query
+    if (result == null && req.body.owner) {
+      const groups = await query(C, 'GetOwnerGroups', req.body.owner);
+      if (groups && groups.length > 0) {
+        result = groups[groups.length - 1]; // Assume last one is newest
+      }
+    }
+
+    res.status(201).json({ result: result != null ? String(result) : null, blockHash });
   } catch (err) { next(err); }
 });
 
@@ -76,6 +90,11 @@ router.delete('/:id', async (req, res, next) => {
     if (req.body?.mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'DeleteSplitGroup', id) });
     }
+
+    // Check if group exists first (prevent panic)
+    const group = await query(C, 'GetSplitGroup', id);
+    if (!group) return res.status(404).json({ error: 'Split group not found' });
+
     const { result, blockHash } = await command(C, 'DeleteSplitGroup', id);
     res.json({ groupId: Number(id), deleted: true, blockHash });
   } catch (err) { next(err); }

@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { queryOne } from '../services/db.mjs';
 import { getLeaderboard, getParticipantStats } from '../services/xp-service.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 
 // ---------------------------------------------------------------------------
 // GET /api/leaderboard
@@ -27,21 +29,15 @@ router.get('/', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.get('/stats', async (req, res, next) => {
   try {
-    // Total registered participants
+    // Total participants with XP > 0
     const pRow = await queryOne(
-      `SELECT COUNT(*) AS cnt FROM participants`
+      `SELECT COUNT(*) AS cnt FROM participants WHERE total_xp > 0`
     );
     const totalParticipants = parseInt(pRow?.cnt || '0', 10);
 
-    // Active participants (with XP > 0)
-    const activeRow = await queryOne(
-      `SELECT COUNT(*) AS cnt FROM participants WHERE total_xp > 0`
-    );
-    const activeParticipants = parseInt(activeRow?.cnt || '0', 10);
-
     // Total XP
     const xpRow = await queryOne(
-      `SELECT COALESCE(SUM(total_xp), 0) AS total FROM participants`
+      `SELECT COALESCE(SUM(total_xp), 0) AS total FROM participants WHERE total_xp > 0`
     );
     const totalXP = parseInt(xpRow?.total || '0', 10);
 
@@ -86,7 +82,6 @@ router.get('/stats', async (req, res, next) => {
 
     res.json({
       totalParticipants,
-      activeParticipants,
       totalXP,
       totalContributions,
       ossContributions,
@@ -105,6 +100,7 @@ router.get('/:wallet', async (req, res, next) => {
   try {
     const { wallet } = req.params;
     const stats = await getParticipantStats(wallet);
+    if (!stats) return res.status(404).json({ error: `Participant not found: ${wallet}` });
     res.json(stats);
   } catch (err) { next(err); }
 });

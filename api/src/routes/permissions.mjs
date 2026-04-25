@@ -4,21 +4,6 @@ import { query, command, encodePayload } from '../sails-client.mjs';
 const router = Router();
 const C = 'permissionManager';
 
-// Admin auth middleware for mutation endpoints
-function requireAdmin(req, res, next) {
-  const adminSecret = process.env.ADMIN_SECRET;
-  if (!adminSecret) return res.status(500).json({ error: 'ADMIN_SECRET not configured' });
-
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Missing Authorization header: Bearer <ADMIN_SECRET>' });
-  }
-  if (authHeader.slice(7) !== adminSecret) {
-    return res.status(403).json({ error: 'Invalid admin credentials' });
-  }
-  next();
-}
-
 router.get('/config', async (req, res, next) => {
   try {
     const result = await query(C, 'GetConfig');
@@ -55,7 +40,7 @@ router.get('/grantee/:address', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/grant', requireAdmin, async (req, res, next) => {
+router.post('/grant', async (req, res, next) => {
   try {
     const { grantee, scope, expiresAt, mode } = req.body;
     if (!grantee || !scope) return res.status(400).json({ error: 'Missing: grantee, scope' });
@@ -68,7 +53,7 @@ router.post('/grant', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/revoke', requireAdmin, async (req, res, next) => {
+router.post('/revoke', async (req, res, next) => {
   try {
     const { grantee, scope, mode } = req.body;
     if (!grantee || !scope) return res.status(400).json({ error: 'Missing: grantee, scope' });
@@ -80,7 +65,7 @@ router.post('/revoke', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/revoke-all', requireAdmin, async (req, res, next) => {
+router.post('/revoke-all', async (req, res, next) => {
   try {
     const { grantee, mode } = req.body;
     if (!grantee) return res.status(400).json({ error: 'Missing: grantee' });

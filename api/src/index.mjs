@@ -21,16 +21,28 @@ import webhooksRouter from './routes/webhooks.mjs';
 import leaderboardRouter from './routes/leaderboard.mjs';
 import usersRouter from './routes/users.mjs';
 import tokensRouter from './routes/tokens.mjs';
+import bridgeRouter from './routes/bridge.mjs';
+import campaignsRouter from './routes/campaigns.mjs';
 import questsRouter from './routes/quests.mjs';
-import testMintRoutes from './routes/test-mint.mjs';
-import { startStream as startXStream, pollRecentTweets } from './services/x-agent.mjs';
+import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'growstreams.xyz,vercel.app,localhost,127.0.0.1').split(',');
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some(o => origin.includes(o))) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  }
+}));
+
 app.use(morgan('short'));
 
 // Raw body parser for GitHub webhook HMAC verification (MUST be before express.json())
@@ -51,15 +63,29 @@ app.use('/api/webhooks', webhooksRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/tokens', tokensRouter);
+app.use('/api/bridge', bridgeRouter);
+app.use('/api/campaigns', campaignsRouter);
 app.use('/api/quests', questsRouter);
-app.use('/api/test', testMintRoutes);
 
 app.get('/', (req, res) => {
   res.json({
     name: 'GrowStreams V3 API',
     version: '3.0.0',
-    description: 'Stablecoin streaming infrastructure for Vara Network — multi-token support for USDC, USDT, WETH, WBTC, VARA',
+    description: 'Money streaming infrastructure for Vara Network — like Superfluid, but for Polkadot/Vara',
     docs: {
+      tokens: {
+        list: 'GET /api/tokens',
+        stablecoins: 'GET /api/tokens/stablecoins',
+        addresses: 'GET /api/tokens/addresses',
+        getToken: 'GET /api/tokens/:symbol',
+        balance: 'GET /api/tokens/:symbol/balance/:wallet',
+        allBalances: 'GET /api/tokens/balances/:wallet',
+        allowance: 'GET /api/tokens/:symbol/allowance/:owner/:spender',
+        approve: 'POST /api/tokens/:symbol/approve { spender, amount }',
+        convert: 'POST /api/tokens/:symbol/convert { amount, direction }',
+        flowRate: 'POST /api/tokens/:symbol/flow-rate { amount, fromInterval, toInterval }',
+        resolve: 'GET /api/tokens/:symbol/resolve',
+      },
       health: 'GET /health',
       streams: {
         config: 'GET /api/streams/config',
@@ -68,10 +94,12 @@ app.get('/', (req, res) => {
         getStream: 'GET /api/streams/:id',
         getBalance: 'GET /api/streams/:id/balance',
         getBuffer: 'GET /api/streams/:id/buffer',
+        history: 'GET /api/streams/history/:wallet?limit=&offset=&eventType=&token=',
+        stats: 'GET /api/streams/stats/:wallet',
+        events: 'GET /api/streams/events/:streamId',
         bySender: 'GET /api/streams/sender/:address',
         byReceiver: 'GET /api/streams/receiver/:address',
-        createV3: 'POST /api/streams/create { receiver, symbol, amount, interval, initialDeposit, mode? }',
-        createRaw: 'POST /api/streams { receiver, token, flowRate, initialDeposit, mode? }',
+        create: 'POST /api/streams { receiver, token, flowRate, initialDeposit, mode? }',
         update: 'PUT /api/streams/:id { flowRate, mode? }',
         pause: 'POST /api/streams/:id/pause',
         resume: 'POST /api/streams/:id/resume',
@@ -83,13 +111,12 @@ app.get('/', (req, res) => {
       vault: {
         config: 'GET /api/vault/config',
         paused: 'GET /api/vault/paused',
-        balance: 'GET /api/vault/balance/:owner/:token',
+        history: 'GET /api/vault/history/:wallet?limit=&offset=&eventType=&token=',
+        balance: 'GET /api/vault/balance/:owner/:token (accepts symbol or address)',
+        balances: 'GET /api/vault/balances/:wallet (all token vault balances)',
         allocation: 'GET /api/vault/allocation/:streamId',
-        balances: 'GET /api/vault/balances/:wallet',
-        depositToken: 'POST /api/vault/deposit-token { symbol, amount, mode? }',
-        withdrawToken: 'POST /api/vault/withdraw-token { symbol, amount, mode? }',
-        depositRaw: 'POST /api/vault/deposit { token, amount, mode? }',
-        withdrawRaw: 'POST /api/vault/withdraw { token, amount, mode? }',
+        deposit: 'POST /api/vault/deposit { token, amount, mode? }',
+        withdraw: 'POST /api/vault/withdraw { token, amount, mode? }',
         depositNative: 'POST /api/vault/deposit-native { amount, mode? }',
         withdrawNative: 'POST /api/vault/withdraw-native { amount, mode? }',
         pause: 'POST /api/vault/pause',
@@ -104,18 +131,6 @@ app.get('/', (req, res) => {
         update: 'PUT /api/splits/:id { recipients, mode? }',
         delete: 'DELETE /api/splits/:id',
         distribute: 'POST /api/splits/:id/distribute { token, amount, mode? }',
-      },
-      tokens: {
-        list: 'GET /api/tokens',
-        stablecoins: 'GET /api/tokens/stablecoins',
-        prices: 'GET /api/tokens/prices',
-        getToken: 'GET /api/tokens/:symbol',
-        resolve: 'GET /api/tokens/:symbol/resolve',
-        vaultBalance: 'GET /api/tokens/:symbol/vault-balance/:wallet',
-        allVaultBalances: 'GET /api/tokens/vault-balances/:wallet',
-        approve: 'POST /api/tokens/:symbol/approve { spender, amount }',
-        convert: 'POST /api/tokens/convert { symbol, amount, direction }',
-        flowRate: 'POST /api/tokens/flow-rate { symbol, amount, interval }',
       },
       permissions: {
         check: 'GET /api/permissions/check/:granter/:grantee/:scope',
@@ -161,6 +176,7 @@ app.get('/', (req, res) => {
         register: 'POST /api/users/register { wallet, github_handle?, x_handle?, referral_code? }',
         profile: 'GET /api/users/:wallet',
         referrals: 'GET /api/users/:wallet/referrals',
+        campaigns: 'GET /api/users/:wallet/campaigns',
       },
       campaign: {
         register: 'POST /api/campaign/register { wallet, github_handle?, x_handle?, track }',
@@ -168,25 +184,37 @@ app.get('/', (req, res) => {
         config: 'GET /api/campaign/config',
         payoutSnapshot: 'POST /api/campaign/payout-snapshot (admin, Bearer token)',
       },
+      campaigns: {
+        list: 'GET /api/campaigns?status=&track_type=&page=&limit=',
+        active: 'GET /api/campaigns/active',
+        get: 'GET /api/campaigns/:id',
+        create: 'POST /api/campaigns { creator_wallet, title, description?, pool_amount, token?, track_type?, start_date, end_date, required_hashtags?, required_mentions?, github_repo_url?, github_issue_labels?, max_oss_contributions?, max_content_contributions?, score_threshold? }',
+        fund: 'POST /api/campaigns/:id/fund { wallet, tx_hash? }',
+        enroll: 'POST /api/campaigns/:id/enroll { wallet }',
+        leaderboard: 'GET /api/campaigns/:id/leaderboard?page=&limit=',
+        participants: 'GET /api/campaigns/:id/participants?page=&limit=',
+        payoutPreview: 'GET /api/campaigns/:id/payout-preview',
+        executePayout: 'POST /api/campaigns/:id/execute-payout (admin, Bearer token)',
+      },
       webhooks: {
-        github: 'POST /api/webhooks/github (GitHub webhook — events: pull_request, star, ping)',
+        github: 'POST /api/webhooks/github (GitHub webhook endpoint, HMAC verified)',
       },
       leaderboard: {
         list: 'GET /api/leaderboard?page=&limit=&track=',
         stats: 'GET /api/leaderboard/stats',
         participant: 'GET /api/leaderboard/:wallet',
       },
-      quests: {
-        verifyInvite: 'POST /api/quests/verify-invite { code }',
-        register: 'POST /api/quests/register { wallet, email, x_username, github_username, invite_code }',
-        list: 'GET /api/quests',
-        me: 'GET /api/quests/me?wallet=',
-        seeds: 'GET /api/quests/seeds/:wallet',
-        claim: 'POST /api/quests/:slug/claim { wallet }',
-        stats: 'GET /api/quests/stats',
-        adminGenerateInvites: 'POST /api/quests/admin/generate-invites { count, max_uses?, expires_at? } (Bearer token)',
-        adminListInvites: 'GET /api/quests/admin/invites?status= (Bearer token)',
-        adminAward: 'POST /api/quests/admin/award { wallet, quest_slug } (Bearer token)',
+      bridge: {
+        info: 'GET /api/bridge/info',
+        routes: 'GET /api/bridge/routes',
+        routeForToken: 'GET /api/bridge/routes/:token',
+        estimate: 'POST /api/bridge/estimate { token, amount, direction? }',
+        initiate: 'POST /api/bridge/initiate { wallet, token, amount, direction?, sourceTxHash? }',
+        updateStatus: 'PUT /api/bridge/status/:id { status, destinationTxHash?, confirmations? }',
+        getTransaction: 'GET /api/bridge/tx/:id',
+        getByTxHash: 'GET /api/bridge/status/:txHash',
+        history: 'GET /api/bridge/history/:wallet?limit=&offset=&status=&token=',
+        stats: 'GET /api/bridge/stats/:wallet',
       },
       _note: 'POST routes accept { mode: "payload" } to return encoded payload for client-side wallet signing instead of server-side execution.',
     },
@@ -197,14 +225,6 @@ app.use((err, req, res, next) => {
   const status = err.status || 500;
   const message = err.message || 'Internal server error';
   console.error(`[error] ${req.method} ${req.path}: ${message}`);
-  if (err.stack) {
-    console.error(`[error] Stack trace:`, err.stack);
-  }
-  if (status >= 500) {
-    console.error(`[error] Request body:`, JSON.stringify(req.body || {}).slice(0, 500));
-    console.error(`[error] Query params:`, JSON.stringify(req.query || {}));
-    console.error(`[error] IP: ${req.ip}, User-Agent: ${req.headers['user-agent'] || 'unknown'}`);
-  }
   res.status(status).json({ error: message });
 });
 
@@ -213,22 +233,13 @@ async function start() {
     // Run database migrations (creates tables if not exist)
     try {
       await migrate();
-      // Run one-time migration to fix repeatable quests
-      const { fixRepeatableQuests } = await import('./migrations/fix-repeatable-quests.mjs');
-      await fixRepeatableQuests();
-      // Run one-time migration to fix X handle
-      const { fixXHandle } = await import('./migrations/fix-x-handle.mjs');
-      await fixXHandle();
-      // Update X quest descriptions for new tweet-proof flow
-      const { updateXQuestDescriptions } = await import('./migrations/update-x-quest-descriptions.mjs');
-      await updateXQuestDescriptions();
     } catch (dbErr) {
       console.warn(`[db] Migration warning: ${dbErr.message}`);
     }
 
     await connect();
     app.listen(PORT, '0.0.0.0', async () => {
-      console.log(`[api] GrowStreams V2 API listening on port ${PORT}`);
+      console.log(`[api] GrowStreams V3 API listening on port ${PORT}`);
       console.log(`[api] http://localhost:${PORT}`);
 
       // Start campaign cron jobs
@@ -238,26 +249,12 @@ async function start() {
         console.warn(`[cron] Failed to initialize: ${err.message}`);
       }
 
-      // X/Twitter filtered stream DISABLED to save credits
-      // Users can use manual "Claim" button, and cron runs every 1-2 hours
-      console.log('[x-agent] Filtered stream DISABLED to save X API credits 💰');
-      console.log('[x-agent] Users should use manual "Claim" button for instant verification');
-      
-      // Disabled: Start X/Twitter filtered stream (too expensive)
-      // try {
-      //   await startXStream();
-      // } catch (err) {
-      //   console.warn(`[x-agent] Failed to start: ${err.message}`);
-      // }
-
-      // Disabled: Run initial tweet poll (use cron schedule instead)
-      // setTimeout(async () => {
-      //   try {
-      //     await pollRecentTweets();
-      //   } catch (err) {
-      //     console.warn(`[x-agent] Initial poll failed: ${err.message}`);
-      //   }
-      // }, 30000);
+      // Start X/Twitter filtered stream (non-blocking, server runs even if this fails)
+      try {
+        await startXStream();
+      } catch (err) {
+        console.warn(`[x-agent] Failed to start: ${err.message}`);
+      }
     });
   } catch (err) {
     console.error('[fatal]', err.message);

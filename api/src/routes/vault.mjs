@@ -1,26 +1,14 @@
 import { Router } from 'express';
 import { query, command, encodePayload } from '../sails-client.mjs';
-import { getTokenBySymbol, resolveTokenAddress, getAllTokens } from '../config/tokens.mjs';
+import { getToken, getTokenByVaraAddress, resolveVaraAddress, listTokens } from '../config/tokens.mjs';
 import { toBaseUnits, toDisplayUnits } from '../utils/decimals.mjs';
-import { getAllVaultBalances } from '../services/token-service.mjs';
+import { logVaultEvent, getVaultHistory } from '../services/stream-history.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
+import { toActorId } from '../utils/actor-id.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 const C = 'tokenVault';
-
-// Maximum safe u128 value for the contract
-const MAX_U128 = BigInt('340282366920938463463374607431768211455');
-
-function safeBigInt(v) {
-  try {
-    const n = BigInt(v);
-    if (n < 0n) throw new Error('Amount must be positive');
-    if (n > MAX_U128) throw new Error('Amount exceeds maximum (u128 overflow)');
-    return n;
-  } catch (err) {
-    if (err.message.includes('u128') || err.message.includes('positive')) throw err;
-    throw new Error(`Invalid amount: ${v}`);
-  }
-}
 
 function toBigIntStr(v) {
   if (v == null) return '0';
@@ -66,10 +54,91 @@ router.get('/paused', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/history/:wallet', async (req, res, next) => {
+  try {
+    const { limit, offset, eventType, token } = req.query;
+    const result = await getVaultHistory(req.params.wallet, {
+      limit: limit ? parseInt(limit, 10) : 50,
+      offset: offset ? parseInt(offset, 10) : 0,
+      eventType: eventType || undefined,
+      token: token || undefined,
+    });
+    res.json({ wallet: req.params.wallet, ...result });
+  } catch (err) { next(err); }
+});
+
 router.get('/balance/:owner/:token', async (req, res, next) => {
   try {
-    const result = await query(C, 'GetBalance', req.params.owner, req.params.token);
-    res.json(serializeVaultBalance(result));
+    // Accept token symbol or raw address
+    const varaAddr = resolveVaraAddress(req.params.token) || req.params.token;
+    const ownerHex = toActorId(req.params.owner);
+    const result = await query(C, 'GetBalance', ownerHex, varaAddr);
+    const bal = serializeVaultBalance(result);
+
+    // Enrich with token metadata and human-readable amounts
+    const tokMeta = getTokenByVaraAddress(varaAddr) || getToken(req.params.token);
+    if (tokMeta) {
+      bal.tokenMeta = {
+        key: tokMeta.key,
+        symbol: tokMeta.symbol,
+        name: tokMeta.name,
+        decimals: tokMeta.decimals,
+        icon: tokMeta.icon,
+      };
+      bal.total_deposited_display = toDisplayUnits(bal.total_deposited, tokMeta.decimals);
+      bal.total_allocated_display = toDisplayUnits(bal.total_allocated, tokMeta.decimals);
+      bal.available_display = toDisplayUnits(bal.available, tokMeta.decimals);
+    }
+
+    res.json(bal);
+  } catch (err) { next(err); }
+});
+
+router.get('/balances/:wallet', async (req, res, next) => {
+  try {
+    const wallet = req.params.wallet;
+    const walletHex = toActorId(wallet);
+    const tokens = listTokens().filter(t => t.vara !== 'native');
+    const balances = [];
+
+    for (const tok of tokens) {
+      try {
+        const result = await query(C, 'GetBalance', walletHex, tok.vara);
+        const bal = serializeVaultBalance(result);
+        balances.push({
+          key: tok.key,
+          symbol: tok.symbol,
+          name: tok.name,
+          decimals: tok.decimals,
+          icon: tok.icon,
+          category: tok.category,
+          isStablecoin: tok.isStablecoin,
+          total_deposited: bal.total_deposited,
+          total_allocated: bal.total_allocated,
+          available: bal.available,
+          total_deposited_display: toDisplayUnits(bal.total_deposited, tok.decimals),
+          total_allocated_display: toDisplayUnits(bal.total_allocated, tok.decimals),
+          available_display: toDisplayUnits(bal.available, tok.decimals),
+        });
+      } catch (err) {
+        balances.push({
+          key: tok.key,
+          symbol: tok.symbol,
+          name: tok.name,
+          decimals: tok.decimals,
+          icon: tok.icon,
+          total_deposited: '0',
+          total_allocated: '0',
+          available: '0',
+          total_deposited_display: '0',
+          total_allocated_display: '0',
+          available_display: '0',
+          error: err.message,
+        });
+      }
+    }
+
+    res.json({ wallet, balances });
   } catch (err) { next(err); }
 });
 
@@ -81,87 +150,104 @@ router.get('/allocation/:streamId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// GET /api/vault/balances/:wallet — all token balances in the vault
-router.get('/balances/:wallet', async (req, res, next) => {
-  try {
-    const balances = await getAllVaultBalances(req.params.wallet);
-    res.json({ wallet: req.params.wallet, balances });
-  } catch (err) { next(err); }
-});
-
-// POST /api/vault/deposit-token — deposit with symbol + human-readable amount
-router.post('/deposit-token', async (req, res, next) => {
-  try {
-    const { symbol, amount, mode } = req.body;
-    if (!symbol || !amount) return res.status(400).json({ error: 'Missing: symbol, amount' });
-
-    const token = getTokenBySymbol(symbol);
-    if (!token) return res.status(404).json({ error: `Unknown token: ${symbol}` });
-    if (token.category === 'native') return res.status(400).json({ error: 'Use /deposit-native for VARA' });
-
-    const rawAmount = toBaseUnits(amount, token.decimals);
-
-    if (mode === 'payload') {
-      return res.json({
-        payload: encodePayload(C, 'DepositTokens', token.vara, rawAmount),
-        token: token.symbol,
-        displayAmount: amount,
-        rawAmount: rawAmount.toString(),
-      });
-    }
-    const { result, blockHash } = await command(C, 'DepositTokens', token.vara, rawAmount);
-    res.status(201).json({ token: token.symbol, displayAmount: amount, rawAmount: rawAmount.toString(), blockHash });
-  } catch (err) { next(err); }
-});
-
-// POST /api/vault/withdraw-token — withdraw with symbol + human-readable amount
-router.post('/withdraw-token', async (req, res, next) => {
-  try {
-    const { symbol, amount, mode } = req.body;
-    if (!symbol || !amount) return res.status(400).json({ error: 'Missing: symbol, amount' });
-
-    const token = getTokenBySymbol(symbol);
-    if (!token) return res.status(404).json({ error: `Unknown token: ${symbol}` });
-    if (token.category === 'native') return res.status(400).json({ error: 'Use /withdraw-native for VARA' });
-
-    const rawAmount = toBaseUnits(amount, token.decimals);
-
-    if (mode === 'payload') {
-      return res.json({
-        payload: encodePayload(C, 'WithdrawTokens', token.vara, rawAmount),
-        token: token.symbol,
-        displayAmount: amount,
-        rawAmount: rawAmount.toString(),
-      });
-    }
-    const { result, blockHash } = await command(C, 'WithdrawTokens', token.vara, rawAmount);
-    res.json({ token: token.symbol, displayAmount: amount, rawAmount: rawAmount.toString(), blockHash });
-  } catch (err) { next(err); }
-});
-
 router.post('/deposit', async (req, res, next) => {
   try {
-    const { token, amount, mode } = req.body;
-    if (!token || !amount) return res.status(400).json({ error: 'Missing: token, amount' });
-    const safeAmount = safeBigInt(amount);
-    if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'DepositTokens', token, safeAmount) });
+    const { token, amount, amountRaw, mode } = req.body;
+    if (!token || (!amount && !amountRaw)) return res.status(400).json({ error: 'Missing: token, amount (or amountRaw)' });
+
+    const varaAddr = resolveVaraAddress(token) || token;
+    const tokMeta = getToken(token) || getTokenByVaraAddress(varaAddr);
+
+    // Convert human-readable amount to base units if token is known
+    let baseAmount;
+    if (amountRaw) {
+      baseAmount = BigInt(amountRaw);
+    } else if (tokMeta) {
+      baseAmount = toBaseUnits(amount, tokMeta.decimals);
+    } else {
+      baseAmount = BigInt(amount);
     }
-    const { result, blockHash } = await command(C, 'DepositTokens', token, safeAmount);
-    res.status(201).json({ token, amount, blockHash });
+
+    if (mode === 'payload') {
+      return res.json({
+        payload: encodePayload(C, 'DepositTokens', varaAddr, baseAmount),
+        resolved: {
+          token: tokMeta?.symbol || token,
+          varaAddress: varaAddr,
+          baseUnits: baseAmount.toString(),
+          display: tokMeta ? toDisplayUnits(baseAmount, tokMeta.decimals) : amount,
+        },
+      });
+    }
+    const { result, blockHash } = await command(C, 'DepositTokens', varaAddr, baseAmount);
+
+    logVaultEvent({
+      wallet: req.body.wallet || 'unknown',
+      eventType: 'deposit',
+      tokenAddress: varaAddr,
+      tokenSymbol: tokMeta?.symbol || token,
+      amount: baseAmount.toString(),
+      amountDisplay: tokMeta ? toDisplayUnits(baseAmount, tokMeta.decimals) : amount,
+      blockHash,
+    });
+
+    res.status(201).json({
+      token: tokMeta?.symbol || token,
+      varaAddress: varaAddr,
+      amount: tokMeta ? toDisplayUnits(baseAmount, tokMeta.decimals) : amount,
+      amountRaw: baseAmount.toString(),
+      blockHash,
+    });
   } catch (err) { next(err); }
 });
 
 router.post('/withdraw', async (req, res, next) => {
   try {
-    const { token, amount, mode } = req.body;
-    if (!token || !amount) return res.status(400).json({ error: 'Missing: token, amount' });
-    const safeAmount = safeBigInt(amount);
-    if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'WithdrawTokens', token, safeAmount) });
+    const { token, amount, amountRaw, mode } = req.body;
+    if (!token || (!amount && !amountRaw)) return res.status(400).json({ error: 'Missing: token, amount (or amountRaw)' });
+
+    const varaAddr = resolveVaraAddress(token) || token;
+    const tokMeta = getToken(token) || getTokenByVaraAddress(varaAddr);
+
+    let baseAmount;
+    if (amountRaw) {
+      baseAmount = BigInt(amountRaw);
+    } else if (tokMeta) {
+      baseAmount = toBaseUnits(amount, tokMeta.decimals);
+    } else {
+      baseAmount = BigInt(amount);
     }
-    const { result, blockHash } = await command(C, 'WithdrawTokens', token, safeAmount);
-    res.json({ token, amount, blockHash });
+
+    if (mode === 'payload') {
+      return res.json({
+        payload: encodePayload(C, 'WithdrawTokens', varaAddr, baseAmount),
+        resolved: {
+          token: tokMeta?.symbol || token,
+          varaAddress: varaAddr,
+          baseUnits: baseAmount.toString(),
+          display: tokMeta ? toDisplayUnits(baseAmount, tokMeta.decimals) : amount,
+        },
+      });
+    }
+    const { result, blockHash } = await command(C, 'WithdrawTokens', varaAddr, baseAmount);
+
+    logVaultEvent({
+      wallet: req.body.wallet || 'unknown',
+      eventType: 'withdraw',
+      tokenAddress: varaAddr,
+      tokenSymbol: tokMeta?.symbol || token,
+      amount: baseAmount.toString(),
+      amountDisplay: tokMeta ? toDisplayUnits(baseAmount, tokMeta.decimals) : amount,
+      blockHash,
+    });
+
+    res.json({
+      token: tokMeta?.symbol || token,
+      varaAddress: varaAddr,
+      amount: tokMeta ? toDisplayUnits(baseAmount, tokMeta.decimals) : amount,
+      amountRaw: baseAmount.toString(),
+      blockHash,
+    });
   } catch (err) { next(err); }
 });
 
@@ -171,10 +257,13 @@ router.post('/allocate', async (req, res, next) => {
     if (!owner || !token || !amount || !streamId) {
       return res.status(400).json({ error: 'Missing: owner, token, amount, streamId' });
     }
+    const ownerHex = toActorId(owner);
+    const tokenAddr = resolveVaraAddress(token) || token;
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'AllocateToStream', owner, token, BigInt(amount), BigInt(streamId)) });
+      return res.json({ payload: encodePayload(C, 'AllocateToStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'AllocateToStream', owner, token, BigInt(amount), BigInt(streamId));
+    const { result, blockHash } = await command(C, 'AllocateToStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId));
+    logVaultEvent({ wallet: owner, eventType: 'allocate', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
     res.json({ streamId, amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -185,10 +274,13 @@ router.post('/release', async (req, res, next) => {
     if (!owner || !token || !amount || !streamId) {
       return res.status(400).json({ error: 'Missing: owner, token, amount, streamId' });
     }
+    const ownerHex = toActorId(owner);
+    const tokenAddr = resolveVaraAddress(token) || token;
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'ReleaseFromStream', owner, token, BigInt(amount), BigInt(streamId)) });
+      return res.json({ payload: encodePayload(C, 'ReleaseFromStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'ReleaseFromStream', owner, token, BigInt(amount), BigInt(streamId));
+    const { result, blockHash } = await command(C, 'ReleaseFromStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId));
+    logVaultEvent({ wallet: owner, eventType: 'release', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
     res.json({ streamId, amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -199,10 +291,13 @@ router.post('/transfer', async (req, res, next) => {
     if (!token || !receiver || !amount || !streamId) {
       return res.status(400).json({ error: 'Missing: token, receiver, amount, streamId' });
     }
+    const tokenAddr = resolveVaraAddress(token) || token;
+    const receiverHex = toActorId(receiver);
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'TransferToReceiver', token, receiver, BigInt(amount), BigInt(streamId)) });
+      return res.json({ payload: encodePayload(C, 'TransferToReceiver', tokenAddr, receiverHex, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'TransferToReceiver', token, receiver, BigInt(amount), BigInt(streamId));
+    const { result, blockHash } = await command(C, 'TransferToReceiver', tokenAddr, receiverHex, BigInt(amount), BigInt(streamId));
+    logVaultEvent({ wallet: receiver, eventType: 'transfer', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
     res.json({ streamId, receiver, amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -215,6 +310,7 @@ router.post('/deposit-native', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'DepositNative'), value: amount });
     }
     const { result, blockHash } = await command(C, 'DepositNative');
+    logVaultEvent({ wallet: req.body.wallet || 'unknown', eventType: 'deposit_native', amount: String(amount), blockHash });
     res.status(201).json({ amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -223,11 +319,11 @@ router.post('/withdraw-native', async (req, res, next) => {
   try {
     const { amount, mode } = req.body;
     if (!amount) return res.status(400).json({ error: 'Missing: amount' });
-    const safeAmount = safeBigInt(amount);
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'WithdrawNative', safeAmount) });
+      return res.json({ payload: encodePayload(C, 'WithdrawNative', BigInt(amount)) });
     }
-    const { result, blockHash } = await command(C, 'WithdrawNative', safeAmount);
+    const { result, blockHash } = await command(C, 'WithdrawNative', BigInt(amount));
+    logVaultEvent({ wallet: req.body.wallet || 'unknown', eventType: 'withdraw_native', amount: String(amount), blockHash });
     res.json({ amount, blockHash });
   } catch (err) { next(err); }
 });

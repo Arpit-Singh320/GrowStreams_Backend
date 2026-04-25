@@ -1,21 +1,18 @@
 import { Router } from 'express';
 import { query, command, encodePayload } from '../sails-client.mjs';
-import { getTokenBySymbol, getTokenByVaraAddress, resolveTokenAddress } from '../config/tokens.mjs';
-import { toBaseUnits, toDisplayUnits, flowRateBreakdown, toPerSecondRate } from '../utils/decimals.mjs';
+import { getToken, getTokenByVaraAddress, resolveVaraAddress } from '../config/tokens.mjs';
+import { toBaseUnits, toDisplayUnits, flowRateFromInterval, flowRatePerInterval } from '../utils/decimals.mjs';
+import { logStreamEvent, getStreamHistory, getStreamEvents, getStreamStats } from '../services/stream-history.mjs';
+import { validateWalletParam } from '../middleware/validate-wallet.mjs';
+import { toActorId } from '../utils/actor-id.mjs';
 
 const router = Router();
+router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 const C = 'streamCore';
 
 function toBigIntStr(v) {
   if (v == null) return '0';
   return typeof v === 'bigint' ? v.toString() : String(v);
-}
-
-// Normalize a hex address (e.g. 20-byte Ethereum) to a 32-byte 0x-prefixed hex string
-// required by Vara/Gear actor_id ([u8;32]).
-function toActorId(hex) {
-  const clean = hex.startsWith('0x') ? hex.slice(2) : hex;
-  return '0x' + clean.padStart(64, '0');
 }
 
 function serializeDeep(obj) {
@@ -53,16 +50,45 @@ router.get('/active', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/history/:wallet', async (req, res, next) => {
+  try {
+    const { limit, offset, eventType, token } = req.query;
+    const result = await getStreamHistory(req.params.wallet, {
+      limit: limit ? parseInt(limit, 10) : 50,
+      offset: offset ? parseInt(offset, 10) : 0,
+      eventType: eventType || undefined,
+      token: token || undefined,
+    });
+    res.json({ wallet: req.params.wallet, ...result });
+  } catch (err) { next(err); }
+});
+
+router.get('/stats/:wallet', async (req, res, next) => {
+  try {
+    const result = await getStreamStats(req.params.wallet);
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+router.get('/events/:streamId', async (req, res, next) => {
+  try {
+    const events = await getStreamEvents(req.params.streamId);
+    res.json({ streamId: req.params.streamId, events, count: events.length });
+  } catch (err) { next(err); }
+});
+
 router.get('/sender/:address', async (req, res, next) => {
   try {
-    const result = await query(C, 'GetSenderStreams', toActorId(req.params.address));
+    const addrHex = toActorId(req.params.address);
+    const result = await query(C, 'GetSenderStreams', addrHex);
     res.json({ sender: req.params.address, streamIds: (result || []).map(toBigIntStr) });
   } catch (err) { next(err); }
 });
 
 router.get('/receiver/:address', async (req, res, next) => {
   try {
-    const result = await query(C, 'GetReceiverStreams', toActorId(req.params.address));
+    const addrHex = toActorId(req.params.address);
+    const result = await query(C, 'GetReceiverStreams', addrHex);
     res.json({ receiver: req.params.address, streamIds: (result || []).map(toBigIntStr) });
   } catch (err) { next(err); }
 });
@@ -75,25 +101,29 @@ router.get('/:id', async (req, res, next) => {
 
     const serialized = serializeDeep(result);
 
-    // Enrich with token metadata if available
-    const tokenAddr = serialized.token || serialized.Token;
-    const tokenMeta = tokenAddr ? getTokenByVaraAddress(tokenAddr) : null;
-
-    if (tokenMeta) {
+    // Enrich with token metadata if we recognise the token address
+    const tokenAddr = result.token || result.Token || serialized.token;
+    const tokMeta = tokenAddr ? getTokenByVaraAddress(tokenAddr) : null;
+    if (tokMeta) {
       serialized.tokenMeta = {
-        symbol: tokenMeta.symbol,
-        displaySymbol: tokenMeta.displaySymbol,
-        name: tokenMeta.name,
-        decimals: tokenMeta.decimals,
-        icon: tokenMeta.icon,
+        key: tokMeta.key,
+        symbol: tokMeta.symbol,
+        name: tokMeta.name,
+        decimals: tokMeta.decimals,
+        icon: tokMeta.icon,
+        category: tokMeta.category,
+        isStablecoin: tokMeta.isStablecoin,
       };
-      const d = tokenMeta.decimals;
-      serialized.display = {
-        deposited: toDisplayUnits(serialized.deposited || '0', d),
-        withdrawn: toDisplayUnits(serialized.withdrawn || '0', d),
-        streamed: toDisplayUnits(serialized.streamed || '0', d),
-        flowRate: flowRateBreakdown(serialized.flow_rate || serialized.flowRate || '0', d),
-      };
+      // Add human-readable amounts
+      const flowRateRaw = result.flow_rate ?? result.flowRate ?? result.FlowRate;
+      const depositRaw = result.deposit ?? result.Deposit ?? result.initial_deposit ?? result.initialDeposit;
+      if (flowRateRaw != null) {
+        serialized.flowRateDisplay = toDisplayUnits(flowRateRaw.toString(), tokMeta.decimals);
+        serialized.flowRatePerMonth = flowRatePerInterval(flowRateRaw.toString(), tokMeta.decimals, 'month');
+      }
+      if (depositRaw != null) {
+        serialized.depositDisplay = toDisplayUnits(depositRaw.toString(), tokMeta.decimals);
+      }
     }
 
     res.json(serialized);
@@ -104,20 +134,7 @@ router.get('/:id/balance', async (req, res, next) => {
   try {
     const id = BigInt(req.params.id);
     const result = await query(C, 'GetWithdrawableBalance', id);
-    const raw = toBigIntStr(result);
-
-    // Try to enrich with display amount
-    let display = null;
-    try {
-      const stream = await query(C, 'GetStream', id);
-      const tokenAddr = stream?.token || stream?.Token;
-      const tokenMeta = tokenAddr ? getTokenByVaraAddress(typeof tokenAddr === 'object' ? tokenAddr.toString() : tokenAddr) : null;
-      if (tokenMeta) {
-        display = { amount: toDisplayUnits(raw, tokenMeta.decimals), symbol: tokenMeta.displaySymbol };
-      }
-    } catch { /* enrichment is best-effort */ }
-
-    res.json({ streamId: Number(id), withdrawable: raw, display });
+    res.json({ streamId: Number(id), withdrawable: toBigIntStr(result) });
   } catch (err) { next(err); }
 });
 
@@ -125,98 +142,98 @@ router.get('/:id/buffer', async (req, res, next) => {
   try {
     const id = BigInt(req.params.id);
     const result = await query(C, 'GetRemainingBuffer', id);
-    const raw = toBigIntStr(result);
-
-    let display = null;
-    try {
-      const stream = await query(C, 'GetStream', id);
-      const tokenAddr = stream?.token || stream?.Token;
-      const tokenMeta = tokenAddr ? getTokenByVaraAddress(typeof tokenAddr === 'object' ? tokenAddr.toString() : tokenAddr) : null;
-      if (tokenMeta) {
-        display = { amount: toDisplayUnits(raw, tokenMeta.decimals), symbol: tokenMeta.displaySymbol };
-      }
-    } catch { /* enrichment is best-effort */ }
-
-    res.json({ streamId: Number(id), remainingBuffer: raw, display });
+    res.json({ streamId: Number(id), remainingBuffer: toBigIntStr(result) });
   } catch (err) { next(err); }
 });
 
-// POST /api/streams/create — create stream with symbol + human-readable amounts
-router.post('/create', async (req, res, next) => {
+async function createStreamHandler(req, res, next) {
   try {
-    const { receiver, symbol, token: tokenSymbol, amount, flowRate, interval, initialDeposit, deposit, mode } = req.body;
-    const effectiveSymbol = symbol || tokenSymbol;
-    const effectiveDeposit = initialDeposit || deposit;
-    const hasHumanReadable = effectiveSymbol && amount && interval && effectiveDeposit;
-    const hasRaw = effectiveSymbol && flowRate && effectiveDeposit;
-
-    if (!receiver) {
-      return res.status(400).json({ error: 'Missing required field: receiver' });
-    }
-    if (!hasHumanReadable && !hasRaw) {
-      return res.status(400).json({
-        error: 'Missing fields. Provide: receiver, symbol, amount, interval, initialDeposit (human-readable) OR receiver, token/symbol, flowRate, initialDeposit (raw)',
-      });
-    }
-
-    const tokenInfo = getTokenBySymbol(effectiveSymbol);
-    if (!tokenInfo) return res.status(404).json({ error: `Unknown token: ${effectiveSymbol}` });
-
-    let perSecondRate;
-    if (hasHumanReadable) {
-      perSecondRate = toPerSecondRate(amount, tokenInfo.decimals, interval);
-      if (perSecondRate <= 0n) {
-        return res.status(400).json({ error: 'Flow rate too low — results in 0 per second' });
-      }
-    } else {
-      perSecondRate = BigInt(flowRate);
-    }
-
-    const rawDeposit = hasHumanReadable
-      ? toBaseUnits(effectiveDeposit, tokenInfo.decimals)
-      : BigInt(effectiveDeposit);
-    const tokenAddr = toActorId(tokenInfo.vara);
-    const receiverAddr = toActorId(receiver);
-
-    if (mode === 'payload') {
-      const payload = encodePayload(C, 'CreateStream', receiverAddr, tokenAddr, perSecondRate, rawDeposit);
-      return res.json({
-        payload,
-        token: tokenInfo.symbol,
-        flowRatePerSecond: perSecondRate.toString(),
-        flowRateBreakdown: flowRateBreakdown(perSecondRate, tokenInfo.decimals),
-        rawDeposit: rawDeposit.toString(),
-        displayDeposit: effectiveDeposit,
-      });
-    }
-
-    const { result, blockHash } = await command(C, 'CreateStream', receiverAddr, tokenAddr, perSecondRate, rawDeposit);
-    res.status(201).json({
-      streamId: typeof result === 'bigint' ? result.toString() : result,
-      token: tokenInfo.symbol,
-      flowRatePerSecond: perSecondRate.toString(),
-      flowRateBreakdown: flowRateBreakdown(perSecondRate, tokenInfo.decimals),
-      rawDeposit: rawDeposit.toString(),
-      displayDeposit: effectiveDeposit,
-      blockHash,
-    });
-  } catch (err) { next(err); }
-});
-
-router.post('/', async (req, res, next) => {
-  try {
-    const { receiver, token, flowRate, initialDeposit, mode } = req.body;
+    const { receiver, token, flowRate, initialDeposit, mode, flowRateInterval, raw } = req.body;
     if (!receiver || !token || !flowRate || !initialDeposit) {
       return res.status(400).json({ error: 'Missing: receiver, token, flowRate, initialDeposit' });
     }
-    if (mode === 'payload') {
-      const payload = encodePayload(C, 'CreateStream', toActorId(receiver), toActorId(token), BigInt(flowRate), BigInt(initialDeposit));
-      return res.json({ payload });
+
+    // Resolve token symbol to Vara address (supports both symbol and raw address)
+    const varaAddress = resolveVaraAddress(token);
+    if (!varaAddress) return res.status(400).json({ error: `Unknown token: ${token}` });
+
+    const tokMeta = getToken(token) || getTokenByVaraAddress(varaAddress);
+
+    let flowRateBase, depositBase;
+    if (raw === true || raw === 'true') {
+      // Caller has already converted to base units — use as-is.
+      flowRateBase = BigInt(flowRate);
+      depositBase = BigInt(initialDeposit);
+    } else if (tokMeta) {
+      // If a known token, accept human-readable amounts and convert
+      if (flowRateInterval) {
+        // e.g. flowRate: "100", flowRateInterval: "month" → per-second base units
+        flowRateBase = flowRateFromInterval(flowRate, tokMeta.decimals, flowRateInterval);
+      } else {
+        // flowRate is already per-second in human-readable units
+        flowRateBase = toBaseUnits(flowRate, tokMeta.decimals);
+      }
+      depositBase = toBaseUnits(initialDeposit, tokMeta.decimals);
+    } else {
+      // Unknown token — treat amounts as raw base units
+      flowRateBase = BigInt(flowRate);
+      depositBase = BigInt(initialDeposit);
     }
-    const { result, blockHash } = await command(C, 'CreateStream', toActorId(receiver), toActorId(token), BigInt(flowRate), BigInt(initialDeposit));
-    res.status(201).json({ result, blockHash });
+
+    const receiverHex = toActorId(receiver);
+
+    if (mode === 'payload') {
+      const payload = encodePayload(C, 'CreateStream', receiverHex, varaAddress, flowRateBase, depositBase);
+      return res.json({
+        payload,
+        resolved: {
+          token: tokMeta?.symbol || token,
+          varaAddress,
+          flowRateBaseUnits: flowRateBase.toString(),
+          depositBaseUnits: depositBase.toString(),
+        },
+      });
+    }
+    let { result, blockHash } = await command(C, 'CreateStream', receiverHex, varaAddress, flowRateBase, depositBase);
+
+    // If result is null (decode warning), try to find the new stream ID via sender query
+    if (result == null && req.body.sender) {
+      const senderHex = toActorId(req.body.sender);
+      const streams = await query(C, 'GetSenderStreams', senderHex);
+      if (streams && streams.length > 0) {
+        result = streams[streams.length - 1]; // Assume newest
+      }
+    }
+
+    // Log event (non-blocking)
+    logStreamEvent({
+      streamId: result != null ? String(result) : 'unknown',
+      eventType: 'created',
+      sender: req.body.sender || null,
+      receiver,
+      tokenAddress: varaAddress,
+      tokenSymbol: tokMeta?.symbol || token,
+      flowRate: flowRateBase.toString(),
+      amount: depositBase.toString(),
+      blockHash,
+      metadata: { flowRateInterval: flowRateInterval || 'second' },
+    });
+
+    res.status(201).json({
+      result: result != null ? String(result) : null,
+      blockHash,
+      resolved: {
+        token: tokMeta?.symbol || token,
+        varaAddress,
+        flowRateBaseUnits: flowRateBase.toString(),
+        depositBaseUnits: depositBase.toString(),
+      },
+    });
   } catch (err) { next(err); }
-});
+}
+
+router.post('/', createStreamHandler);
+router.post('/create', createStreamHandler);
 
 router.put('/:id', async (req, res, next) => {
   try {
@@ -228,6 +245,7 @@ router.put('/:id', async (req, res, next) => {
       return res.json({ payload });
     }
     const { result, blockHash } = await command(C, 'UpdateStream', id, BigInt(flowRate));
+    logStreamEvent({ streamId: String(id), eventType: 'updated', flowRate: String(flowRate), blockHash });
     res.json({ streamId: Number(id), blockHash });
   } catch (err) { next(err); }
 });
@@ -239,6 +257,7 @@ router.post('/:id/pause', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'PauseStream', id) });
     }
     const { result, blockHash } = await command(C, 'PauseStream', id);
+    logStreamEvent({ streamId: String(id), eventType: 'paused', blockHash });
     res.json({ streamId: Number(id), status: 'paused', blockHash });
   } catch (err) { next(err); }
 });
@@ -250,6 +269,7 @@ router.post('/:id/resume', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'ResumeStream', id) });
     }
     const { result, blockHash } = await command(C, 'ResumeStream', id);
+    logStreamEvent({ streamId: String(id), eventType: 'resumed', blockHash });
     res.json({ streamId: Number(id), status: 'active', blockHash });
   } catch (err) { next(err); }
 });
@@ -263,6 +283,7 @@ router.post('/:id/deposit', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'Deposit', id, BigInt(amount)) });
     }
     const { result, blockHash } = await command(C, 'Deposit', id, BigInt(amount));
+    logStreamEvent({ streamId: String(id), eventType: 'deposit', amount: String(amount), blockHash });
     res.json({ streamId: Number(id), deposited: amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -274,6 +295,7 @@ router.post('/:id/withdraw', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'Withdraw', id) });
     }
     const { result, blockHash } = await command(C, 'Withdraw', id);
+    logStreamEvent({ streamId: String(id), eventType: 'withdraw', amount: toBigIntStr(result), blockHash });
     res.json({ streamId: Number(id), withdrawn: toBigIntStr(result), blockHash });
   } catch (err) { next(err); }
 });
@@ -285,6 +307,7 @@ router.post('/:id/stop', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'StopStream', id) });
     }
     const { result, blockHash } = await command(C, 'StopStream', id);
+    logStreamEvent({ streamId: String(id), eventType: 'stopped', blockHash });
     res.json({ streamId: Number(id), status: 'stopped', blockHash });
   } catch (err) { next(err); }
 });
@@ -296,6 +319,7 @@ router.post('/:id/liquidate', async (req, res, next) => {
       return res.json({ payload: encodePayload(C, 'Liquidate', id) });
     }
     const { result, blockHash } = await command(C, 'Liquidate', id);
+    logStreamEvent({ streamId: String(id), eventType: 'liquidated', blockHash });
     res.json({ streamId: Number(id), status: 'liquidated', blockHash });
   } catch (err) { next(err); }
 });

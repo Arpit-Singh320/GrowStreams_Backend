@@ -1,4 +1,5 @@
 import { query, queryOne, queryAll } from './db.mjs';
+import { awardCampaignXP } from './campaign-service.mjs';
 
 const ONE_TIME_REASONS = ['INITIAL_AWARD', 'MERGE_BONUS', 'VIRAL_BONUS', 'RESHARE_BONUS'];
 const REFERRAL_BONUS_PCT = 0.05; // 5% referral bonus
@@ -7,8 +8,9 @@ const REFERRAL_BONUS_PCT = 0.05; // 5% referral bonus
  * Award XP to a participant.
  * Inserts an xp_event and updates participant total_xp.
  * One-time reasons are idempotent per (reason, contribution_id).
+ * Optional campaignId: when present, also awards campaign-scoped XP.
  */
-export async function awardXP(wallet, xpDelta, reason, contributionId = null) {
+export async function awardXP(wallet, xpDelta, reason, contributionId = null, campaignId = null) {
   if (ONE_TIME_REASONS.includes(reason) && contributionId) {
     const existing = await queryOne(
       `SELECT id FROM xp_events WHERE wallet = $1 AND reason = $2 AND contribution_id = $3 LIMIT 1`,
@@ -21,9 +23,9 @@ export async function awardXP(wallet, xpDelta, reason, contributionId = null) {
   }
 
   const event = await queryOne(
-    `INSERT INTO xp_events (wallet, xp_delta, reason, contribution_id)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [wallet, xpDelta, reason, contributionId]
+    `INSERT INTO xp_events (wallet, xp_delta, reason, contribution_id, campaign_id)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [wallet, xpDelta, reason, contributionId, campaignId || null]
   );
 
   // Recalculate total from all xp_events for this wallet (safe, avoids drift)
@@ -39,6 +41,15 @@ export async function awardXP(wallet, xpDelta, reason, contributionId = null) {
   );
 
   console.log(`[xp] Awarded ${xpDelta} XP (${reason}) to ${wallet}`);
+
+  // Award campaign-scoped XP if campaignId is provided
+  if (campaignId) {
+    try {
+      await awardCampaignXP(campaignId, wallet, xpDelta, contributionId);
+    } catch (campErr) {
+      console.warn(`[xp] Campaign XP award failed for ${wallet} in ${campaignId}: ${campErr.message}`);
+    }
+  }
 
   // Award referral bonus to referrer (skip if this IS a referral bonus to avoid recursion)
   if (reason !== 'REFERRAL_BONUS' && xpDelta > 0) {
@@ -172,28 +183,28 @@ export async function getLeaderboard(page = 1, limit = 50, track = null) {
             u.referral_code
      FROM participants p
      LEFT JOIN users u ON u.id = p.user_id
-     WHERE 1=1 ${trackFilter}
-     ORDER BY p.total_xp DESC, p.created_at ASC LIMIT $1 OFFSET $2`,
+     WHERE p.total_xp > 0 ${trackFilter}
+     ORDER BY p.total_xp DESC LIMIT $1 OFFSET $2`,
     params
   );
 
-  // Total count (all registered participants)
+  // Total count
   const countParams = track && track !== 'BOTH' ? [track] : [];
   const countRow = await queryOne(
-    `SELECT COUNT(*) AS cnt FROM participants WHERE 1=1 ${
+    `SELECT COUNT(*) AS cnt FROM participants WHERE total_xp > 0 ${
       track && track !== 'BOTH' ? `AND (track = $1 OR track = 'BOTH')` : ''
     }`,
     countParams
   );
   const count = parseInt(countRow?.cnt || '0', 10);
 
-  // Global total XP (from all participants)
+  // Global total XP
   const totalXPRow = await queryOne(
-    `SELECT COALESCE(SUM(total_xp), 0) AS total FROM participants`
+    `SELECT COALESCE(SUM(total_xp), 0) AS total FROM participants WHERE total_xp > 0`
   );
   const totalXP = parseInt(totalXPRow?.total || '0', 10);
 
-  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '100');
+  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '500');
 
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
@@ -267,7 +278,7 @@ export async function getParticipantStats(wallet) {
   const participant = await queryOne(
     `SELECT * FROM participants WHERE wallet = $1`, [wallet]
   );
-  if (!participant) throw new Error(`[xp] Participant not found: ${wallet}`);
+  if (!participant) return null;
 
   const contributions = await queryAll(
     `SELECT * FROM contributions WHERE wallet = $1 ORDER BY submitted_at DESC`, [wallet]
@@ -278,16 +289,16 @@ export async function getParticipantStats(wallet) {
   );
 
   const totalXPRow = await queryOne(
-    `SELECT COALESCE(SUM(total_xp), 0) AS total FROM participants`
+    `SELECT COALESCE(SUM(total_xp), 0) AS total FROM participants WHERE total_xp > 0`
   );
   const totalXP = parseInt(totalXPRow?.total || '0', 10);
 
-  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '100');
+  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '500');
   const estimatedUSDC = totalXP > 0
     ? Math.round((participant.total_xp / totalXP) * poolUSDC * 100) / 100
     : 0;
 
-  // Calculate rank (users with same XP share a rank; 0-XP users ranked after everyone)
+  // Calculate rank
   const rankRow = await queryOne(
     `SELECT COUNT(*) + 1 AS rank FROM participants WHERE total_xp > $1`,
     [participant.total_xp]
@@ -321,11 +332,11 @@ export async function calculatePayout(wallet) {
   if (!participant) throw new Error(`[xp] Participant not found: ${wallet}`);
 
   const totalXPRow = await queryOne(
-    `SELECT COALESCE(SUM(total_xp), 0) AS total FROM participants`
+    `SELECT COALESCE(SUM(total_xp), 0) AS total FROM participants WHERE total_xp > 0`
   );
   const totalXP = parseInt(totalXPRow?.total || '0', 10);
 
-  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '100');
+  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '500');
   const payout = totalXP > 0
     ? Math.round((participant.total_xp / totalXP) * poolUSDC * 100) / 100
     : 0;
@@ -351,7 +362,7 @@ export async function calculateAllPayouts() {
   );
 
   const totalXP = participants.reduce((sum, p) => sum + p.total_xp, 0);
-  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '100');
+  const poolUSDC = parseFloat(process.env.CAMPAIGN_POOL_USDC || '500');
 
   const payouts = participants.map((p, i) => ({
     rank: i + 1,
