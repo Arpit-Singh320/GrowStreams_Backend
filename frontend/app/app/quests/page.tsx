@@ -411,18 +411,9 @@ function QuestCard({
           <span className="text-xs text-amber-400">Awaiting review</span>
         )}
 
-        {isCompleted && quest.repeatable && (
-          <button
-            onClick={handleClaimClick}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 transition-colors"
-          >
-            Claim Again <ArrowRight className="w-3 h-3" />
-          </button>
-        )}
-
-        {isCompleted && !quest.repeatable && quest.totalEarned != null && quest.totalEarned > 0 && (
+        {isCompleted && (
           <span className="text-xs text-provn-muted">
-            +{quest.totalEarned} XP earned
+            Resets Monday 00:00 UTC
           </span>
         )}
       </div>
