@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { Github, Twitter, ArrowUpRight, Mail, MessageCircle, Shield, Zap } from "lucide-react"
+import { Github, Twitter, ArrowUpRight, MessageCircle, Shield, Zap } from "lucide-react"
 import { MagnetButton } from "@/components/v2/magnet-button"
 
 const footerLinks: Record<string, { label: string; href: string; external?: boolean }[]> = {
@@ -26,7 +26,7 @@ const footerLinks: Record<string, { label: string; href: string; external?: bool
   ],
   Community: [
     { label: "Twitter / X", href: "https://x.com/GrowwStreams", external: true },
-    { label: "GitHub", href: "https://github.com/BlockXAI/GrowStreams_Backend/blob/main/PLAN.md", external: true },
+    { label: "GitHub", href: "https://github.com/BlockX-AI/GrowStreams_Backend", external: true },
     { label: "Telegram", href: "https://t.me/hypervara", external: true },
     { label: "Contact Us", href: "mailto:hello@growstreams.io", external: true },
   ],
@@ -70,9 +70,10 @@ export function FooterV2() {
             <div className="flex gap-3 mt-4">
               <MagnetButton strength={0.2} radius={100}>
                 <a
-                  href="https://twitter.com/growstreams"
+                  href="https://x.com/GrowwStreams"
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="Twitter / X"
                   className="p-2.5 rounded-lg bg-provn-surface hover:bg-provn-surface-2 text-provn-muted hover:text-provn-text transition-colors block"
                 >
                   <Twitter className="w-4 h-4" />
@@ -80,20 +81,13 @@ export function FooterV2() {
               </MagnetButton>
               <MagnetButton strength={0.2} radius={100}>
                 <a
-                  href="https://github.com/growstreams"
+                  href="https://github.com/BlockX-AI/GrowStreams_Backend"
                   target="_blank"
                   rel="noopener noreferrer"
+                  aria-label="GitHub"
                   className="p-2.5 rounded-lg bg-provn-surface hover:bg-provn-surface-2 text-provn-muted hover:text-provn-text transition-colors block"
                 >
                   <Github className="w-4 h-4" />
-                </a>
-              </MagnetButton>
-              <MagnetButton strength={0.2} radius={100}>
-                <a
-                  href="mailto:hello@growstreams.io"
-                  className="p-2.5 rounded-lg bg-provn-surface hover:bg-provn-surface-2 text-provn-muted hover:text-provn-text transition-colors block"
-                >
-                  <Mail className="w-4 h-4" />
                 </a>
               </MagnetButton>
             </div>
