@@ -292,20 +292,26 @@ export async function migrate() {
     );
   `);
 
-  // Seed default quests if table is empty
-  const questCount = await queryOne(`SELECT COUNT(*) AS cnt FROM quests`);
-  if (parseInt(questCount?.cnt || '0', 10) === 0) {
-    await p.query(`
-      INSERT INTO quests (slug, title, description, quest_type, seeds_reward, icon, repeatable, sort_order) VALUES
-        ('follow-x',       'Follow X',                               'Follow @growwstreams on X, then submit your X username for review. An admin will verify and award XP.',                                'X_FOLLOW',        100, 'twitter',    FALSE, 1),
-        ('mention-x',      'Post on X',                              'Post a tweet mentioning @growwstreams with your wallet address, then paste the tweet URL for admin review.',                          'X_MENTION',       150, 'megaphone',  FALSE, 2),
-        ('star-repo',      'Star the GrowStreams repo',            'Star the GrowStreams repository on GitHub.',                       'GITHUB_STAR',     100, 'star',       FALSE, 3),
-        ('raise-pr',       'Raise a PR on GrowStreams repo',       'Open a pull request on the GrowStreams GitHub repository.',        'GITHUB_PR',       200, 'git-pull-request', FALSE, 4),
-        ('create-stream',  'Create a stream on testnet',           'Create a token stream on the GrowStreams testnet application.',    'ONCHAIN_STREAM',  300, 'waves',      FALSE, 5)
-      ON CONFLICT (slug) DO NOTHING;
-    `);
-    console.log('[db] Seeded default quests');
-  }
+  // Seed / upsert default quests. All quests are weekly-repeatable so users can earn XP each week.
+  await p.query(`
+    INSERT INTO quests (slug, title, description, quest_type, seeds_reward, icon, repeatable, sort_order) VALUES
+      ('follow-x',         'Follow GrowStreams on X',                'Follow @growwstreams on X, then submit your X username for review. Refreshes weekly.',                                                'X_FOLLOW',        100, 'twitter',          TRUE, 1),
+      ('mention-x',        'Post about GrowStreams',                 'Post a tweet mentioning @growwstreams with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',     'X_MENTION',       150, 'megaphone',        TRUE, 2),
+      ('follow-x-ginie',   'Follow Ginie on X',                      'Follow @giniedev on X (our sister product), then submit your X username for review. Refreshes weekly.',                             'X_FOLLOW',        100, 'twitter',          TRUE, 3),
+      ('mention-x-ginie',  'Post about Ginie',                       'Post a tweet mentioning @giniedev with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',         'X_MENTION',       150, 'megaphone',        TRUE, 4),
+      ('star-repo',        'Star the GrowStreams repo',              'Star the GrowStreams repository on GitHub. Refreshes weekly.',                                                                       'GITHUB_STAR',     100, 'star',             TRUE, 5),
+      ('raise-pr',         'Raise a PR on GrowStreams repo',         'Open a pull request on the GrowStreams GitHub repository. Refreshes weekly.',                                                        'GITHUB_PR',       200, 'git-pull-request', TRUE, 6),
+      ('create-stream',    'Create a stream on testnet',             'Create a token stream on the GrowStreams testnet application. Refreshes weekly.',                                                    'ONCHAIN_STREAM',  300, 'waves',            TRUE, 7)
+    ON CONFLICT (slug) DO UPDATE SET
+      title        = EXCLUDED.title,
+      description  = EXCLUDED.description,
+      quest_type   = EXCLUDED.quest_type,
+      seeds_reward = EXCLUDED.seeds_reward,
+      icon         = EXCLUDED.icon,
+      repeatable   = EXCLUDED.repeatable,
+      sort_order   = EXCLUDED.sort_order;
+  `);
+  console.log('[db] Upserted default quests (weekly-repeatable, with Ginie quests)');
 
   // -----------------------------------------------------------------------
   // Indexes

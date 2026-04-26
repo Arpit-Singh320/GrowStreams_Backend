@@ -139,16 +139,14 @@ router.post('/:slug/claim', async (req, res, next) => {
     const quest = await getQuestBySlug(slug);
     if (!quest) return res.status(404).json({ error: 'Quest not found' });
 
-    // Check if already completed (non-repeatable)
-    if (!quest.repeatable) {
-      const alreadyDone = await isQuestCompleted(wallet, slug);
-      if (alreadyDone) {
-        return res.status(400).json({ error: 'Quest already completed' });
-      }
+    // Block re-claim within the same week (covers repeatable weekly quests).
+    const alreadyDoneThisWeek = await isQuestCompleted(wallet, slug);
+    if (alreadyDoneThisWeek) {
+      return res.status(400).json({ error: 'Quest already completed this week. Refreshes Monday 00:00 UTC.' });
     }
 
-    // Manual review submissions for X quests (no X API usage)
-    if (slug === 'follow-x') {
+    // Manual review submissions for any X_FOLLOW quest (e.g. follow-x, follow-x-ginie)
+    if (quest.quest_type === 'X_FOLLOW') {
       const handle = (x_username || '').trim().replace(/^@/, '');
       if (!handle) return res.status(400).json({ error: 'Please enter your X username' });
 
@@ -165,7 +163,8 @@ router.post('/:slug/claim', async (req, res, next) => {
       });
     }
 
-    if (slug === 'mention-x') {
+    // Manual review for any X_MENTION quest (e.g. mention-x, mention-x-ginie)
+    if (quest.quest_type === 'X_MENTION') {
       const url = (tweet_url || '').trim();
       if (!url) return res.status(400).json({ error: 'Please paste your tweet URL' });
       // basic URL sanity check
@@ -197,34 +196,51 @@ router.post('/:slug/claim', async (req, res, next) => {
     // Fire-and-forget verification depending on quest type
     setImmediate(async () => {
       try {
-        if (slug === 'star-repo') {
-          // Instant GitHub star check via API
-          console.log(`[quest-claim] Checking GitHub star for @${registration.github_username}...`);
+        if (quest.quest_type === 'GITHUB_STAR') {
+          // GitHub star check via stargazers API (paginated; works without token but
+          // rate-limited 60/hr per IP if unauthenticated).
+          const ghUser = registration.github_username?.toLowerCase();
+          const owner = process.env.GITHUB_REPO_OWNER || 'BlockX-AI';
+          const repo = process.env.GITHUB_REPO_NAME || 'GrowStreams_Backend';
           const ghToken = process.env.GITHUB_TOKEN;
-          if (ghToken) {
-            try {
-              const resp = await fetch(
-                `https://api.github.com/repos/${process.env.GITHUB_REPO_OWNER || 'BlockX-AI'}/${process.env.GITHUB_REPO_NAME || 'GrowStreams_Backend'}/stargazers?per_page=100`,
-                { headers: { Authorization: `token ${ghToken}`, Accept: 'application/vnd.github.v3+json' } }
-              );
-              if (resp.ok) {
-                const stargazers = await resp.json();
-                const isStarred = stargazers.some(s => s.login?.toLowerCase() === registration.github_username.toLowerCase());
-                if (isStarred) {
-                  await awardSeeds(wallet, 'star-repo', { github_user: registration.github_username, source: 'claim-verify' });
-                  console.log(`[quest-claim] Star verified and awarded for ${wallet}`);
-                } else {
-                  console.log(`[quest-claim] Star NOT found for @${registration.github_username}`);
-                }
-              }
-            } catch (ghErr) {
-              console.warn(`[quest-claim] GitHub star check failed: ${ghErr.message}`);
-            }
+          if (!ghToken) {
+            console.warn('[quest-claim] GITHUB_TOKEN not set — falling back to unauthenticated stargazers fetch (rate-limited).');
           }
-        } else if (slug === 'raise-pr') {
+          console.log(`[quest-claim] Checking GitHub star for @${ghUser} on ${owner}/${repo}...`);
+
+          try {
+            const headers = { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'GrowStreams-Quests' };
+            if (ghToken) headers.Authorization = `token ${ghToken}`;
+
+            let isStarred = false;
+            for (let page = 1; page <= 10 && !isStarred; page++) {
+              const resp = await fetch(
+                `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
+                { headers }
+              );
+              if (!resp.ok) {
+                console.warn(`[quest-claim] Stargazers page ${page} returned ${resp.status} ${resp.statusText}`);
+                break;
+              }
+              const stargazers = await resp.json();
+              if (!Array.isArray(stargazers) || stargazers.length === 0) break;
+              isStarred = stargazers.some(s => s.login?.toLowerCase() === ghUser);
+              if (stargazers.length < 100) break; // last page
+            }
+
+            if (isStarred) {
+              await awardSeeds(wallet, slug, { github_user: registration.github_username, source: 'claim-verify' });
+              console.log(`[quest-claim] Star verified and awarded for ${wallet}`);
+            } else {
+              console.log(`[quest-claim] Star NOT found for @${ghUser}`);
+            }
+          } catch (ghErr) {
+            console.warn(`[quest-claim] GitHub star check failed: ${ghErr.message}`);
+          }
+        } else if (quest.quest_type === 'GITHUB_PR') {
           // PR quests are awarded via webhook — nothing to check on-demand
           console.log(`[quest-claim] PR quests are verified via GitHub webhook. No manual check.`);
-        } else if (slug === 'create-stream') {
+        } else if (quest.quest_type === 'ONCHAIN_STREAM') {
           console.log(`[quest-claim] Triggering stream creation check...`);
           await runStreamCheck();
         }

@@ -128,6 +128,9 @@ export async function getRegistration(wallet) {
 // Quests
 // ---------------------------------------------------------------------------
 
+// Weekly refresh boundary (Postgres ISO week, starts Monday 00:00 UTC)
+const WEEK_START_SQL = `date_trunc('week', NOW() AT TIME ZONE 'UTC')`;
+
 /**
  * List all active quests.
  */
@@ -181,22 +184,37 @@ export async function getQuestProgress(wallet) {
     completionMap[c.quest_id].push(c);
   }
 
+  // Compute current week boundary on the JS side to filter completions for
+  // weekly refresh logic. Use Postgres-style ISO week (Monday 00:00 UTC).
+  const now = new Date();
+  const day = now.getUTCDay(); // 0=Sun ... 6=Sat
+  const daysSinceMonday = (day + 6) % 7; // Mon=0, Sun=6
+  const weekStart = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday
+  ));
+
+  const isThisWeek = (c) => {
+    const t = c.verified_at || c.created_at;
+    return t && new Date(t) >= weekStart;
+  };
+
   const questsWithStatus = quests.map(q => {
     const questCompletions = completionMap[q.id] || [];
-    const verified = questCompletions.filter(c => c.status === 'VERIFIED');
-    const pending = questCompletions.find(c => c.status === 'PENDING') || null;
-    const rejected = questCompletions.find(c => c.status === 'REJECTED') || null;
-    const isCompleted = verified.length > 0;
-    const totalEarned = verified.reduce((sum, c) => sum + c.seeds_awarded, 0);
+    const verifiedAll = questCompletions.filter(c => c.status === 'VERIFIED');
+    const verifiedThisWeek = verifiedAll.filter(isThisWeek);
+    const pendingThisWeek = questCompletions.find(c => c.status === 'PENDING' && isThisWeek(c)) || null;
+    const rejectedThisWeek = questCompletions.find(c => c.status === 'REJECTED' && isThisWeek(c)) || null;
+    const isCompletedThisWeek = verifiedThisWeek.length > 0;
+    const totalEarned = verifiedAll.reduce((sum, c) => sum + c.seeds_awarded, 0);
 
     return {
       ...q,
-      completed: isCompleted,
-      completionCount: verified.length,
+      completed: isCompletedThisWeek,
+      completionCount: verifiedAll.length,
       totalEarned,
-      latestCompletion: verified[0] || null,
-      pendingSubmission: pending,
-      rejectedSubmission: rejected && !pending && !isCompleted ? rejected : null,
+      latestCompletion: verifiedAll[0] || null,
+      pendingSubmission: pendingThisWeek,
+      rejectedSubmission: rejectedThisWeek && !pendingThisWeek && !isCompletedThisWeek ? rejectedThisWeek : null,
     };
   });
 
@@ -227,16 +245,17 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
   if (!quest) throw new Error(`Quest not found: ${questSlug}`);
   if (!quest.active) throw new Error(`Quest is not active: ${questSlug}`);
 
-  // For non-repeatable quests, check if already completed
-  if (!quest.repeatable) {
-    const existing = await queryOne(
-      `SELECT id FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'`,
-      [wallet, quest.id]
-    );
-    if (existing) {
-      console.log(`[quest] Skipped duplicate completion: ${wallet} already completed ${questSlug}`);
-      return null;
-    }
+  // Skip if already completed in the current week (applies to both repeatable
+  // weekly quests and legacy non-repeatable quests).
+  const existing = await queryOne(
+    `SELECT id FROM quest_completions
+     WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'
+       AND COALESCE(verified_at, created_at) >= ${WEEK_START_SQL}`,
+    [wallet, quest.id]
+  );
+  if (existing) {
+    console.log(`[quest] Skipped duplicate completion: ${wallet} already completed ${questSlug} this week`);
+    return null;
   }
 
   // Attempt on-chain mint via quest-seeds contract
@@ -298,16 +317,20 @@ export async function submitQuestProof(wallet, questSlug, proof = {}) {
   if (!quest) throw new Error(`Quest not found: ${questSlug}`);
   if (!quest.active) throw new Error(`Quest is not active: ${questSlug}`);
 
-  // Already verified?
+  // Already verified this week?
   const verified = await queryOne(
-    `SELECT id FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'`,
+    `SELECT id FROM quest_completions
+     WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'
+       AND COALESCE(verified_at, created_at) >= ${WEEK_START_SQL}`,
     [wallet, quest.id]
   );
   if (verified) return { status: 'ALREADY_VERIFIED' };
 
-  // Already pending? Update proof instead of creating duplicate.
+  // Already pending this week? Update proof instead of creating duplicate.
   const pending = await queryOne(
-    `SELECT id FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'PENDING'`,
+    `SELECT id FROM quest_completions
+     WHERE wallet = $1 AND quest_id = $2 AND status = 'PENDING'
+       AND created_at >= ${WEEK_START_SQL}`,
     [wallet, quest.id]
   );
   if (pending) {
@@ -474,13 +497,15 @@ export async function getQuestLeaderboard() {
 }
 
 /**
- * Check if a quest is already completed (non-repeatable) for a wallet.
+ * Check if a quest has already been completed in the current week for a wallet.
  */
 export async function isQuestCompleted(wallet, questSlug) {
   const quest = await getQuestBySlug(questSlug);
   if (!quest) return false;
   const existing = await queryOne(
-    `SELECT id FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'`,
+    `SELECT id FROM quest_completions
+     WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'
+       AND COALESCE(verified_at, created_at) >= ${WEEK_START_SQL}`,
     [wallet, quest.id]
   );
   return !!existing;

@@ -19,7 +19,16 @@ const QUEST_ICONS: Record<string, React.ElementType> = {
 
 // External action links per quest slug (kept only for non-X quests)
 const GROWSTREAMS_X_URL = 'https://x.com/growwstreams';
+const GINIE_X_URL = 'https://x.com/giniedev';
 const GROWSTREAMS_REPO_URL = 'https://github.com/BlockX-AI/GrowStreams_Backend';
+
+// X handle per quest slug (used for the "Open @handle" reference link)
+const X_HANDLE_BY_SLUG: Record<string, { url: string; handle: string }> = {
+  'follow-x':         { url: GROWSTREAMS_X_URL, handle: '@growwstreams' },
+  'mention-x':        { url: GROWSTREAMS_X_URL, handle: '@growwstreams' },
+  'follow-x-ginie':   { url: GINIE_X_URL,       handle: '@giniedev' },
+  'mention-x-ginie':  { url: GINIE_X_URL,       handle: '@giniedev' },
+};
 
 const QUEST_LINKS: Record<string, { label: string; href: (wallet: string) => string }> = {
   'star-repo': {
@@ -220,9 +229,10 @@ function QuestCard({
   const isCompleted = quest.completed;
   const isPending = !!quest.pendingSubmission;
   const isRejected = !!quest.rejectedSubmission;
-  const isFollowX = quest.slug === 'follow-x';
-  const isMentionX = quest.slug === 'mention-x';
+  const isFollowX = quest.quest_type === 'X_FOLLOW';
+  const isMentionX = quest.quest_type === 'X_MENTION';
   const needsManualInput = isFollowX || isMentionX;
+  const xRef = X_HANDLE_BY_SLUG[quest.slug];
   const [xUsername, setXUsername] = useState('');
   const [tweetUrl, setTweetUrl] = useState('');
   const link = QUEST_LINKS[quest.slug];
@@ -296,14 +306,14 @@ function QuestCard({
           <p className="text-xs text-provn-muted mt-0.5">{quest.description}</p>
 
           {/* X quest reference link (read-only nav helper) */}
-          {(isFollowX || isMentionX) && !isCompleted && (
+          {(isFollowX || isMentionX) && xRef && !isCompleted && (
             <a
-              href={GROWSTREAMS_X_URL}
+              href={xRef.url}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 mt-2 text-xs text-emerald-400 hover:text-emerald-300"
             >
-              <ExternalLink className="w-3 h-3" /> Open @growwstreams
+              <ExternalLink className="w-3 h-3" /> Open {xRef.handle}
             </a>
           )}
 
@@ -326,7 +336,7 @@ function QuestCard({
         <div className="mb-3 space-y-2">
           {isMentionX && (
             <div className="text-[11px] text-provn-muted">
-              Tweet must mention <span className="text-emerald-400">@growwstreams</span> + include your wallet:{' '}
+              Tweet must mention <span className="text-emerald-400">{xRef?.handle ?? '@growwstreams'}</span> + include your wallet:{' '}
               <code className="text-emerald-400 text-[10px]">{wallet.slice(0, 10)}…{wallet.slice(-6)}</code>
             </div>
           )}
