@@ -228,11 +228,12 @@ export async function getQuestProgress(wallet) {
     const pendingThisWeek = questCompletions.find(c => c.status === 'PENDING' && isThisWeek(c)) || null;
     const rejectedThisWeek = questCompletions.find(c => c.status === 'REJECTED' && isThisWeek(c)) || null;
     const isCompletedThisWeek = verifiedThisWeek.length > 0;
+    const isCompleted = !q.repeatable ? verifiedAll.length > 0 : isCompletedThisWeek;
     const totalEarned = verifiedAll.reduce((sum, c) => sum + c.seeds_awarded, 0);
 
     return {
       ...q,
-      completed: isCompletedThisWeek,
+      completed: isCompleted,
       completionCount: verifiedAll.length,
       totalEarned,
       latestCompletion: verifiedAll[0] || null,
@@ -480,6 +481,58 @@ export async function rejectPendingSubmission(completionId, reason = '') {
     [JSON.stringify(updatedProof), completionId]
   );
   console.log(`[quest] Rejected submission ${completionId} (reason=${reason})`);
+  return completion;
+}
+
+/**
+ * Award the one-time welcome bonus (100 Seeds) to a newly registered wallet.
+ * Uses an all-time duplicate check so it can never be awarded twice regardless
+ * of which week the user registered.
+ * @returns {object|null} The quest_completion record, or null if already awarded.
+ */
+export async function awardWelcomeBonus(wallet) {
+  const quest = await getQuestBySlug('welcome-bonus');
+  if (!quest || !quest.active) return null;
+
+  const existing = await queryOne(
+    `SELECT id FROM quest_completions
+     WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'`,
+    [wallet, quest.id]
+  );
+  if (existing) {
+    console.log(`[quest] welcome-bonus already awarded to ${wallet} — skipping`);
+    return null;
+  }
+
+  let onChainTxHash = null;
+  const seedsContract = getContract('questSeeds');
+  if (seedsContract) {
+    try {
+      let walletHex = wallet;
+      if (!wallet.startsWith('0x')) {
+        const { decodeAddress } = await import('@polkadot/util-crypto');
+        const publicKey = decodeAddress(wallet);
+        walletHex = '0x' + Buffer.from(publicKey).toString('hex');
+      }
+      const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, quest.seeds_reward, 'quest:welcome-bonus');
+      onChainTxHash = mintResult.blockHash || null;
+      console.log(`[quest] welcome-bonus on-chain mint OK for ${wallet}, tx=${onChainTxHash}`);
+    } catch (mintErr) {
+      console.warn(`[quest] welcome-bonus on-chain mint failed for ${wallet}: ${mintErr.message}. DB-only.`);
+    }
+  }
+
+  const completion = await queryOne(
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at)
+     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW()) RETURNING *`,
+    [wallet, quest.id, JSON.stringify({ source: 'registration' }), quest.seeds_reward, onChainTxHash]
+  );
+  await queryOne(
+    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4)`,
+    [wallet, quest.seeds_reward, quest.id, onChainTxHash]
+  );
+  console.log(`[quest] Awarded welcome-bonus (${quest.seeds_reward} Seeds) to ${wallet}`);
   return completion;
 }
 

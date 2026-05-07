@@ -7,6 +7,7 @@ import {
   getQuestProgress,
   getSeedsBalance,
   awardSeeds,
+  awardWelcomeBonus,
   isQuestCompleted,
   generateInvites,
   listInvites,
@@ -75,15 +76,7 @@ router.post('/register', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const registration = await registerForQuests(
-      wallet || null,
-      email,
-      x_username,
-      github_username,
-      invite_code,
-      evm_address || null
-    );
-
+    const registration = await registerForQuests(wallet, email, x_username, github_username, invite_code);
     res.status(201).json({
       message: 'Successfully registered for quests',
       registration,
@@ -154,6 +147,11 @@ router.post('/:slug/claim', async (req, res, next) => {
 
     const quest = await getQuestBySlug(slug);
     if (!quest) return res.status(404).json({ error: 'Quest not found' });
+
+    // Welcome bonus is auto-awarded on registration — cannot be manually claimed.
+    if (quest.quest_type === 'WELCOME') {
+      return res.status(400).json({ error: 'This quest is awarded automatically when you register.' });
+    }
 
     // Block re-claim within the same week (covers repeatable weekly quests).
     const alreadyDoneThisWeek = await isQuestCompleted(wallet, slug);
