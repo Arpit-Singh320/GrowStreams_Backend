@@ -81,47 +81,70 @@ export async function listInvites(status = null) {
 
 /**
  * Register a user for quests with invite code, email, X handle, GitHub handle.
+ * Accepts either a Substrate SS58 wallet or an EVM 0x address.
  */
-export async function registerForQuests(wallet, email, xUsername, githubUsername, inviteCode) {
+export async function registerForQuests(wallet, email, xUsername, githubUsername, inviteCode, evmAddress = null) {
   // Validate invite
   const { valid, error, invite } = await validateInvite(inviteCode);
   if (!valid) throw new Error(error);
 
-  // Normalize
+  // Determine wallet type and normalise addresses
+  const isEvmOnly = !wallet && evmAddress;
+  const normalizedWallet = wallet ? wallet.trim() : null;
+  const normalizedEvm = evmAddress ? evmAddress.toLowerCase().trim() : null;
+  const walletType = normalizedEvm ? (normalizedWallet ? 'both' : 'evm') : 'substrate';
+
+  if (!normalizedWallet && !normalizedEvm) {
+    throw new Error('Either wallet or evm_address is required');
+  }
+
   const normalizedEmail = email.toLowerCase().trim();
   const normalizedX = xUsername.replace(/^@/, '').toLowerCase().trim();
   const normalizedGithub = githubUsername.toLowerCase().trim();
   const normalizedCode = inviteCode.toUpperCase().trim();
 
-  // Check duplicates
-  const existingWallet = await queryOne(`SELECT id FROM quest_registrations WHERE wallet = $1`, [wallet]);
-  if (existingWallet) throw new Error('Wallet already registered for quests');
+  // Duplicate checks
+  if (normalizedWallet) {
+    const existingWallet = await queryOne(`SELECT id FROM quest_registrations WHERE wallet = $1`, [normalizedWallet]);
+    if (existingWallet) throw new Error('Wallet already registered for quests');
+  }
+  if (normalizedEvm) {
+    const existingEvm = await queryOne(`SELECT id FROM quest_registrations WHERE evm_address = $1`, [normalizedEvm]);
+    if (existingEvm) throw new Error('EVM address already registered for quests');
+  }
 
   const existingEmail = await queryOne(`SELECT id FROM quest_registrations WHERE email = $1`, [normalizedEmail]);
   if (existingEmail) throw new Error('Email already registered for quests');
 
-  // Insert registration
+  const primaryIdentifier = normalizedWallet || normalizedEvm;
+
   const reg = await queryOne(
-    `INSERT INTO quest_registrations (wallet, email, x_username, github_username, invite_code)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [wallet, normalizedEmail, normalizedX, normalizedGithub, normalizedCode]
+    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, email, x_username, github_username, invite_code)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [normalizedWallet, normalizedEvm, walletType, normalizedEmail, normalizedX, normalizedGithub, normalizedCode]
   );
 
-  // Consume invite
   await query(
     `UPDATE quest_invites SET current_uses = current_uses + 1, used_by_wallet = $1 WHERE code = $2`,
-    [wallet, normalizedCode]
+    [primaryIdentifier, normalizedCode]
   );
 
-  console.log(`[quest] Registered ${wallet} (email=${normalizedEmail}, x=@${normalizedX}, gh=${normalizedGithub})`);
+  console.log(`[quest] Registered ${primaryIdentifier} type=${walletType} (email=${normalizedEmail}, x=@${normalizedX}, gh=${normalizedGithub})`);
   return reg;
 }
 
 /**
- * Get registration for a wallet, or null if not registered.
+ * Get registration for a wallet (SS58 or 0x EVM address), or null if not registered.
  */
-export async function getRegistration(wallet) {
-  return queryOne(`SELECT * FROM quest_registrations WHERE wallet = $1`, [wallet]);
+export async function getRegistration(address) {
+  const isEvm = address && address.startsWith('0x') && address.length === 42;
+  if (isEvm) {
+    return queryOne(
+      `SELECT * FROM quest_registrations WHERE evm_address = $1 OR wallet = $1`,
+      [address.toLowerCase()]
+    );
+  }
+  return queryOne(`SELECT * FROM quest_registrations WHERE wallet = $1`, [address]);
 }
 
 // ---------------------------------------------------------------------------
@@ -261,12 +284,14 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
   // Attempt on-chain mint via quest-seeds contract
   let onChainTxHash = txHash;
   const seedsContract = getContract('questSeeds');
-  if (seedsContract && !txHash) {
+  const isEvmAddress = wallet && wallet.startsWith('0x') && wallet.length === 42;
+
+  if (seedsContract && !txHash && !isEvmAddress) {
+    // Vara-native path: convert SS58 → hex ActorId and mint via Sails
     try {
       const reason = `quest:${questSlug}`;
-      console.log(`[quest] Attempting on-chain mint: ${quest.seeds_reward} Seeds to ${wallet}`);
-      
-      // Convert wallet to hex format if it's SS58 (starts with letter/number, not 0x)
+      console.log(`[quest] Attempting on-chain mint (Vara native): ${quest.seeds_reward} Seeds to ${wallet}`);
+
       let walletHex = wallet;
       if (!wallet.startsWith('0x')) {
         const { decodeAddress } = await import('@polkadot/util-crypto');
@@ -274,13 +299,25 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
         walletHex = '0x' + Buffer.from(publicKey).toString('hex');
         console.log(`[quest] Converted SS58 ${wallet} to hex ${walletHex}`);
       }
-      
+
       const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, quest.seeds_reward, reason);
       console.log(`[quest] Mint result:`, mintResult);
       onChainTxHash = mintResult.blockHash || null;
       console.log(`[quest] On-chain mint SUCCESS: ${quest.seeds_reward} Seeds to ${wallet}, tx=${onChainTxHash}`);
     } catch (mintErr) {
       console.warn(`[quest] On-chain mint failed for ${wallet}: ${mintErr.message}. Recording DB-only.`);
+    }
+  } else if (seedsContract && !txHash && isEvmAddress) {
+    // Vara.eth path: mint to 0x address via vara-eth-client (Mirror/ABI call)
+    try {
+      const { mintSeedsEvm } = await import('../vara-eth-client.mjs');
+      const reason = `quest:${questSlug}`;
+      console.log(`[quest] Attempting on-chain mint (Vara.eth): ${quest.seeds_reward} Seeds to ${wallet}`);
+      const evmTx = await mintSeedsEvm(wallet, quest.seeds_reward, reason);
+      onChainTxHash = evmTx?.txHash || null;
+      console.log(`[quest] Vara.eth mint SUCCESS: tx=${onChainTxHash}`);
+    } catch (mintErr) {
+      console.warn(`[quest] Vara.eth mint failed for ${wallet}: ${mintErr.message}. Recording DB-only.`);
     }
   } else if (!seedsContract) {
     console.warn(`[quest] questSeeds contract not loaded — Seeds will be DB-only`);
@@ -447,12 +484,26 @@ export async function rejectPendingSubmission(completionId, reason = '') {
 }
 
 /**
- * Get total Seeds for a wallet.
+ * Get total Seeds for a wallet (SS58 or 0x EVM address).
  */
-export async function getSeedsBalance(wallet) {
+export async function getSeedsBalance(address) {
+  const isEvm = address && address.startsWith('0x') && address.length === 42;
+  let walletClause;
+  let params;
+  if (isEvm) {
+    // Match both the evm_address column (via quest_registrations join) and direct wallet column
+    walletClause = `wallet IN (
+      SELECT COALESCE(wallet, evm_address) FROM quest_registrations
+      WHERE evm_address = $1 OR wallet = $1
+    )`;
+    params = [address.toLowerCase()];
+  } else {
+    walletClause = `wallet = $1`;
+    params = [address];
+  }
   const row = await queryOne(
-    `SELECT COALESCE(SUM(delta), 0) AS total FROM seeds_ledger WHERE wallet = $1`,
-    [wallet]
+    `SELECT COALESCE(SUM(delta), 0) AS total FROM seeds_ledger WHERE ${walletClause}`,
+    params
   );
   return parseInt(row?.total || '0', 10);
 }

@@ -53,21 +53,37 @@ router.post('/verify-invite', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.post('/register', async (req, res, next) => {
   try {
-    const { wallet, email, x_username, github_username, invite_code } = req.body;
+    const { wallet, evm_address, email, x_username, github_username, invite_code } = req.body;
 
-    if (!wallet) return res.status(400).json({ error: 'Wallet address is required' });
+    // At least one address type required
+    if (!wallet && !evm_address) {
+      return res.status(400).json({ error: 'wallet (SS58) or evm_address (0x) is required' });
+    }
+
+    // Basic EVM address validation
+    if (evm_address && !/^0x[0-9a-fA-F]{40}$/.test(evm_address)) {
+      return res.status(400).json({ error: 'Invalid evm_address format — expected 0x followed by 40 hex chars' });
+    }
+
     if (!email) return res.status(400).json({ error: 'Email is required' });
     if (!x_username) return res.status(400).json({ error: 'X (Twitter) username is required' });
     if (!github_username) return res.status(400).json({ error: 'GitHub username is required' });
     if (!invite_code) return res.status(400).json({ error: 'Invite code is required' });
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const registration = await registerForQuests(wallet, email, x_username, github_username, invite_code);
+    const registration = await registerForQuests(
+      wallet || null,
+      email,
+      x_username,
+      github_username,
+      invite_code,
+      evm_address || null
+    );
+
     res.status(201).json({
       message: 'Successfully registered for quests',
       registration,

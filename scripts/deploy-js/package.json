@@ -6,13 +6,19 @@
   "scripts": {
     "deploy": "node deploy.mjs",
     "deploy:stream-core": "node deploy.mjs stream-core",
-    "deploy:token-vault": "node deploy.mjs token-vault"
+    "deploy:token-vault": "node deploy.mjs token-vault",
+    "deploy:eth": "node deploy-eth.mjs",
+    "show-keys": "node show-keys.mjs"
   },
   "dependencies": {
     "@gear-js/api": "^0.44.2",
+    "@polkadot/api": "^10.12.2",
+    "@polkadot/util-crypto": "^12.6.2",
     "dotenv": "^16.4.5",
+    "ethers": "^6.13.2",
     "sails-js": "^0.5.1",
     "sails-js-parser": "^0.5.1",
-    "twitter-api-v2": "^1.29.0"
+    "twitter-api-v2": "^1.29.0",
+    "viem": "^2.21.8"
   }
 }
