@@ -6,7 +6,7 @@ import { api, QuestData, QuestProgress } from '@/lib/growstreams-api';
 import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
   Twitter, Github, Ticket, Waves, Star, GitPullRequest,
-  Megaphone, Clock, ExternalLink, Sparkles, Trophy,
+  Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift,
 } from 'lucide-react';
 
 const QUEST_ICONS: Record<string, React.ElementType> = {
@@ -15,6 +15,7 @@ const QUEST_ICONS: Record<string, React.ElementType> = {
   star: Star,
   'git-pull-request': GitPullRequest,
   waves: Waves,
+  gift: Gift,
 };
 
 // External action links per quest slug (kept only for non-X quests)
@@ -229,6 +230,7 @@ function QuestCard({
   const isCompleted = quest.completed;
   const isPending = !!quest.pendingSubmission;
   const isRejected = !!quest.rejectedSubmission;
+  const isWelcome = quest.quest_type === 'WELCOME';
   const isFollowX = quest.quest_type === 'X_FOLLOW';
   const isMentionX = quest.quest_type === 'X_MENTION';
   const needsManualInput = isFollowX || isMentionX;
@@ -391,7 +393,7 @@ function QuestCard({
           )}
         </div>
 
-        {!isCompleted && !isPending && (
+        {!isCompleted && !isPending && !isWelcome && (
           <button
             onClick={handleClaimClick}
             disabled={claiming || (needsManualInput && !inputValid)}
@@ -407,13 +409,17 @@ function QuestCard({
           </button>
         )}
 
+        {!isCompleted && isWelcome && (
+          <span className="text-xs text-provn-muted">Auto-awarded on join</span>
+        )}
+
         {isPending && (
           <span className="text-xs text-amber-400">Awaiting review</span>
         )}
 
         {isCompleted && (
           <span className="text-xs text-provn-muted">
-            Resets Monday 00:00 UTC
+            {quest.repeatable ? 'Resets Monday 00:00 UTC' : 'One-time reward'}
           </span>
         )}
       </div>

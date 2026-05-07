@@ -295,13 +295,14 @@ export async function migrate() {
   // Seed / upsert default quests. All quests are weekly-repeatable so users can earn XP each week.
   await p.query(`
     INSERT INTO quests (slug, title, description, quest_type, seeds_reward, icon, repeatable, sort_order) VALUES
+      ('welcome-bonus',    'Join the GrowStreams Quest',             'Welcome to GrowStreams Quests! You receive 100 Seeds just for joining. One-time reward.',                                             'WELCOME',         100, 'gift',             FALSE, 0),
       ('follow-x',         'Follow GrowStreams on X',                'Follow @growwstreams on X, then submit your X username for review. Refreshes weekly.',                                                'X_FOLLOW',        100, 'twitter',          TRUE, 1),
       ('mention-x',        'Post about GrowStreams',                 'Post a tweet mentioning @growwstreams with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',     'X_MENTION',       150, 'megaphone',        TRUE, 2),
       ('follow-x-ginie',   'Follow Ginie on X',                      'Follow @giniedev on X (our sister product), then submit your X username for review. Refreshes weekly.',                             'X_FOLLOW',        100, 'twitter',          TRUE, 3),
       ('mention-x-ginie',  'Post about Ginie',                       'Post a tweet mentioning @giniedev with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',         'X_MENTION',       150, 'megaphone',        TRUE, 4),
       ('star-repo',        'Star the GrowStreams repo',              'Star the GrowStreams repository on GitHub. Refreshes weekly.',                                                                       'GITHUB_STAR',     100, 'star',             TRUE, 5),
       ('raise-pr',         'Raise a PR on GrowStreams repo',         'Open a pull request on the GrowStreams GitHub repository. Refreshes weekly.',                                                        'GITHUB_PR',       200, 'git-pull-request', TRUE, 6),
-      ('create-stream',    'Create a stream on testnet',             'Create a token stream on the GrowStreams testnet application. Refreshes weekly.',                                                    'ONCHAIN_STREAM',  300, 'waves',            TRUE, 7)
+      ('create-stream',    'Create a stream on testnet',             'Create a token stream on the GrowStreams testnet application. Refreshes weekly.',                                                    'ONCHAIN_STREAM',  100, 'waves',            TRUE, 7)
     ON CONFLICT (slug) DO UPDATE SET
       title        = EXCLUDED.title,
       description  = EXCLUDED.description,
