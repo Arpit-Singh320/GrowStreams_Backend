@@ -6,7 +6,7 @@ import { api, QuestData, QuestProgress } from '@/lib/growstreams-api';
 import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
   Twitter, Github, Waves, Star, GitPullRequest,
-  Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift,
+  Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift, Pencil, Check, X as XIcon,
 } from 'lucide-react';
 
 const QUEST_ICONS: Record<string, React.ElementType> = {
@@ -371,17 +371,88 @@ function QuestCard({
   );
 }
 
+// ─── Edit Name Widget ───────────────────────────────────────────────────────
+function EditNameWidget({ wallet, currentName, onSaved }: { wallet: string; currentName: string; onSaved: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(currentName);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    if (!value.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      await api.quests.updateProfile(wallet, value.trim());
+      onSaved(value.trim());
+      setEditing(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium">{currentName || 'Set your display name'}</span>
+        <button
+          onClick={() => { setValue(currentName); setEditing(true); }}
+          className="p-1 rounded hover:bg-provn-border/40 text-provn-muted hover:text-white transition-colors"
+          title="Edit display name"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+          autoFocus
+          className="bg-provn-bg border border-emerald-500/40 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500/70 w-48"
+          placeholder="Your display name"
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving || !value.trim()}
+          className="p-1.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-40 transition-colors"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="p-1.5 rounded hover:bg-provn-border/40 text-provn-muted transition-colors"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+    </div>
+  );
+}
+
 // ─── Quest Dashboard ─────────────────────────────────────────────────────────
 function QuestDashboard({ wallet }: { wallet: string }) {
   const [progress, setProgress] = useState<QuestProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('');
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
     try {
       const data = await api.quests.me(wallet);
       setProgress(data);
+      const reg = data.registration as Record<string, unknown> | undefined;
+      setDisplayName((reg?.display_name as string) || '');
     } catch (err) {
       console.error('Failed to load quest progress:', err);
     } finally {
@@ -429,6 +500,15 @@ function QuestDashboard({ wallet }: { wallet: string }) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Profile header */}
+      <div className="flex items-center justify-between">
+        <EditNameWidget
+          wallet={wallet}
+          currentName={displayName}
+          onSaved={(name) => setDisplayName(name)}
+        />
+      </div>
+
       {/* Header Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">

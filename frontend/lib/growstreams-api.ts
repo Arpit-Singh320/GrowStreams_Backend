@@ -35,6 +35,13 @@ function put<T>(path: string, body: Record<string, unknown>) {
   });
 }
 
+function patch<T>(path: string, body: Record<string, unknown>) {
+  return request<T>(path, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
 function del<T>(path: string) {
   return request<T>(path, { method: 'DELETE' });
 }
@@ -710,6 +717,8 @@ export const api = {
         `/api/quests/${slug}/claim`,
         { wallet, ...(payload || {}) } as Record<string, unknown>
       ),
+    updateProfile: (wallet: string, display_name: string) =>
+      patch<{ message: string; registration: Record<string, unknown> }>('/api/quests/profile', { wallet, display_name } as Record<string, unknown>),
     stats: () =>
       get<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>('/api/quests/stats'),
     leaderboard: () =>

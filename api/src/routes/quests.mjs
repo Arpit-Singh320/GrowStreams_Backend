@@ -98,6 +98,27 @@ router.post('/register', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// PATCH /api/quests/profile  — update display_name for a registered wallet
+// ---------------------------------------------------------------------------
+router.patch('/profile', async (req, res, next) => {
+  try {
+    const { wallet, display_name } = req.body;
+    if (!wallet) return res.status(400).json({ error: 'wallet is required' });
+    if (!display_name || !display_name.trim()) return res.status(400).json({ error: 'display_name is required' });
+
+    const registration = await getRegistration(wallet);
+    if (!registration) return res.status(404).json({ error: 'Wallet not registered for quests' });
+
+    const { queryOne } = await import('../services/db.mjs');
+    const updated = await queryOne(
+      `UPDATE quest_registrations SET display_name = $1 WHERE wallet = $2 OR evm_address = $2 RETURNING *`,
+      [display_name.trim(), wallet]
+    );
+    res.json({ message: 'Profile updated', registration: updated });
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/quests
 // ---------------------------------------------------------------------------
 router.get('/', async (req, res, next) => {

@@ -96,7 +96,7 @@ function Podium({ rows }: { rows: LbRow[] }) {
               </div>
               <div className="min-w-0 w-full">
                 <p className="font-bold text-sm truncate">
-                  {row.display_name || shortWallet(row.wallet)}
+                  {row.display_name || row.github_username || shortWallet(row.wallet)}
                 </p>
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 mt-1 rounded text-[9px] font-bold ${color.bg} ${color.text} border ${color.border}`}>
                   Lv {lvl} · {levelTitle(lvl)}
@@ -165,7 +165,7 @@ function Row({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-medium text-sm truncate">
-            {row.display_name || shortWallet(row.wallet)}
+            {row.display_name || row.github_username || shortWallet(row.wallet)}
           </p>
           <span className={`text-[9px] font-bold uppercase tracking-wider ${color.text}`}>
             {levelTitle(lvl)}
@@ -173,11 +173,6 @@ function Row({
           {isMe && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">YOU</span>}
         </div>
         <div className="flex items-center gap-2 mt-0.5 text-[10px] text-provn-muted">
-          {row.display_name && (
-            <span className="inline-flex items-center gap-1 text-emerald-400/80">
-              {row.display_name}
-            </span>
-          )}
           {row.github_username && (
             <span className="inline-flex items-center gap-1">
               <Github className="w-3 h-3" /> {row.github_username}
