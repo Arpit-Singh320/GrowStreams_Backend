@@ -5,7 +5,7 @@ import { useAccount } from '@gear-js/react-hooks';
 import { api, QuestData, QuestProgress } from '@/lib/growstreams-api';
 import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
-  Twitter, Github, Ticket, Waves, Star, GitPullRequest,
+  Twitter, Github, Waves, Star, GitPullRequest,
   Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift,
 } from 'lucide-react';
 
@@ -60,71 +60,16 @@ function XpBadge({ amount }: { amount: number }) {
   );
 }
 
-// ─── Invite Gate ─────────────────────────────────────────────────────────────
-function InviteGate({ onVerified }: { onVerified: (code: string) => void }) {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleVerify = async () => {
-    if (!code.trim()) return;
-    setLoading(true);
-    setError('');
-    try {
-      await api.quests.verifyInvite(code.trim());
-      onVerified(code.trim().toUpperCase());
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Invalid invite code');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="max-w-md mx-auto mt-20 text-center space-y-6">
-      <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
-        <Ticket className="w-8 h-8 text-emerald-400" />
-      </div>
-      <div>
-        <h1 className="text-2xl font-bold">GrowStreams Quests</h1>
-        <p className="text-provn-muted text-sm mt-2">
-          This is an invite-only quest program. Enter your invite code to get started.
-        </p>
-      </div>
-      <div className="space-y-3">
-        <input
-          type="text"
-          value={code}
-          onChange={e => setCode(e.target.value.toUpperCase())}
-          onKeyDown={e => e.key === 'Enter' && handleVerify()}
-          placeholder="GS-XXXX-XXXX"
-          className="w-full bg-provn-surface border border-provn-border rounded-lg px-4 py-3 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
-          maxLength={12}
-        />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        <button
-          onClick={handleVerify}
-          disabled={loading || !code.trim()}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-          Verify Invite Code
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Registration Form ───────────────────────────────────────────────────────
-function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string; inviteCode: string; onRegistered: () => void }) {
+function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegistered: () => void }) {
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
-  const [xUsername, setXUsername] = useState('');
   const [githubUsername, setGithubUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
-    if (!email || !xUsername || !githubUsername) {
+    if (!displayName.trim() || !email || !githubUsername) {
       setError('All fields are required');
       return;
     }
@@ -134,9 +79,8 @@ function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string
       await api.quests.register({
         wallet,
         email: email.trim(),
-        x_username: xUsername.trim().replace(/^@/, ''),
+        display_name: displayName.trim(),
         github_username: githubUsername.trim(),
-        invite_code: inviteCode,
       });
       onRegistered();
     } catch (err: unknown) {
@@ -152,13 +96,25 @@ function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string
         <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
           <Sparkles className="w-6 h-6 text-emerald-400" />
         </div>
-        <h2 className="text-xl font-bold">Complete Registration</h2>
+        <h2 className="text-xl font-bold">Join GrowStreams Quests</h2>
         <p className="text-provn-muted text-sm">
-          Link your accounts to start earning XP
+          Fill in your details to start earning XP
         </p>
       </div>
 
       <div className="bg-provn-surface border border-provn-border rounded-xl p-5 space-y-4">
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
+            <Sprout className="w-3.5 h-3.5" /> Display Name
+          </label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={e => setDisplayName(e.target.value)}
+            placeholder="Your name on the leaderboard"
+            className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
+          />
+        </div>
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
             <Mail className="w-3.5 h-3.5" /> Email
@@ -168,18 +124,6 @@ function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="you@gmail.com"
-            className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
-          />
-        </div>
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
-            <Twitter className="w-3.5 h-3.5" /> X (Twitter) Handle
-          </label>
-          <input
-            type="text"
-            value={xUsername}
-            onChange={e => setXUsername(e.target.value)}
-            placeholder="@yourhandle"
             className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
           />
         </div>
@@ -598,8 +542,7 @@ export default function QuestsPage() {
   const { account } = useAccount();
   const wallet = account?.decodedAddress || '';
 
-  const [step, setStep] = useState<'invite' | 'register' | 'dashboard'>('invite');
-  const [inviteCode, setInviteCode] = useState('');
+  const [step, setStep] = useState<'register' | 'dashboard'>('register');
   const [loading, setLoading] = useState(true);
 
   // Check if user is already registered
@@ -615,7 +558,7 @@ export default function QuestsPage() {
           setStep('dashboard');
         }
       } catch {
-        // Not registered
+        // Not registered — stay on register step
       } finally {
         setLoading(false);
       }
@@ -642,22 +585,10 @@ export default function QuestsPage() {
     );
   }
 
-  if (step === 'invite') {
-    return (
-      <InviteGate
-        onVerified={(verifiedCode: string) => {
-          setInviteCode(verifiedCode);
-          setStep('register');
-        }}
-      />
-    );
-  }
-
   if (step === 'register') {
     return (
       <RegistrationForm
         wallet={wallet}
-        inviteCode={inviteCode}
         onRegistered={() => setStep('dashboard')}
       />
     );

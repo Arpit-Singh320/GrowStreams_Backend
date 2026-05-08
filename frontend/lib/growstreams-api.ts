@@ -697,7 +697,7 @@ export const api = {
   quests: {
     verifyInvite: (code: string) =>
       post<{ valid: boolean; message?: string }>('/api/quests/verify-invite', { code } as Record<string, unknown>),
-    register: (params: { wallet: string; email: string; x_username: string; github_username: string; invite_code: string }) =>
+    register: (params: { wallet: string; evm_address?: string; email: string; display_name: string; github_username: string }) =>
       post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
     list: () =>
       get<{ quests: QuestData[] }>('/api/quests'),
@@ -716,7 +716,7 @@ export const api = {
       get<{
         leaderboard: Array<{
           wallet: string;
-          x_username: string;
+          display_name: string;
           github_username: string;
           registered_at: string;
           total_xp: number;

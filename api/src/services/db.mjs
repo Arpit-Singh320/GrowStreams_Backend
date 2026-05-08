@@ -248,11 +248,12 @@ export async function migrate() {
       wallet          TEXT UNIQUE,
       evm_address     TEXT UNIQUE,
       wallet_type     TEXT NOT NULL DEFAULT 'substrate',
+      display_name    TEXT NOT NULL DEFAULT '',
       email           TEXT UNIQUE NOT NULL,
-      x_username      TEXT NOT NULL,
+      x_username      TEXT,
       github_username TEXT NOT NULL,
       x_user_id       TEXT,
-      invite_code     TEXT NOT NULL,
+      invite_code     TEXT,
       verified        BOOLEAN NOT NULL DEFAULT FALSE,
       registered_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -535,6 +536,31 @@ export async function migrate() {
   // Add evm_address + wallet_type to existing quest_registrations rows (idempotent)
   const { addEvmAddress } = await import('../migrations/add-evm-address.mjs');
   await addEvmAddress();
+
+  // Add display_name column and relax x_username / invite_code constraints (idempotent)
+  await p.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'quest_registrations' AND column_name = 'display_name'
+      ) THEN
+        ALTER TABLE quest_registrations ADD COLUMN display_name TEXT NOT NULL DEFAULT '';
+      END IF;
+
+      -- Make x_username nullable for existing installs (was NOT NULL before)
+      BEGIN
+        ALTER TABLE quest_registrations ALTER COLUMN x_username DROP NOT NULL;
+      EXCEPTION WHEN others THEN NULL;
+      END;
+
+      -- Make invite_code nullable for existing installs (was NOT NULL before)
+      BEGIN
+        ALTER TABLE quest_registrations ALTER COLUMN invite_code DROP NOT NULL;
+      EXCEPTION WHEN others THEN NULL;
+      END;
+    END $$;
+  `);
 
   console.log('[db] Migrations complete');
 }

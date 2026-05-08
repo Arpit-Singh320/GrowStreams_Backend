@@ -54,7 +54,7 @@ router.post('/verify-invite', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.post('/register', async (req, res, next) => {
   try {
-    const { wallet, evm_address, email, x_username, github_username, invite_code } = req.body;
+    const { wallet, evm_address, email, display_name, github_username } = req.body;
 
     // At least one address type required
     if (!wallet && !evm_address) {
@@ -66,24 +66,31 @@ router.post('/register', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid evm_address format — expected 0x followed by 40 hex chars' });
     }
 
+    if (!display_name || !display_name.trim()) return res.status(400).json({ error: 'Display name is required' });
     if (!email) return res.status(400).json({ error: 'Email is required' });
-    if (!x_username) return res.status(400).json({ error: 'X (Twitter) username is required' });
     if (!github_username) return res.status(400).json({ error: 'GitHub username is required' });
-    if (!invite_code) return res.status(400).json({ error: 'Invite code is required' });
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const registration = await registerForQuests(wallet, email, x_username, github_username, invite_code);
+    const registration = await registerForQuests(wallet, email, display_name, github_username, evm_address);
+
+    setImmediate(async () => {
+      try {
+        await awardWelcomeBonus(wallet || evm_address);
+      } catch (bonusErr) {
+        console.error(`[register] welcome-bonus award failed for ${wallet || evm_address}: ${bonusErr.message}`);
+      }
+    });
+
     res.status(201).json({
       message: 'Successfully registered for quests',
       registration,
     });
   } catch (err) {
-    if (err.message.includes('already registered') || err.message.includes('Invalid invite') ||
-        err.message.includes('fully used') || err.message.includes('expired')) {
+    if (err.message.includes('already registered')) {
       return res.status(400).json({ error: err.message });
     }
     next(err);

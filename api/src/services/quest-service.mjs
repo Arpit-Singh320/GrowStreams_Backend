@@ -80,16 +80,12 @@ export async function listInvites(status = null) {
 // ---------------------------------------------------------------------------
 
 /**
- * Register a user for quests with invite code, email, X handle, GitHub handle.
- * Accepts either a Substrate SS58 wallet or an EVM 0x address.
+ * Register a user for quests.
+ * Requires: display_name, email, github_username, and at least one of wallet (SS58) or evm_address (0x).
+ * No invite code required.
  */
-export async function registerForQuests(wallet, email, xUsername, githubUsername, inviteCode, evmAddress = null) {
-  // Validate invite
-  const { valid, error, invite } = await validateInvite(inviteCode);
-  if (!valid) throw new Error(error);
-
+export async function registerForQuests(wallet, email, displayName, githubUsername, evmAddress = null) {
   // Determine wallet type and normalise addresses
-  const isEvmOnly = !wallet && evmAddress;
   const normalizedWallet = wallet ? wallet.trim() : null;
   const normalizedEvm = evmAddress ? evmAddress.toLowerCase().trim() : null;
   const walletType = normalizedEvm ? (normalizedWallet ? 'both' : 'evm') : 'substrate';
@@ -99,9 +95,8 @@ export async function registerForQuests(wallet, email, xUsername, githubUsername
   }
 
   const normalizedEmail = email.toLowerCase().trim();
-  const normalizedX = xUsername.replace(/^@/, '').toLowerCase().trim();
+  const normalizedName = displayName.trim();
   const normalizedGithub = githubUsername.toLowerCase().trim();
-  const normalizedCode = inviteCode.toUpperCase().trim();
 
   // Duplicate checks
   if (normalizedWallet) {
@@ -119,17 +114,12 @@ export async function registerForQuests(wallet, email, xUsername, githubUsername
   const primaryIdentifier = normalizedWallet || normalizedEvm;
 
   const reg = await queryOne(
-    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, email, x_username, github_username, invite_code)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [normalizedWallet, normalizedEvm, walletType, normalizedEmail, normalizedX, normalizedGithub, normalizedCode]
+    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, display_name, email, github_username)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [normalizedWallet, normalizedEvm, walletType, normalizedName, normalizedEmail, normalizedGithub]
   );
 
-  await query(
-    `UPDATE quest_invites SET current_uses = current_uses + 1, used_by_wallet = $1 WHERE code = $2`,
-    [primaryIdentifier, normalizedCode]
-  );
-
-  console.log(`[quest] Registered ${primaryIdentifier} type=${walletType} (email=${normalizedEmail}, x=@${normalizedX}, gh=${normalizedGithub})`);
+  console.log(`[quest] Registered ${primaryIdentifier} type=${walletType} name=${normalizedName} (email=${normalizedEmail}, gh=${normalizedGithub})`);
   return reg;
 }
 
@@ -576,7 +566,7 @@ export async function getQuestLeaderboard() {
   return queryAll(`
     SELECT
       r.wallet,
-      r.x_username,
+      r.display_name,
       r.github_username,
       r.registered_at,
       COALESCE(s.total_xp, 0)::int       AS total_xp,
