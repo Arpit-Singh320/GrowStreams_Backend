@@ -245,7 +245,9 @@ export async function migrate() {
 
     CREATE TABLE IF NOT EXISTS quest_registrations (
       id              SERIAL PRIMARY KEY,
-      wallet          TEXT UNIQUE NOT NULL,
+      wallet          TEXT UNIQUE,
+      evm_address     TEXT UNIQUE,
+      wallet_type     TEXT NOT NULL DEFAULT 'substrate',
       email           TEXT UNIQUE NOT NULL,
       x_username      TEXT NOT NULL,
       github_username TEXT NOT NULL,
@@ -529,6 +531,10 @@ export async function migrate() {
       END IF;
     END $$;
   `);
+
+  // Add evm_address + wallet_type to existing quest_registrations rows (idempotent)
+  const { addEvmAddress } = await import('../migrations/add-evm-address.mjs');
+  await addEvmAddress();
 
   console.log('[db] Migrations complete');
 }
