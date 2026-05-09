@@ -5,6 +5,7 @@ import { runReevaluate } from './x-reevaluate.mjs';
 import { runCampaignLifecycle } from './campaign-lifecycle.mjs';
 import { runStreamCheck } from './quest-stream-monitor.mjs';
 import { runFollowCheck, runMentionCheck } from './quest-x-monitor.mjs';
+import { syncOnchainMints } from '../services/quest-service.mjs';
 
 export function initCrons() {
   // Daily XP accumulation — midnight UTC
@@ -52,6 +53,18 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
+  // Retry DB-only mints — every hour
+  cron.schedule('0 * * * *', async () => {
+    try {
+      const result = await syncOnchainMints();
+      if (result.attempted > 0) {
+        console.log(`[cron] sync-onchain: ${result.succeeded}/${result.attempted} mints synced, ${result.failed} failed`);
+      }
+    } catch (err) {
+      console.error(`[cron] sync-onchain failed: ${err.message}`);
+    }
+  }, { timezone: 'UTC' });
+
   // Quest: X follow check — every 6 hours (rate limit safe)
   cron.schedule('0 */6 * * *', async () => {
     try {
@@ -70,12 +83,13 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
-  console.log('[cron] Campaign jobs scheduled:');
+  console.log('[cron] All cron jobs scheduled:');
   console.log('[cron]   daily-xp:         0 0 * * *      (midnight UTC)');
   console.log('[cron]   snapshot:         5 0 * * *      (00:05 UTC)');
   console.log('[cron]   x-reeval:         0 */6 * * *    (every 6h)');
   console.log('[cron]   campaign-lifecycle: */15 * * * * (every 15m)');
   console.log('[cron]   quest-stream:     */10 * * * *   (every 10m)');
+  console.log('[cron]   sync-onchain:     0 * * * *      (every 1h)');
   console.log('[cron]   quest-x-follow:   0 */6 * * *    (every 6h)');
   console.log('[cron]   quest-x-mention:  0 1,7,13,19 * * * (every 6h offset)');
 }

@@ -684,8 +684,11 @@ export async function syncOnchainMints() {
         );
         await query(
           `UPDATE seeds_ledger SET tx_hash = $1
-           WHERE quest_id = $2 AND wallet = $3 AND tx_hash IS NULL
-           ORDER BY created_at ASC LIMIT 1`,
+           WHERE id = (
+             SELECT id FROM seeds_ledger
+             WHERE quest_id = $2 AND wallet = $3 AND tx_hash IS NULL
+             ORDER BY created_at ASC LIMIT 1
+           )`,
           [txHash, row.quest_id, row.wallet]
         );
         succeeded++;
