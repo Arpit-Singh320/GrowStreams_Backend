@@ -43,8 +43,8 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
-  // Quest: stream creation check — every 5 minutes
-  cron.schedule('*/5 * * * *', async () => {
+  // Quest: stream creation check — every 10 minutes
+  cron.schedule('*/10 * * * *', async () => {
     try {
       await runStreamCheck();
     } catch (err) {
@@ -75,7 +75,7 @@ export function initCrons() {
   console.log('[cron]   snapshot:         5 0 * * *      (00:05 UTC)');
   console.log('[cron]   x-reeval:         0 */6 * * *    (every 6h)');
   console.log('[cron]   campaign-lifecycle: */15 * * * * (every 15m)');
-  console.log('[cron]   quest-stream:     */5 * * * *    (every 5m)');
+  console.log('[cron]   quest-stream:     */10 * * * *   (every 10m)');
   console.log('[cron]   quest-x-follow:   0 */6 * * *    (every 6h)');
   console.log('[cron]   quest-x-mention:  0 1,7,13,19 * * * (every 6h offset)');
 }

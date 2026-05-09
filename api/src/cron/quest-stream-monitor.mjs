@@ -1,6 +1,8 @@
 import { getAllRegisteredUsers, awardSeeds, isQuestCompleted } from '../services/quest-service.mjs';
 import { query as sailsQuery } from '../sails-client.mjs';
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 // ---------------------------------------------------------------------------
 // Q5: Check if registered users have created a stream on testnet
 // Polls the streamCore contract for streams by sender
@@ -45,8 +47,10 @@ export async function runStreamCheck() {
           console.log(`[quest-stream] Q5 Stream creation verified for ${user.wallet}`);
         }
       }
+      await sleep(100);
     } catch (err) {
       console.warn(`[quest-stream] Check failed for ${user.wallet}: ${err.message}`);
+      await sleep(100);
     }
   }
 
