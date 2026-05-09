@@ -700,11 +700,9 @@ export const api = {
       post<TxResult | PayloadResult>('/api/identity/update-score', params as unknown as Record<string, unknown>),
   },
 
-  // ─── Quests (M1-beta: ported from Launch branch) ───────────────────────────
+  // ─── Quests (M1-beta) ──────────────────────────────────────────────────────
   quests: {
-    verifyInvite: (code: string) =>
-      post<{ valid: boolean; message?: string }>('/api/quests/verify-invite', { code } as Record<string, unknown>),
-    register: (params: { wallet: string; evm_address?: string; email: string; display_name: string; github_username: string }) =>
+    register: (params: { wallet?: string; evm_address?: string; email: string; display_name: string; ref_code?: string }) =>
       post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
     list: () =>
       get<{ quests: QuestData[] }>('/api/quests'),
@@ -734,6 +732,20 @@ export const api = {
         }>;
         total: number;
       }>('/api/quests/leaderboard'),
+
+    referral: (wallet: string) =>
+      get<{ referral_code: string; referral_link: string; referred_count: number; seeds_earned: number }>(`/api/quests/referral/${wallet}`),
+
+    questCampaigns: () =>
+      get<{ campaigns: Array<Record<string, unknown>> }>('/api/quests/campaigns'),
+    questCampaign: (slug: string) =>
+      get<Record<string, unknown>>(`/api/quests/campaigns/${slug}`),
+    campaignProgress: (slug: string, wallet: string) =>
+      get<Record<string, unknown>>(`/api/quests/campaigns/${slug}/progress?wallet=${wallet}`),
+    campaignLeaderboard: (slug: string, limit = 50) =>
+      get<{ campaign_slug: string; leaderboard: Array<Record<string, unknown>>; total: number }>(`/api/quests/campaigns/${slug}/leaderboard?limit=${limit}`),
+    campaignPrizeBoard: (slug: string, limit = 10) =>
+      get<{ campaign_slug: string; prize_pool: Record<string, unknown>; end_date: string; prize_board: Array<Record<string, unknown>> }>(`/api/quests/campaigns/${slug}/prize-board?limit=${limit}`),
 
     // Admin (requires Bearer token)
     adminListSubmissions: (token: string) =>

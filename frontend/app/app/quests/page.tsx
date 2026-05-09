@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
 import { api, QuestData, QuestProgress } from '@/lib/growstreams-api';
+import { useSearchParams } from 'next/navigation';
 import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
-  Twitter, Github, Waves, Star, GitPullRequest,
+  Twitter, Users, Waves, Star, GitPullRequest,
   Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift, Pencil, Check, X as XIcon,
 } from 'lucide-react';
 
@@ -62,15 +63,17 @@ function XpBadge({ amount }: { amount: number }) {
 
 // ─── Registration Form ───────────────────────────────────────────────────────
 function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegistered: () => void }) {
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get('ref') || undefined;
+
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
-  const [githubUsername, setGithubUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
-    if (!displayName.trim() || !email || !githubUsername) {
-      setError('All fields are required');
+    if (!displayName.trim() || !email) {
+      setError('Display name and email are required');
       return;
     }
     setLoading(true);
@@ -80,7 +83,7 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
         wallet,
         email: email.trim(),
         display_name: displayName.trim(),
-        github_username: githubUsername.trim(),
+        ref_code: refCode,
       });
       onRegistered();
     } catch (err: unknown) {
@@ -127,18 +130,12 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
             className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
           />
         </div>
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
-            <Github className="w-3.5 h-3.5" /> GitHub Username
-          </label>
-          <input
-            type="text"
-            value={githubUsername}
-            onChange={e => setGithubUsername(e.target.value)}
-            placeholder="yourusername"
-            className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
-          />
-        </div>
+        {refCode && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+            <Users className="w-3.5 h-3.5" />
+            Referral code applied: <span className="font-mono font-bold">{refCode}</span>
+          </div>
+        )}
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
