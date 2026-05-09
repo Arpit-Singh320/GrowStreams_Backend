@@ -3,6 +3,43 @@ import { query, queryOne, queryAll } from './db.mjs';
 import { command as sailsCommand, getContract } from '../sails-client.mjs';
 
 // ---------------------------------------------------------------------------
+// Referral code helpers
+// ---------------------------------------------------------------------------
+
+function generateReferralCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let suffix = '';
+  for (let i = 0; i < 6; i++) suffix += chars[crypto.randomInt(chars.length)];
+  return `GSR-${suffix}`;
+}
+
+/**
+ * Generate a unique personal referral code for a wallet and persist it.
+ * @returns {Promise<string>} The generated referral code
+ */
+async function createReferralCodeForWallet(wallet) {
+  let code;
+  let attempts = 0;
+  do {
+    code = generateReferralCode();
+    const existing = await queryOne(
+      `SELECT id FROM quest_registrations WHERE referral_code = $1`,
+      [code]
+    );
+    if (!existing) break;
+    attempts++;
+  } while (attempts < 10);
+
+  await query(
+    `UPDATE quest_registrations SET referral_code = $1 WHERE wallet = $2 OR evm_address = $2`,
+    [code, wallet]
+  );
+
+  console.log(`[quest] Referral code created for ${wallet}: ${code}`);
+  return code;
+}
+
+// ---------------------------------------------------------------------------
 // Invite code helpers
 // ---------------------------------------------------------------------------
 
@@ -81,10 +118,10 @@ export async function listInvites(status = null) {
 
 /**
  * Register a user for quests.
- * Requires: display_name, email, github_username, and at least one of wallet (SS58) or evm_address (0x).
- * No invite code required.
+ * Requires: display_name, email, and at least one of wallet (SS58) or evm_address (0x).
+ * Pass refCode (from ?ref=GSR-XXXXXX in the referral link) to link referrals.
  */
-export async function registerForQuests(wallet, email, displayName, githubUsername, evmAddress = null) {
+export async function registerForQuests(wallet, email, displayName, evmAddress = null, refCode = null) {
   // Determine wallet type and normalise addresses
   const normalizedWallet = wallet ? wallet.trim() : null;
   const normalizedEvm = evmAddress ? evmAddress.toLowerCase().trim() : null;
@@ -96,7 +133,6 @@ export async function registerForQuests(wallet, email, displayName, githubUserna
 
   const normalizedEmail = email.toLowerCase().trim();
   const normalizedName = displayName.trim();
-  const normalizedGithub = githubUsername.toLowerCase().trim();
 
   // Duplicate checks
   if (normalizedWallet) {
@@ -114,13 +150,45 @@ export async function registerForQuests(wallet, email, displayName, githubUserna
   const primaryIdentifier = normalizedWallet || normalizedEvm;
 
   const reg = await queryOne(
-    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, display_name, email, github_username)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [normalizedWallet, normalizedEvm, walletType, normalizedName, normalizedEmail, normalizedGithub]
+    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, display_name, email)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [normalizedWallet, normalizedEvm, walletType, normalizedName, normalizedEmail]
   );
 
-  console.log(`[quest] Registered ${primaryIdentifier} type=${walletType} name=${normalizedName} (email=${normalizedEmail}, gh=${normalizedGithub})`);
-  return reg;
+  // Generate and store the new user's personal referral code
+  const referralCode = await createReferralCodeForWallet(primaryIdentifier);
+
+  // Handle referral: look up referrer by their referral_code in quest_registrations
+  if (refCode) {
+    const normalizedRefCode = refCode.toUpperCase().trim();
+    const referrerRow = await queryOne(
+      `SELECT wallet, evm_address FROM quest_registrations WHERE referral_code = $1`,
+      [normalizedRefCode]
+    );
+    const referrerWallet = referrerRow?.wallet || referrerRow?.evm_address;
+    const isValidReferral = referrerWallet && referrerWallet !== primaryIdentifier;
+
+    if (isValidReferral) {
+      await query(
+        `UPDATE quest_registrations SET referred_by_wallet = $1 WHERE wallet = $2 OR evm_address = $2`,
+        [referrerWallet, primaryIdentifier]
+      );
+      setImmediate(async () => {
+        try {
+          await awardSeeds(referrerWallet, 'refer-a-friend', {
+            referred_wallet: primaryIdentifier,
+            source: 'referral-registration',
+          });
+          console.log(`[quest] Referral bonus awarded to ${referrerWallet} for bringing in ${primaryIdentifier}`);
+        } catch (refErr) {
+          console.warn(`[quest] Referral bonus failed for ${referrerWallet}: ${refErr.message}`);
+        }
+      });
+    }
+  }
+
+  console.log(`[quest] Registered ${primaryIdentifier} type=${walletType} (email=${normalizedEmail}, name=${normalizedName})`);
+  return { ...reg, referral_code: referralCode };
 }
 
 /**
@@ -259,17 +327,34 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
   if (!quest) throw new Error(`Quest not found: ${questSlug}`);
   if (!quest.active) throw new Error(`Quest is not active: ${questSlug}`);
 
-  // Skip if already completed in the current week (applies to both repeatable
-  // weekly quests and legacy non-repeatable quests).
-  const existing = await queryOne(
-    `SELECT id FROM quest_completions
-     WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'
-       AND COALESCE(verified_at, created_at) >= ${WEEK_START_SQL}`,
-    [wallet, quest.id]
-  );
-  if (existing) {
-    console.log(`[quest] Skipped duplicate completion: ${wallet} already completed ${questSlug} this week`);
-    return null;
+  // Dedup logic: REFERRAL quests use per-referred-wallet check (no weekly cap).
+  // All other quests use the standard ISO-week boundary check.
+  if (quest.quest_type === 'REFERRAL') {
+    const referredWallet = proof?.referred_wallet;
+    if (referredWallet) {
+      const existingReferral = await queryOne(
+        `SELECT id FROM quest_completions
+         WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'
+           AND proof->>'referred_wallet' = $3`,
+        [wallet, quest.id, referredWallet]
+      );
+      if (existingReferral) {
+        console.log(`[quest] Skipped duplicate referral: ${wallet} already earned referral XP for ${referredWallet}`);
+        return null;
+      }
+    }
+  } else {
+    // Standard weekly dedup for all non-referral quests
+    const existing = await queryOne(
+      `SELECT id FROM quest_completions
+       WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'
+         AND COALESCE(verified_at, created_at) >= ${WEEK_START_SQL}`,
+      [wallet, quest.id]
+    );
+    if (existing) {
+      console.log(`[quest] Skipped duplicate completion: ${wallet} already completed ${questSlug} this week`);
+      return null;
+    }
   }
 
   // Attempt on-chain mint via quest-seeds contract
@@ -549,6 +634,108 @@ export async function getSeedsBalance(address) {
     params
   );
   return parseInt(row?.total || '0', 10);
+}
+
+/**
+ * Retry on-chain minting for all VERIFIED completions where tx_hash is NULL.
+ * Useful after a Vara node outage or wallet balance replenishment.
+ * Returns { attempted, succeeded, failed }
+ */
+export async function syncOnchainMints() {
+  const pending = await queryAll(
+    `SELECT qc.id, qc.wallet, qc.seeds_awarded, qc.quest_id, q.slug, q.quest_type
+     FROM quest_completions qc
+     JOIN quests q ON q.id = qc.quest_id
+     WHERE qc.status = 'VERIFIED' AND qc.tx_hash IS NULL
+     ORDER BY qc.verified_at ASC
+     LIMIT 100`
+  );
+
+  if (!pending.length) return { attempted: 0, succeeded: 0, failed: 0 };
+
+  const seedsContract = getContract('questSeeds');
+  if (!seedsContract) throw new Error('questSeeds contract not loaded — cannot sync');
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const row of pending) {
+    try {
+      const isEvmAddress = row.wallet.startsWith('0x') && row.wallet.length === 42;
+      let txHash = null;
+
+      if (!isEvmAddress) {
+        const { decodeAddress } = await import('@polkadot/util-crypto');
+        const publicKey = decodeAddress(row.wallet);
+        const walletHex = '0x' + Buffer.from(publicKey).toString('hex');
+        const reason = `quest:${row.slug}:sync`;
+        const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, row.seeds_awarded, reason);
+        txHash = mintResult.blockHash || null;
+      } else {
+        const { mintSeedsEvm } = await import('../vara-eth-client.mjs');
+        const evmTx = await mintSeedsEvm(row.wallet, row.seeds_awarded, `quest:${row.slug}:sync`);
+        txHash = evmTx?.txHash || null;
+      }
+
+      if (txHash) {
+        await query(
+          `UPDATE quest_completions SET tx_hash = $1 WHERE id = $2`,
+          [txHash, row.id]
+        );
+        await query(
+          `UPDATE seeds_ledger SET tx_hash = $1
+           WHERE quest_id = $2 AND wallet = $3 AND tx_hash IS NULL
+           ORDER BY created_at ASC LIMIT 1`,
+          [txHash, row.quest_id, row.wallet]
+        );
+        succeeded++;
+        console.log(`[sync] On-chain mint synced for completion ${row.id}, tx=${txHash}`);
+      } else {
+        failed++;
+      }
+    } catch (err) {
+      console.warn(`[sync] Mint retry failed for completion ${row.id}: ${err.message}`);
+      failed++;
+    }
+  }
+
+  return { attempted: pending.length, succeeded, failed };
+}
+
+/**
+ * Get a user's referral code and referral stats.
+ */
+export async function getReferralStats(address) {
+  const reg = await getRegistration(address);
+  if (!reg) return null;
+
+  const wallet = reg.wallet || reg.evm_address;
+
+  // People this user has referred
+  const referred = await queryAll(
+    `SELECT wallet, evm_address, x_username, registered_at
+     FROM quest_registrations
+     WHERE referred_by_wallet = $1
+     ORDER BY registered_at DESC`,
+    [wallet]
+  );
+
+  // Total Seeds earned from referrals
+  const earned = await queryOne(
+    `SELECT COALESCE(SUM(qc.seeds_awarded), 0) AS total
+     FROM quest_completions qc
+     JOIN quests q ON q.id = qc.quest_id
+     WHERE qc.wallet = $1 AND q.slug = 'refer-a-friend' AND qc.status = 'VERIFIED'`,
+    [wallet]
+  );
+
+  return {
+    referral_code: reg.referral_code,
+    referral_link: `https://growstreams.xyz/join?ref=${reg.referral_code}`,
+    total_referrals: referred.length,
+    seeds_earned_from_referrals: parseInt(earned?.total || '0', 10),
+    referred_users: referred,
+  };
 }
 
 /**

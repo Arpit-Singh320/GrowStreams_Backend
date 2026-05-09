@@ -18,8 +18,19 @@ import {
   approvePendingSubmission,
   rejectPendingSubmission,
   getQuestLeaderboard,
+  getReferralStats,
+  syncOnchainMints,
 } from '../services/quest-service.mjs';
 import { runStreamCheck } from '../cron/quest-stream-monitor.mjs';
+import {
+  listQuestCampaigns,
+  getQuestCampaignBySlug,
+  getCampaignProgress,
+  getCampaignLeaderboardBySlug,
+  getCampaignPrizeBoard,
+  upsertQuestCampaign,
+  assignQuestToCampaign,
+} from '../services/quest-campaign-service.mjs';
 
 const router = Router();
 
@@ -54,7 +65,7 @@ router.post('/verify-invite', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.post('/register', async (req, res, next) => {
   try {
-    const { wallet, evm_address, email, display_name, github_username } = req.body;
+    const { wallet, evm_address, email, display_name, ref_code } = req.body;
 
     // At least one address type required
     if (!wallet && !evm_address) {
@@ -68,26 +79,26 @@ router.post('/register', async (req, res, next) => {
 
     if (!display_name || !display_name.trim()) return res.status(400).json({ error: 'Display name is required' });
     if (!email) return res.status(400).json({ error: 'Email is required' });
-    if (!github_username) return res.status(400).json({ error: 'GitHub username is required' });
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const registration = await registerForQuests(wallet, email, display_name, github_username, evm_address);
-
-    setImmediate(async () => {
-      try {
-        await awardWelcomeBonus(wallet || evm_address);
-      } catch (bonusErr) {
-        console.error(`[register] welcome-bonus award failed for ${wallet || evm_address}: ${bonusErr.message}`);
-      }
-    });
-
+    const registration = await registerForQuests(wallet, email, display_name, evm_address || null, ref_code || null);
     res.status(201).json({
       message: 'Successfully registered for quests',
       registration,
+    });
+
+    // Award the one-time welcome bonus asynchronously — must not block the response
+    setImmediate(async () => {
+      try {
+        const primaryWallet = wallet || evm_address;
+        await awardWelcomeBonus(primaryWallet);
+      } catch (wbErr) {
+        console.warn(`[register] Welcome bonus failed for ${wallet || evm_address}: ${wbErr.message}`);
+      }
     });
   } catch (err) {
     if (err.message.includes('already registered')) {
@@ -227,6 +238,74 @@ router.post('/:slug/claim', async (req, res, next) => {
       });
     }
 
+    // Retweet quests: user submits URL of their retweet for admin review
+    if (quest.quest_type === 'X_RETWEET') {
+      const url = (tweet_url || '').trim();
+      if (!url) return res.status(400).json({ error: 'Please paste the URL of your retweet' });
+      if (!/^https?:\/\/(x\.com|twitter\.com)\//i.test(url)) {
+        return res.status(400).json({ error: 'Invalid X/Twitter URL' });
+      }
+
+      const result = await submitQuestProof(wallet, slug, {
+        tweet_url: url,
+        quest_type: 'retweet',
+        source: 'manual-review',
+      });
+      return res.json({
+        message: 'Retweet submitted for review. Seeds will be awarded once verified.',
+        slug,
+        wallet,
+        status: 'PENDING_REVIEW',
+        submission: result,
+      });
+    }
+
+    // Original tweet quests: user submits their tweet URL; admin verifies keyword + mention
+    if (quest.quest_type === 'X_TWEET_KEYWORD') {
+      const url = (tweet_url || '').trim();
+      if (!url) return res.status(400).json({ error: 'Please paste the URL of your tweet' });
+      if (!/^https?:\/\/(x\.com|twitter\.com)\//i.test(url)) {
+        return res.status(400).json({ error: 'Invalid X/Twitter URL' });
+      }
+
+      const result = await submitQuestProof(wallet, slug, {
+        tweet_url: url,
+        quest_type: 'keyword-tweet',
+        required_keyword: quest.meta?.required_keyword || 'build',
+        required_mention: quest.meta?.required_mention || '@GrowStreams',
+        source: 'manual-review',
+      });
+      return res.json({
+        message: 'Tweet submitted for review. Our team will verify it has the required keyword and mention.',
+        slug,
+        wallet,
+        status: 'PENDING_REVIEW',
+        submission: result,
+      });
+    }
+
+    // Visit URL / Telegram join: honour-system, auto-approve immediately
+    if (quest.quest_type === 'VISIT_URL' || quest.quest_type === 'TELEGRAM_JOIN') {
+      const completion = await awardSeeds(wallet, slug, { source: 'self-reported' });
+      if (!completion) {
+        return res.status(400).json({ error: 'Quest already completed.' });
+      }
+      return res.json({
+        message: `Quest complete! ${quest.seeds_reward} Seeds awarded.`,
+        slug,
+        wallet,
+        status: 'VERIFIED',
+        completion,
+      });
+    }
+
+    // REFERRAL quests cannot be manually claimed — they trigger automatically on referral registration
+    if (quest.quest_type === 'REFERRAL') {
+      return res.status(400).json({
+        error: 'Referral Seeds are awarded automatically when someone registers with your referral code.',
+      });
+    }
+
     // Return 200 immediately, trigger async verification for other quest types
     res.json({
       message: 'Quest claim submitted. Verification in progress — this may take a few minutes.',
@@ -238,51 +317,7 @@ router.post('/:slug/claim', async (req, res, next) => {
     // Fire-and-forget verification depending on quest type
     setImmediate(async () => {
       try {
-        if (quest.quest_type === 'GITHUB_STAR') {
-          // GitHub star check via stargazers API (paginated; works without token but
-          // rate-limited 60/hr per IP if unauthenticated).
-          const ghUser = registration.github_username?.toLowerCase();
-          const owner = process.env.GITHUB_REPO_OWNER || 'BlockX-AI';
-          const repo = process.env.GITHUB_REPO_NAME || 'GrowStreams_Backend';
-          const ghToken = process.env.GITHUB_TOKEN;
-          if (!ghToken) {
-            console.warn('[quest-claim] GITHUB_TOKEN not set — falling back to unauthenticated stargazers fetch (rate-limited).');
-          }
-          console.log(`[quest-claim] Checking GitHub star for @${ghUser} on ${owner}/${repo}...`);
-
-          try {
-            const headers = { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'GrowStreams-Quests' };
-            if (ghToken) headers.Authorization = `token ${ghToken}`;
-
-            let isStarred = false;
-            for (let page = 1; page <= 10 && !isStarred; page++) {
-              const resp = await fetch(
-                `https://api.github.com/repos/${owner}/${repo}/stargazers?per_page=100&page=${page}`,
-                { headers }
-              );
-              if (!resp.ok) {
-                console.warn(`[quest-claim] Stargazers page ${page} returned ${resp.status} ${resp.statusText}`);
-                break;
-              }
-              const stargazers = await resp.json();
-              if (!Array.isArray(stargazers) || stargazers.length === 0) break;
-              isStarred = stargazers.some(s => s.login?.toLowerCase() === ghUser);
-              if (stargazers.length < 100) break; // last page
-            }
-
-            if (isStarred) {
-              await awardSeeds(wallet, slug, { github_user: registration.github_username, source: 'claim-verify' });
-              console.log(`[quest-claim] Star verified and awarded for ${wallet}`);
-            } else {
-              console.log(`[quest-claim] Star NOT found for @${ghUser}`);
-            }
-          } catch (ghErr) {
-            console.warn(`[quest-claim] GitHub star check failed: ${ghErr.message}`);
-          }
-        } else if (quest.quest_type === 'GITHUB_PR') {
-          // PR quests are awarded via webhook — nothing to check on-demand
-          console.log(`[quest-claim] PR quests are verified via GitHub webhook. No manual check.`);
-        } else if (quest.quest_type === 'ONCHAIN_STREAM') {
+        if (quest.quest_type === 'ONCHAIN_STREAM') {
           console.log(`[quest-claim] Triggering stream creation check...`);
           await runStreamCheck();
         }
@@ -290,6 +325,21 @@ router.post('/:slug/claim', async (req, res, next) => {
         console.error(`[quest-claim] Async verification failed for ${slug}: ${verifyErr.message}`);
       }
     });
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/quests/referral/:wallet
+// Returns the user's referral code, link, and referral stats.
+// ---------------------------------------------------------------------------
+router.get('/referral/:wallet', async (req, res, next) => {
+  try {
+    const { wallet } = req.params;
+    const stats = await getReferralStats(wallet);
+    if (!stats) {
+      return res.status(404).json({ error: 'Wallet not registered for quests' });
+    }
+    res.json(stats);
   } catch (err) { next(err); }
 });
 
@@ -315,8 +365,109 @@ router.get('/stats', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// CAMPAIGN COLLECTION ROUTES
+// ---------------------------------------------------------------------------
+
+// GET /api/quests/campaigns
+// List all quest campaigns (for the /earn page — the cards grid)
+router.get('/campaigns', async (req, res, next) => {
+  try {
+    const campaigns = await listQuestCampaigns();
+    res.json({ campaigns, total: campaigns.length });
+  } catch (err) { next(err); }
+});
+
+// GET /api/quests/campaigns/:slug
+// Single campaign with full quest list (for the campaign detail page)
+router.get('/campaigns/:slug', async (req, res, next) => {
+  try {
+    const campaign = await getQuestCampaignBySlug(req.params.slug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+    res.json(campaign);
+  } catch (err) { next(err); }
+});
+
+// GET /api/quests/campaigns/:slug/progress?wallet=...
+// Per-wallet progress inside a campaign (drives the campaign detail page when logged in)
+router.get('/campaigns/:slug/progress', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const { wallet } = req.query;
+    if (!wallet) return res.status(400).json({ error: 'wallet query param is required' });
+
+    const registration = await getRegistration(wallet);
+    if (!registration) {
+      return res.status(403).json({ error: 'Not registered for quests. Please register first.' });
+    }
+
+    const progress = await getCampaignProgress(slug, wallet);
+    if (!progress) return res.status(404).json({ error: 'Campaign not found' });
+
+    res.json(progress);
+  } catch (err) { next(err); }
+});
+
+// GET /api/quests/campaigns/:slug/leaderboard?limit=50
+// Campaign-scoped leaderboard ranked by Seeds earned in that campaign
+router.get('/campaigns/:slug/leaderboard', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
+    const rows = await getCampaignLeaderboardBySlug(slug, limit);
+    if (rows === null) return res.status(404).json({ error: 'Campaign not found' });
+    res.json({ campaign_slug: slug, leaderboard: rows, total: rows.length });
+  } catch (err) { next(err); }
+});
+
+// GET /api/quests/campaigns/:slug/prize-board?limit=10
+// Prize board with VARA amounts overlaid on top-N users (Ginie campaign)
+router.get('/campaigns/:slug/prize-board', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const limit = Math.min(parseInt(req.query.limit || '10', 10), 50);
+    const board = await getCampaignPrizeBoard(slug, limit);
+    if (!board) return res.status(404).json({ error: 'Campaign not found' });
+    res.json(board);
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
 // ADMIN ROUTES
 // ---------------------------------------------------------------------------
+
+// POST /api/quests/admin/campaigns — create or update a campaign
+router.post('/admin/campaigns', requireAdmin, async (req, res, next) => {
+  try {
+    const campaign = await upsertQuestCampaign(req.body);
+    res.status(201).json({ message: 'Campaign upserted', campaign });
+  } catch (err) { next(err); }
+});
+
+// POST /api/quests/admin/campaigns/:campaignSlug/assign/:questSlug
+// Assign a quest to a campaign
+router.post('/admin/campaigns/:campaignSlug/assign/:questSlug', requireAdmin, async (req, res, next) => {
+  try {
+    const { campaignSlug, questSlug } = req.params;
+    const quest = await assignQuestToCampaign(questSlug, campaignSlug);
+    if (!quest) return res.status(404).json({ error: 'Quest not found' });
+    res.json({ message: `Quest '${questSlug}' assigned to campaign '${campaignSlug}'`, quest });
+  } catch (err) {
+    if (err.message?.includes('not found')) return res.status(404).json({ error: err.message });
+    next(err);
+  }
+});
+
+// POST /api/quests/admin/sync-onchain
+// Retry on-chain minting for all VERIFIED completions where tx_hash is NULL
+router.post('/admin/sync-onchain', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await syncOnchainMints();
+    res.json({ message: 'On-chain sync complete', ...result });
+  } catch (err) {
+    if (err.message?.includes('not loaded')) return res.status(503).json({ error: err.message });
+    next(err);
+  }
+});
 
 // POST /api/quests/admin/generate-invites
 router.post('/admin/generate-invites', requireAdmin, async (req, res, next) => {
