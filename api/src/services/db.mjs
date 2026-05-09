@@ -292,17 +292,77 @@ export async function migrate() {
     );
   `);
 
+  // -----------------------------------------------------------------------
+  // Quest Campaign system — campaigns are collections of quests
+  // -----------------------------------------------------------------------
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS quest_campaigns (
+      id              SERIAL PRIMARY KEY,
+      slug            TEXT UNIQUE NOT NULL,
+      title           TEXT NOT NULL,
+      description     TEXT,
+      partner         TEXT,
+      banner_url      TEXT,
+      badge_label     TEXT,
+      difficulty      TEXT NOT NULL DEFAULT 'EASY' CHECK (difficulty IN ('EASY','MEDIUM','HARD')),
+      status          TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('UPCOMING','ACTIVE','ENDED')),
+      reward_summary  TEXT,
+      bonus_xp        INTEGER NOT NULL DEFAULT 0,
+      start_date      TIMESTAMPTZ,
+      end_date        TIMESTAMPTZ,
+      sort_order      INTEGER NOT NULL DEFAULT 0,
+      meta            JSONB NOT NULL DEFAULT '{}',
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  // Add campaign_id FK to quests (nullable — existing quests get assigned below)
+  await p.query(`
+    ALTER TABLE quests
+      ADD COLUMN IF NOT EXISTS campaign_id INTEGER REFERENCES quest_campaigns(id)
+  `);
+
+  // Add referral tracking columns + make github_username optional
+  await p.query(`
+    ALTER TABLE quest_registrations
+      ADD COLUMN IF NOT EXISTS referral_code      VARCHAR(20) UNIQUE,
+      ADD COLUMN IF NOT EXISTS referred_by_wallet TEXT
+  `);
+
+  await p.query(`
+    ALTER TABLE quest_registrations
+      ALTER COLUMN github_username DROP NOT NULL
+  `).catch(() => {});
+
+  // Add meta JSONB column to quests for per-quest config (target handle, keyword, URL, etc.)
+  await p.query(`
+    ALTER TABLE quests
+      ADD COLUMN IF NOT EXISTS meta JSONB NOT NULL DEFAULT '{}'
+  `);
+
+  // Index for fast referral code lookups
+  await p.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS quest_registrations_referral_code_idx
+      ON quest_registrations (referral_code)
+      WHERE referral_code IS NOT NULL
+  `);
+
   // Seed / upsert default quests. All quests are weekly-repeatable so users can earn XP each week.
   await p.query(`
-    INSERT INTO quests (slug, title, description, quest_type, seeds_reward, icon, repeatable, sort_order) VALUES
-      ('welcome-bonus',    'Join the GrowStreams Quest',             'Welcome to GrowStreams Quests! You receive 100 Seeds just for joining. One-time reward.',                                             'WELCOME',         100, 'gift',             FALSE, 0),
-      ('follow-x',         'Follow GrowStreams on X',                'Follow @growwstreams on X, then submit your X username for review. Refreshes weekly.',                                                'X_FOLLOW',        100, 'twitter',          TRUE, 1),
-      ('mention-x',        'Post about GrowStreams',                 'Post a tweet mentioning @growwstreams with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',     'X_MENTION',       150, 'megaphone',        TRUE, 2),
-      ('follow-x-ginie',   'Follow Ginie on X',                      'Follow @giniedev on X (our sister product), then submit your X username for review. Refreshes weekly.',                             'X_FOLLOW',        100, 'twitter',          TRUE, 3),
-      ('mention-x-ginie',  'Post about Ginie',                       'Post a tweet mentioning @giniedev with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',         'X_MENTION',       150, 'megaphone',        TRUE, 4),
-      ('star-repo',        'Star the GrowStreams repo',              'Star the GrowStreams repository on GitHub. Refreshes weekly.',                                                                       'GITHUB_STAR',     100, 'star',             TRUE, 5),
-      ('raise-pr',         'Raise a PR on GrowStreams repo',         'Open a pull request on the GrowStreams GitHub repository. Refreshes weekly.',                                                        'GITHUB_PR',       200, 'git-pull-request', TRUE, 6),
-      ('create-stream',    'Create a stream on testnet',             'Create a token stream on the GrowStreams testnet application. Refreshes weekly.',                                                    'ONCHAIN_STREAM',  100, 'waves',            TRUE, 7)
+    INSERT INTO quests (slug, title, description, quest_type, seeds_reward, icon, repeatable, sort_order, meta) VALUES
+      ('welcome-bonus',          'Join the GrowStreams Quest',                         'Welcome to GrowStreams Quests! You receive 100 Seeds just for joining. One-time reward.',                                                                                     'WELCOME',          100, 'gift',             FALSE,  0, '{}'),
+      ('follow-x',               'Follow GrowStreams on X',                            'Follow @growwstreams on X, then submit your X username for review. Refreshes weekly.',                                                                                        'X_FOLLOW',         100, 'twitter',          TRUE,   1, '{"target_handle": "growwstreams"}'),
+      ('mention-x',              'Post about GrowStreams',                             'Post a tweet mentioning @growwstreams with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',                                                 'X_MENTION',        150, 'megaphone',        TRUE,   2, '{}'),
+      ('follow-x-ginie',         'Follow @giniedev on X',                             'Follow our partner @giniedev on X to stay updated on the GrowStreams x Ginie collab.',                                                                                        'X_FOLLOW',         100, 'twitter',          FALSE,  3, '{"target_handle": "giniedev"}'),
+      ('mention-x-ginie',        'Post about Ginie',                                  'Post a tweet mentioning @giniedev with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',                                                    'X_MENTION',        200, 'megaphone',        TRUE,   4, '{}'),
+      ('star-repo',              'Star the GrowStreams repo',                          'Star the GrowStreams repository on GitHub. Refreshes weekly.',                                                                                                                 'GITHUB_STAR',      100, 'star',             TRUE,   5, '{}'),
+      ('raise-pr',               'Raise a PR on GrowStreams repo',                    'Open a pull request on the GrowStreams GitHub repository. Refreshes weekly.',                                                                                                  'GITHUB_PR',        200, 'git-pull-request', TRUE,   6, '{}'),
+      ('create-stream',          'Create a stream on testnet',                        'Create a token stream on the GrowStreams testnet application. Refreshes weekly.',                                                                                              'ONCHAIN_STREAM',   100, 'waves',            TRUE,   7, '{}'),
+      ('retweet-campaign',       'Retweet + Like the GrowStreams campaign post',       'Retweet and like the official GrowStreams campaign announcement. Paste the URL of your retweet to verify.',                                                                   'X_RETWEET',        150, 'repeat',           FALSE,  8, '{}'),
+      ('tweet-build-growstreams','Tweet what you want to build with GrowStreams',      'Write an original public tweet (min 30 chars) mentioning @GrowStreams with the word "build". Paste your tweet URL to submit.',                                               'X_TWEET_KEYWORD',  300, 'edit',             FALSE,  9, '{"required_mention": "@GrowStreams", "required_keyword": "build", "min_length": 30}'),
+      ('visit-platform',         'Visit GrowStreams and explore the platform',        'Head over to growstreams.xyz, explore the dashboard and streams. Click Claim once done.',                                                                                      'VISIT_URL',         15, 'globe',            FALSE, 10, '{"url": "https://growstreams.xyz"}'),
+      ('join-telegram',          'Join the GrowStreams Telegram Community',           'Join our official Telegram group to connect with builders in the GrowStreams ecosystem.',                                                                                      'TELEGRAM_JOIN',     10, 'send',             FALSE, 11, '{"url": "https://t.me/growstreams"}'),
+      ('refer-a-friend',         'Refer a Friend to GrowStreams',                     'Share your personal referral code. Every time someone registers with it, you earn 200 Seeds. No weekly cap — every referral counts, forever.',                              'REFERRAL',         200, 'users',            TRUE,  12, '{}')
     ON CONFLICT (slug) DO UPDATE SET
       title        = EXCLUDED.title,
       description  = EXCLUDED.description,
@@ -310,14 +370,77 @@ export async function migrate() {
       seeds_reward = EXCLUDED.seeds_reward,
       icon         = EXCLUDED.icon,
       repeatable   = EXCLUDED.repeatable,
-      sort_order   = EXCLUDED.sort_order;
+      sort_order   = EXCLUDED.sort_order,
+      meta         = EXCLUDED.meta;
   `);
-  console.log('[db] Upserted default quests (weekly-repeatable, with Ginie quests)');
+  // Deactivate GitHub-only quests — removed from product, existing completions preserved
+  await p.query(`
+    UPDATE quests SET active = FALSE WHERE slug IN ('star-repo', 'raise-pr')
+  `);
+
+  console.log('[db] Upserted default quests (GitHub quests deactivated)');
+
+  // Seed quest campaigns
+  await p.query(`
+    INSERT INTO quest_campaigns (slug, title, description, partner, badge_label, difficulty, status, reward_summary, bonus_xp, sort_order, meta)
+    VALUES
+      (
+        'growstreams',
+        'GrowStreams Launch Campaign',
+        'Earn Seeds by contributing to the GrowStreams ecosystem — follow us, build on testnet, star the repo, create streams, and refer friends. Seeds convert to GROW tokens at mainnet launch.',
+        'GrowStreams',
+        'Pioneer',
+        'EASY',
+        'ACTIVE',
+        'Seeds → GROW token airdrop at mainnet launch',
+        50,
+        1,
+        '{"color": "#6366f1", "accent": "#818cf8", "token": "SEEDS"}'
+      ),
+      (
+        'ginie-x-growstreams',
+        'Ginie × GrowStreams — Build with AI',
+        'The AI-powered development environment meets GrowStreams money streaming. Complete all tasks, earn Seeds, and compete for 100,000 VARA tokens. Top 5 users on the leaderboard win. Prizes distributed via Telegram after campaign ends.',
+        'Ginie',
+        'Ginie Pioneer',
+        'EASY',
+        'ACTIVE',
+        '100,000 VARA token prize pool — Top 5 win',
+        50,
+        0,
+        '{"color": "#f59e0b", "accent": "#fbbf24", "token": "SEEDS", "partner_url": "https://ginie.xyz", "end_date": "2026-05-17T23:59:59Z", "prize_pool": {"total_vara": 100000, "currency": "VARA", "distribution": "top5", "distribution_channel": "Telegram", "tiers": [{"rank": 1, "label": "1st Place", "vara": 40000}, {"rank": 2, "label": "2nd Place", "vara": 20000}, {"rank": 3, "label": "3rd Place", "vara": 15000}, {"rank": 4, "label": "4th Place", "vara": 15000}, {"rank": 5, "label": "5th Place", "vara": 10000}]}}'
+      )
+    ON CONFLICT (slug) DO UPDATE SET
+      title          = EXCLUDED.title,
+      description    = EXCLUDED.description,
+      reward_summary = EXCLUDED.reward_summary,
+      bonus_xp       = EXCLUDED.bonus_xp,
+      status         = EXCLUDED.status,
+      meta           = EXCLUDED.meta;
+  `);
+
+  // Assign campaign_id to each quest by matching slugs
+  await p.query(`
+    UPDATE quests SET campaign_id = (SELECT id FROM quest_campaigns WHERE slug = 'growstreams')
+    WHERE slug IN (
+      'welcome-bonus','follow-x','mention-x','star-repo','raise-pr',
+      'create-stream','visit-platform','join-telegram','refer-a-friend'
+    ) AND campaign_id IS NULL;
+
+    UPDATE quests SET campaign_id = (SELECT id FROM quest_campaigns WHERE slug = 'ginie-x-growstreams')
+    WHERE slug IN (
+      'follow-x-ginie','mention-x-ginie','retweet-campaign','tweet-build-growstreams'
+    ) AND campaign_id IS NULL;
+  `);
+
+  console.log('[db] Quest campaigns seeded and quests assigned to campaigns');
 
   // -----------------------------------------------------------------------
   // Indexes
   // -----------------------------------------------------------------------
   await p.query(`
+    CREATE INDEX IF NOT EXISTS idx_quest_campaigns_slug   ON quest_campaigns(slug);
+    CREATE INDEX IF NOT EXISTS idx_quests_campaign_id     ON quests(campaign_id);
     CREATE INDEX IF NOT EXISTS idx_quest_invites_code ON quest_invites(code);
     CREATE INDEX IF NOT EXISTS idx_quest_registrations_wallet ON quest_registrations(wallet);
     CREATE INDEX IF NOT EXISTS idx_quest_registrations_email ON quest_registrations(email);
