@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '@/lib/growstreams-api'
 import { useAccount } from '@gear-js/react-hooks'
+// api used for questCampaigns load
 import { ArrowRight, Eye, Heart } from 'lucide-react'
 
 export default function CampaignDetailPage() {
@@ -15,7 +16,6 @@ export default function CampaignDetailPage() {
 
   const [campaign, setCampaign] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
-  const [joining, setJoining] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -37,25 +37,9 @@ export default function CampaignDetailPage() {
   }, [params.slug])
 
   const handleJoin = async () => {
-    if (!campaign) return
-    if (!wallet) return router.push('/app')
-    setJoining(true)
-    try {
-      // try enroll by id if available
-      if (campaign.id) {
-        await api.campaigns.enroll(String(campaign.id), { wallet })
-      }
-      // fallback: call quests API join if present
-    } catch (err) {
-      // ignore for now
-    } finally {
-      setJoining(false)
-      // reload page data
-      const res = await api.quests.questCampaigns().catch(() => null)
-      const camps = res?.campaigns || []
-      const found = camps.find((c: any) => c.slug === params.slug || String(c.id) === params.slug)
-      setCampaign(found || campaign)
-    }
+    if (!wallet) return router.push('/app/quests')
+    // Navigate to the Earn page — campaign quests are completed there
+    router.push('/app/quests')
   }
 
   if (loading) return <div className="flex items-center justify-center h-40">Loading...</div>
@@ -95,7 +79,7 @@ export default function CampaignDetailPage() {
               </div>
             </div>
             <div className="flex items-center">
-              <button onClick={handleJoin} disabled={joining} className="bg-emerald-400 text-black px-4 py-2 rounded-full font-semibold hover:brightness-95">{joining ? 'Joining...' : 'Join Campaign'}</button>
+              <button onClick={handleJoin} className="bg-emerald-400 text-black px-4 py-2 rounded-full font-semibold hover:brightness-95">Go to Earn</button>
             </div>
           </div>
         </div>
@@ -112,7 +96,7 @@ export default function CampaignDetailPage() {
           <div className="bg-provn-surface border border-provn-border rounded-xl p-4">
             <h3 className="font-bold mb-3">Campaign Quests</h3>
             <div className="mb-4">
-              <button onClick={handleJoin} disabled={joining} className="w-full bg-yellow-300 text-black rounded-full py-3 font-semibold">{joining ? 'Joining...' : 'Join Campaign'}</button>
+              <button onClick={handleJoin} className="w-full bg-yellow-300 text-black rounded-full py-3 font-semibold">Complete Quests on Earn Page</button>
             </div>
             <div className="space-y-2">
               {(campaign.quests || []).map((q:any) => (

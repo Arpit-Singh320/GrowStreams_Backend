@@ -275,6 +275,67 @@ export async function upsertQuestCampaign(data) {
 }
 
 /**
+ * Admin: create or update a quest (upsert by slug).
+ */
+export async function upsertQuest(data) {
+  const {
+    slug, title, description = '', quest_type, seeds_reward = 0,
+    icon = null, repeatable = false, active = true, sort_order = 99,
+    meta = {}, campaign_slug = null,
+  } = data;
+
+  if (!slug || !title || !quest_type) {
+    throw Object.assign(new Error('slug, title and quest_type are required'), { status: 400 });
+  }
+
+  const VALID_TYPES = [
+    'WELCOME', 'X_FOLLOW', 'X_MENTION', 'X_RETWEET', 'X_TWEET_KEYWORD',
+    'GITHUB_STAR', 'GITHUB_PR', 'ONCHAIN_STREAM', 'VISIT_URL',
+    'TELEGRAM_JOIN', 'REFERRAL',
+  ];
+  if (!VALID_TYPES.includes(quest_type)) {
+    throw Object.assign(new Error(`Invalid quest_type. Must be one of: ${VALID_TYPES.join(', ')}`), { status: 400 });
+  }
+
+  let campaign_id = null;
+  if (campaign_slug) {
+    const camp = await queryOne(`SELECT id FROM quest_campaigns WHERE slug = $1`, [campaign_slug]);
+    if (!camp) throw Object.assign(new Error(`Campaign not found: ${campaign_slug}`), { status: 404 });
+    campaign_id = camp.id;
+  }
+
+  return queryOne(`
+    INSERT INTO quests (slug, title, description, quest_type, seeds_reward, icon, repeatable, active, sort_order, meta, campaign_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    ON CONFLICT (slug) DO UPDATE SET
+      title        = EXCLUDED.title,
+      description  = EXCLUDED.description,
+      quest_type   = EXCLUDED.quest_type,
+      seeds_reward = EXCLUDED.seeds_reward,
+      icon         = EXCLUDED.icon,
+      repeatable   = EXCLUDED.repeatable,
+      active       = EXCLUDED.active,
+      sort_order   = EXCLUDED.sort_order,
+      meta         = EXCLUDED.meta,
+      campaign_id  = COALESCE(EXCLUDED.campaign_id, quests.campaign_id)
+    RETURNING *
+  `, [slug, title, description, quest_type, seeds_reward, icon, repeatable, active, sort_order,
+      JSON.stringify(meta), campaign_id]);
+}
+
+/**
+ * Admin: list all quests with their campaign name.
+ */
+export async function listAllQuests() {
+  return queryAll(`
+    SELECT q.*, qc.slug AS campaign_slug, qc.title AS campaign_title
+    FROM quests q
+    LEFT JOIN quest_campaigns qc ON qc.id = q.campaign_id
+    ORDER BY q.sort_order ASC, q.created_at ASC
+  `);
+}
+
+/**
  * Admin: assign a quest to a campaign.
  */
 export async function assignQuestToCampaign(questSlug, campaignSlug) {

@@ -175,10 +175,16 @@ function QuestCard({
   const isWelcome = quest.quest_type === 'WELCOME';
   const isFollowX = quest.quest_type === 'X_FOLLOW';
   const isMentionX = quest.quest_type === 'X_MENTION';
-  const needsManualInput = isFollowX || isMentionX;
+  const isRetweet = quest.quest_type === 'X_RETWEET';
+  const isTweetKeyword = quest.quest_type === 'X_TWEET_KEYWORD';
+  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword;
+  const needsTweetUrl = isMentionX || isRetweet || isTweetKeyword;
   const xRef = X_HANDLE_BY_SLUG[quest.slug];
   const [xUsername, setXUsername] = useState('');
   const [tweetUrl, setTweetUrl] = useState('');
+  const questMeta = (quest.meta || {}) as Record<string, unknown>;
+  const inputLabel = (questMeta.input_label as string) || (isFollowX ? 'Your X username' : 'Tweet URL');
+  const inputPlaceholder = (questMeta.input_placeholder as string) || (isFollowX ? '@yourhandle' : 'https://x.com/yourhandle/status/123...');
   const link = QUEST_LINKS[quest.slug];
 
   const inputValue = isFollowX ? xUsername : tweetUrl;
@@ -190,7 +196,7 @@ function QuestCard({
     if (isFollowX) {
       if (!xUsername.trim()) return;
       onClaim(quest.slug, { x_username: xUsername.trim().replace(/^@/, '') });
-    } else if (isMentionX) {
+    } else if (needsTweetUrl) {
       if (!tweetUrl.trim()) return;
       onClaim(quest.slug, { tweet_url: tweetUrl.trim() });
     } else {
@@ -280,15 +286,33 @@ function QuestCard({
         <div className="mb-3 space-y-2">
           {isMentionX && (
             <div className="text-[11px] text-provn-muted">
-              Tweet must mention <span className="text-emerald-400">{xRef?.handle ?? '@growwstreams'}</span> + include your wallet:{' '}
+              Tweet must mention{' '}
+              <span className="text-emerald-400">{(questMeta.required_mention as string) || xRef?.handle || '@GrowStreams'}</span>
+              {' '}+ include your wallet:{' '}
               <code className="text-emerald-400 text-[10px]">{wallet.slice(0, 10)}…{wallet.slice(-6)}</code>
             </div>
           )}
+          {isRetweet && (
+            <div className="text-[11px] text-provn-muted">
+              {(questMeta.original_tweet_url as string)
+                ? <> Retweet <a href={questMeta.original_tweet_url as string} target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">this post</a>, then paste the URL of your retweet below. </>
+                : <>Retweet the campaign post, then paste the URL of <span className="text-emerald-400">your retweet</span> below.</>}
+            </div>
+          )}
+          {isTweetKeyword && (
+            <div className="text-[11px] text-provn-muted">
+              Tweet must mention{' '}
+              <span className="text-emerald-400">{(questMeta.required_mention as string) || '@GrowStreams'}</span>
+              {(questMeta.required_keyword as string) && <> and include the word{' '}<span className="text-emerald-400 font-mono">&quot;{questMeta.required_keyword as string}&quot;</span></>}.
+              {' '}Paste your tweet URL below.
+            </div>
+          )}
+          <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
           <input
             type="text"
             value={inputValue}
             onChange={(e) => isFollowX ? setXUsername(e.target.value) : setTweetUrl(e.target.value)}
-            placeholder={isFollowX ? '@yourhandle' : 'https://x.com/yourhandle/status/123...'}
+            placeholder={inputPlaceholder}
             className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none"
           />
           {isRejected && quest.rejectedSubmission?.proof && (quest.rejectedSubmission.proof as { reject_reason?: string }).reject_reason && (

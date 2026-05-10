@@ -761,5 +761,25 @@ export const api = {
       }),
     adminStats: (token: string) =>
       authedRequest<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>(token, '/api/quests/admin/stats'),
+
+    adminListQuests: (token: string) =>
+      authedRequest<{ quests: Array<Record<string, unknown>>; total: number }>(token, '/api/quests/admin/quests'),
+    adminUpsertQuest: (token: string, data: Record<string, unknown>) =>
+      authedRequest<{ message: string; quest: Record<string, unknown> }>(token, '/api/quests/admin/quests', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    adminListCampaigns: (token: string) =>
+      authedRequest<{ campaigns: Array<Record<string, unknown>>; total: number }>(token, '/api/quests/admin/campaigns'),
+    adminUpsertCampaign: (token: string, data: Record<string, unknown>) =>
+      authedRequest<{ message: string; campaign: Record<string, unknown> }>(token, '/api/quests/admin/campaigns', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    adminAwardXP: (token: string, wallet: string, quest_slug: string, proof?: Record<string, unknown>) =>
+      authedRequest<{ message: string; completion: Record<string, unknown> }>(token, '/api/quests/admin/award', {
+        method: 'POST',
+        body: JSON.stringify({ wallet, quest_slug, proof: proof || {} }),
+      }),
   },
 };

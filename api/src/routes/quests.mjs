@@ -30,6 +30,8 @@ import {
   getCampaignPrizeBoard,
   upsertQuestCampaign,
   assignQuestToCampaign,
+  upsertQuest,
+  listAllQuests,
 } from '../services/quest-campaign-service.mjs';
 
 const router = Router();
@@ -557,6 +559,35 @@ router.get('/admin/stats', requireAdmin, async (req, res, next) => {
   try {
     const stats = await getQuestStats();
     res.json(stats);
+  } catch (err) { next(err); }
+});
+
+// GET /api/quests/admin/quests — list all quests with campaign info
+router.get('/admin/quests', requireAdmin, async (req, res, next) => {
+  try {
+    const quests = await listAllQuests();
+    res.json({ quests, total: quests.length });
+  } catch (err) { next(err); }
+});
+
+// POST /api/quests/admin/quests — create or update a quest
+router.post('/admin/quests', requireAdmin, async (req, res, next) => {
+  try {
+    const quest = await upsertQuest(req.body);
+    res.status(201).json({ message: 'Quest upserted', quest });
+  } catch (err) {
+    if (err.status === 400 || err.status === 404) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    next(err);
+  }
+});
+
+// GET /api/quests/admin/campaigns — list all campaigns (for dropdowns)
+router.get('/admin/campaigns', requireAdmin, async (req, res, next) => {
+  try {
+    const campaigns = await listQuestCampaigns();
+    res.json({ campaigns, total: campaigns.length });
   } catch (err) { next(err); }
 });
 
