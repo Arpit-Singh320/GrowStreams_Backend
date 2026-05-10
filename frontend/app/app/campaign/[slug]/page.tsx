@@ -148,11 +148,12 @@ export default function CampaignDetailPage() {
   const { account } = useAccount()
   const wallet = account?.decodedAddress || ''
 
-  const [campaign, setCampaign] = useState<any | null>(null)
-  const [quests,   setQuests]   = useState<any[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [claiming, setClaiming] = useState<string | null>(null)
-  const [claimMsg, setClaimMsg] = useState('')
+  const [campaign, setCampaign]   = useState<any | null>(null)
+  const [quests,   setQuests]     = useState<any[]>([])
+  const [loading,  setLoading]    = useState(true)
+  const [claiming, setClaiming]   = useState<string | null>(null)
+  const [claimMsg, setClaimMsg]   = useState('')
+  const [registered, setRegistered] = useState<boolean | null>(null)
 
   const load = useCallback(async () => {
     if (!params.slug) return
@@ -168,10 +169,13 @@ export default function CampaignDetailPage() {
       if (wallet) {
         try {
           const me = await api.quests.me(wallet) as any
+          setRegistered(!!me?.registered)
           const meMap: Record<string, any> = {}
           ;(me?.quests || []).forEach((q: any) => { meMap[q.slug] = q })
           userQuests = userQuests.map((q: any) => ({ ...q, ...(meMap[q.slug] || {}) }))
-        } catch { /* ignore */ }
+        } catch { setRegistered(false) }
+      } else {
+        setRegistered(null)
       }
       setQuests(userQuests)
     } catch {
@@ -183,13 +187,18 @@ export default function CampaignDetailPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handleClaim = async (slug: string, payload?: Record<string, string>) => {
+  const handleClaim = async (questSlug: string, payload?: Record<string, string>) => {
     if (!wallet) return
-    setClaiming(slug); setClaimMsg('')
+    setClaiming(questSlug); setClaimMsg('')
     try {
-      await api.quests.claim(wallet, slug, payload)
-      setClaimMsg('✅ Submitted! Refreshing...')
-      setTimeout(() => { load(); setClaimMsg('') }, 1500)
+      // claim(slug, wallet, payload) — slug is first arg
+      const result = await api.quests.claim(questSlug, wallet, payload as any) as any
+      if (result?.status === 'VERIFIED') {
+        setClaimMsg('✅ Quest verified! XP awarded.')
+      } else {
+        setClaimMsg('📝 Submitted for review!')
+      }
+      setTimeout(() => { load(); setClaimMsg('') }, 1800)
     } catch (err: any) {
       setClaimMsg(err?.message || 'Failed to submit')
       setClaiming(null)
@@ -244,8 +253,27 @@ export default function CampaignDetailPage() {
         XP is minted on-chain via VARA Network. Every approved quest creates a blockchain transaction.
       </div>
 
+      {/* Registration gate */}
+      {wallet && registered === false && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <p className="text-sm text-red-400">You need to register for quests before you can claim XP.</p>
+          <a href="/app/quests" className="flex-shrink-0 px-4 py-1.5 rounded-full bg-emerald-500 text-black text-xs font-semibold hover:bg-emerald-400 transition-colors">
+            Register now
+          </a>
+        </div>
+      )}
+      {!wallet && (
+        <div className="px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-400">
+          Connect your wallet to track progress and claim quests.
+        </div>
+      )}
+
       {claimMsg && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm ${claimMsg.startsWith('✅') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+        <div className={`px-4 py-2.5 rounded-lg text-sm ${
+          claimMsg.startsWith('✅') || claimMsg.startsWith('📝')
+            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+            : 'bg-red-500/10 text-red-400 border border-red-500/20'
+        }`}>
           {claimMsg}
         </div>
       )}
