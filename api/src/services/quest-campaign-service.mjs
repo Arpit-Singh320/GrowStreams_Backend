@@ -15,6 +15,7 @@ export async function listQuestCampaigns() {
       COALESCE(SUM(q.seeds_reward), 0)::int AS total_seeds_pool
     FROM quest_campaigns qc
     LEFT JOIN quests q ON q.campaign_id = qc.id AND q.active = TRUE
+    WHERE qc.status = 'ACTIVE' AND qc.slug IS NOT NULL AND qc.slug <> ''
     GROUP BY qc.id
     ORDER BY qc.sort_order ASC, qc.created_at ASC
   `);
