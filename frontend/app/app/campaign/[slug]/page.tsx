@@ -1,146 +1,276 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
+import React, { useEffect, useState, useCallback } from 'react'
+import { useParams } from 'next/navigation'
 import { api } from '@/lib/growstreams-api'
 import { useAccount } from '@gear-js/react-hooks'
-// api used for questCampaigns load
-import { ArrowRight, Eye, Heart } from 'lucide-react'
+import {
+  Sprout, CheckCircle2, Loader2, ArrowRight, Clock,
+  ExternalLink, Twitter, Star, GitPullRequest, Waves, Gift, Megaphone,
+} from 'lucide-react'
 
+// ─── Icon map (mirrors quests page) ─────────────────────────────────────────
+const QUEST_ICONS: Record<string, React.ElementType> = {
+  twitter: Twitter, megaphone: Megaphone, star: Star,
+  'git-pull-request': GitPullRequest, waves: Waves, gift: Gift,
+}
+function QuestIcon({ icon }: { icon: string }) {
+  const Icon = QUEST_ICONS[icon] || Sprout
+  return <Icon className="w-5 h-5" />
+}
+
+function XpBadge({ amount }: { amount: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400">
+      <Sprout className="w-3 h-3" />{amount} XP
+    </span>
+  )
+}
+
+// ─── Quest Card (same style as /app/quests) ──────────────────────────────────
+function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
+  quest: any; wallet: string;
+  onClaim: (slug: string, payload?: Record<string, string>) => void;
+  claiming: boolean;
+}) {
+  const isCompleted = quest.completed
+  const isPending   = !!quest.pendingSubmission
+  const isRejected  = !!quest.rejectedSubmission
+  const isFollowX      = quest.quest_type === 'X_FOLLOW'
+  const isMentionX     = quest.quest_type === 'X_MENTION'
+  const isRetweet      = quest.quest_type === 'X_RETWEET'
+  const isTweetKeyword = quest.quest_type === 'X_TWEET_KEYWORD'
+  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword
+  const needsTweetUrl    = isMentionX || isRetweet || isTweetKeyword
+
+  const questMeta      = (quest.meta || {}) as Record<string, unknown>
+  const inputLabel     = (questMeta.input_label as string)      || (isFollowX ? 'Your X username' : 'Tweet URL')
+  const inputPlaceholder = (questMeta.input_placeholder as string) || (isFollowX ? '@yourhandle' : 'https://x.com/yourhandle/status/...')
+  const externalUrl    = (questMeta.url || questMeta.invite_url || questMeta.original_tweet_url) as string | undefined
+
+  const [xUsername, setXUsername] = useState('')
+  const [tweetUrl, setTweetUrl]   = useState('')
+  const inputValue = isFollowX ? xUsername : tweetUrl
+  const inputValid = needsManualInput
+    ? (isFollowX ? xUsername.trim().length > 0 : /^https?:\/\/(x\.com|twitter\.com)\//i.test(tweetUrl.trim()))
+    : true
+
+  const handleClaim = () => {
+    if (isFollowX)        onClaim(quest.slug, { x_username: xUsername.trim().replace(/^@/, '') })
+    else if (needsTweetUrl) onClaim(quest.slug, { tweet_url: tweetUrl.trim() })
+    else                  onClaim(quest.slug)
+  }
+
+  const statusBadge = () => {
+    if (isCompleted) return <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/15 text-emerald-400"><CheckCircle2 className="w-3 h-3" /> Done</span>
+    if (isPending)   return <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-400"><Clock className="w-3 h-3" /> Under review</span>
+    if (isRejected)  return <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-500/15 text-red-400">Rejected — resubmit</span>
+    return <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-provn-border/40 text-provn-muted"><Clock className="w-3 h-3" /> Pending</span>
+  }
+
+  return (
+    <div className={`relative bg-provn-surface border rounded-xl p-5 transition-all ${
+      isCompleted ? 'border-emerald-500/30 bg-emerald-500/5'
+      : isPending  ? 'border-amber-500/30 bg-amber-500/5'
+      : 'border-provn-border hover:border-provn-muted/30'
+    }`}>
+      <div className="absolute top-3 right-3">{statusBadge()}</div>
+
+      <div className="flex items-start gap-3 mb-3">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isCompleted ? 'bg-emerald-500/15 text-emerald-400' : 'bg-provn-bg text-provn-muted'}`}>
+          <QuestIcon icon={quest.icon} />
+        </div>
+        <div className="min-w-0 pr-20">
+          <h3 className="font-semibold text-sm">{quest.title}</h3>
+          <p className="text-xs text-provn-muted mt-0.5">{quest.description}</p>
+          {externalUrl && !isCompleted && (
+            <a href={externalUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 mt-2 text-xs text-emerald-400 hover:text-emerald-300">
+              <ExternalLink className="w-3 h-3" /> Open link
+            </a>
+          )}
+        </div>
+      </div>
+
+      {needsManualInput && !isCompleted && !isPending && (
+        <div className="mb-3 space-y-1.5">
+          {isMentionX && (
+            <p className="text-[11px] text-provn-muted">
+              Tweet must mention <span className="text-emerald-400">{(questMeta.required_mention as string) || '@GrowStreams'}</span> + include your wallet:{' '}
+              <code className="text-emerald-400 text-[10px]">{wallet.slice(0,10)}…{wallet.slice(-6)}</code>
+            </p>
+          )}
+          {isRetweet && (
+            <p className="text-[11px] text-provn-muted">
+              Retweet{questMeta.original_tweet_url ? <> <a href={questMeta.original_tweet_url as string} target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">this post</a>,</> : ' the campaign post,'} then paste the URL of your retweet below.
+            </p>
+          )}
+          {isTweetKeyword && (
+            <p className="text-[11px] text-provn-muted">
+              Tweet must mention <span className="text-emerald-400">{(questMeta.required_mention as string) || '@GrowStreams'}</span>
+              {(questMeta.required_keyword as string) && <> and include <span className="text-emerald-400 font-mono">&quot;{String(questMeta.required_keyword)}&quot;</span></>}.
+            </p>
+          )}
+          <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
+          <input type="text" value={inputValue}
+            onChange={e => isFollowX ? setXUsername(e.target.value) : setTweetUrl(e.target.value)}
+            placeholder={inputPlaceholder}
+            className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none" />
+          {isRejected && (quest.rejectedSubmission?.proof as any)?.reject_reason && (
+            <p className="text-[11px] text-red-400">Rejected: {(quest.rejectedSubmission.proof as any).reject_reason}</p>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mt-4 pt-3 border-t border-provn-border/50">
+        <div className="flex items-center gap-2">
+          <XpBadge amount={quest.seeds_reward} />
+          {isCompleted && quest.totalEarned && (
+            <span className="text-[11px] text-emerald-400">+{quest.totalEarned} Seeds earned</span>
+          )}
+        </div>
+        {!isCompleted && !isPending && (
+          <button onClick={handleClaim} disabled={claiming || (needsManualInput && !inputValid)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {claiming ? <><Loader2 className="w-3 h-3 animate-spin" /> Submitting</> : needsManualInput ? <>Submit <ArrowRight className="w-3 h-3" /></> : <>Claim <ArrowRight className="w-3 h-3" /></>}
+          </button>
+        )}
+        {isPending && <span className="text-xs text-amber-400">Awaiting review</span>}
+        {isCompleted && <span className="text-xs text-emerald-400">✓ Completed</span>}
+      </div>
+    </div>
+  )
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage() {
   const params = useParams() as { slug?: string }
-  const router = useRouter()
   const { account } = useAccount()
   const wallet = account?.decodedAddress || ''
 
   const [campaign, setCampaign] = useState<any | null>(null)
-  const [quests, setQuests] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [quests,   setQuests]   = useState<any[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [claiming, setClaiming] = useState<string | null>(null)
+  const [claimMsg, setClaimMsg] = useState('')
 
-  useEffect(() => {
-    let mounted = true
-    async function load() {
-      setLoading(true)
-      try {
-        const res = await api.quests.questCampaign(params.slug || '')
-        if (mounted) {
-          setCampaign((res as any)?.campaign || null)
-          setQuests((res as any)?.quests || [])
-        }
-      } catch (err) {
-        if (mounted) setCampaign(null)
-      } finally {
-        if (mounted) setLoading(false)
+  const load = useCallback(async () => {
+    if (!params.slug) return
+    setLoading(true)
+    try {
+      const res = await api.quests.questCampaign(params.slug) as any
+      setCampaign(res?.campaign || null)
+
+      // Merge completion status from /me if wallet is connected
+      let userQuests: any[] = res?.quests || []
+      if (wallet) {
+        try {
+          const me = await api.quests.me(wallet) as any
+          const meMap: Record<string, any> = {}
+          ;(me?.quests || []).forEach((q: any) => { meMap[q.slug] = q })
+          userQuests = userQuests.map((q: any) => ({ ...q, ...(meMap[q.slug] || {}) }))
+        } catch { /* ignore */ }
       }
+      setQuests(userQuests)
+    } catch {
+      setCampaign(null)
+    } finally {
+      setLoading(false)
     }
-    load()
-    return () => { mounted = false }
-  }, [params.slug])
+  }, [params.slug, wallet])
 
-  const handleJoin = async () => {
-    if (!wallet) return router.push('/app/quests')
-    // Navigate to the Earn page — campaign quests are completed there
-    router.push('/app/quests')
+  useEffect(() => { load() }, [load])
+
+  const handleClaim = async (slug: string, payload?: Record<string, string>) => {
+    if (!wallet) return
+    setClaiming(slug); setClaimMsg('')
+    try {
+      await api.quests.claim(wallet, slug, payload)
+      setClaimMsg('✅ Submitted! Refreshing...')
+      setTimeout(() => { load(); setClaimMsg('') }, 1500)
+    } catch (err: any) {
+      setClaimMsg(err?.message || 'Failed to submit')
+      setClaiming(null)
+    }
   }
 
-  if (loading) return <div className="flex items-center justify-center h-40">Loading...</div>
-  if (!campaign) return <div className="text-center text-provn-muted">Campaign not found</div>
+  if (loading) return (
+    <div className="flex items-center justify-center h-60">
+      <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+    </div>
+  )
+  if (!campaign) return <div className="text-center text-provn-muted py-20">Campaign not found</div>
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="max-w-4xl mx-auto space-y-6">
       {/* Banner */}
-      <div className="rounded-xl overflow-hidden border border-provn-border bg-black/20">
+      <div className="rounded-2xl overflow-hidden border border-provn-border bg-provn-surface">
         {campaign.banner_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={campaign.banner_url} alt={campaign.title} className="w-full h-56 object-cover" />
+          <img src={campaign.banner_url} alt={campaign.title} className="w-full h-52 object-cover" />
         ) : (
-          <div className="w-full h-56 bg-gradient-to-b from-black/10 to-black/40" />
+          <div className="w-full h-52 bg-gradient-to-br from-emerald-900/30 to-provn-bg flex items-center justify-center">
+            <Sprout className="w-16 h-16 text-emerald-700/40" />
+          </div>
         )}
-        <div className="-mt-12 px-6 pb-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-md bg-provn-surface border border-provn-border overflow-hidden flex-shrink-0">
-              {campaign.icon ? (<img src={campaign.icon} alt={campaign.title} className="w-full h-full object-cover" />) : null}
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="inline-block text-[11px] text-emerald-100 bg-emerald-900/10 border border-emerald-500 rounded-full px-2 py-0.5 font-semibold">{campaign.status || 'ACTIVE'}</span>
-                {campaign.tags?.map && campaign.tags.slice(0,2).map((t:any)=> (
-                  <span key={t} className="inline-block text-[11px] text-provn-muted bg-provn-bg/20 border border-provn-border rounded-full px-2 py-0.5">{t}</span>
-                ))}
+        <div className="px-6 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/40 border border-emerald-700 text-emerald-300 font-semibold">{campaign.status || 'ACTIVE'}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-provn-border/40 text-provn-muted">CAMPAIGN</span>
+                {campaign.partner && <span className="text-[10px] px-2 py-0.5 rounded-full bg-provn-border/40 text-provn-muted">by {campaign.partner}</span>}
               </div>
-              <h1 className="text-xl font-bold">{campaign.title}</h1>
-              <div className="flex items-center gap-4 mt-2">
-                <div className="text-sm font-semibold text-emerald-400">{campaign.reward_summary || campaign.pool_amount || ''}</div>
-                <div className="flex items-center gap-2 text-provn-muted text-sm">
-                  <Eye className="w-4 h-4" /> <span>{campaign.views || 0}</span>
-                </div>
-                <div className="flex items-center gap-2 text-provn-muted text-sm">
-                  <Heart className="w-4 h-4" /> <span>{campaign.likes || 0}</span>
-                </div>
-              </div>
+              <h1 className="text-2xl font-bold">{campaign.title}</h1>
+              {campaign.reward_summary && (
+                <p className="text-sm font-semibold text-emerald-400 mt-1">{campaign.reward_summary}</p>
+              )}
+              <p className="text-sm text-provn-muted mt-2 max-w-xl">{campaign.description}</p>
             </div>
-            <div className="flex items-center">
-              <button onClick={handleJoin} className="bg-emerald-400 text-black px-4 py-2 rounded-full font-semibold hover:brightness-95">Go to Earn</button>
+            <div className="flex-shrink-0 text-right">
+              <div className="text-2xl font-bold text-emerald-400">{quests.reduce((s: number, q: any) => s + (q.seeds_reward || 0), 0)} XP</div>
+              <div className="text-xs text-provn-muted">total available</div>
+              <div className="mt-1 text-xs text-provn-muted">{quests.filter((q: any) => q.completed).length}/{quests.length} done</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Description + Requirements + How to Participate */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-4">
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-4">
-            <h3 className="font-bold mb-2">Description</h3>
-            <p className="text-provn-muted">{campaign.description}</p>
-          </div>
+      {/* On-chain note */}
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/5 border border-emerald-500/15 rounded-lg text-xs text-provn-muted">
+        <Sprout className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+        XP is minted on-chain via VARA Network. Every approved quest creates a blockchain transaction.
+      </div>
 
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-4">
-            <h3 className="font-bold mb-3">Campaign Quests</h3>
-            <div className="mb-4">
-              <button onClick={handleJoin} className="w-full bg-yellow-300 text-black rounded-full py-3 font-semibold">Complete Quests on Earn Page</button>
-            </div>
-            {quests.length === 0 && (
-              <p className="text-sm text-provn-muted text-center py-2">No quests added yet.</p>
-            )}
-            <div className="space-y-2">
-              {quests.map((q:any) => (
-                <div key={q.slug || q.id} className="bg-provn-bg/30 border border-provn-border rounded-lg p-3 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{q.title}</div>
-                    <div className="text-xs text-provn-muted">{q.description?.slice(0,120)}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-sm text-amber-200 font-semibold">+{q.seeds_reward ?? q.xp ?? 0} XP</div>
-                    <Link href={`/app/quest/${q.slug || q.id}`} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-provn-surface border border-provn-border text-sm">Open</Link>
-                  </div>
-                </div>
-              ))}
-            </div>
+      {claimMsg && (
+        <div className={`px-4 py-2.5 rounded-lg text-sm ${claimMsg.startsWith('✅') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+          {claimMsg}
+        </div>
+      )}
+
+      {/* Quest grid */}
+      {quests.length === 0 ? (
+        <div className="text-center text-provn-muted py-16 bg-provn-surface border border-provn-border rounded-xl">
+          No quests added to this project yet.
+        </div>
+      ) : (
+        <div>
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <Sprout className="w-5 h-5 text-emerald-400" /> Quests
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {quests.map((q: any) => (
+              <CampaignQuestCard
+                key={q.slug}
+                quest={q}
+                wallet={wallet}
+                onClaim={handleClaim}
+                claiming={claiming === q.slug}
+              />
+            ))}
           </div>
         </div>
-
-        <aside className="space-y-4">
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-4">
-            <h4 className="font-semibold mb-2">Requirements</h4>
-            <ul className="space-y-2 text-provn-muted text-sm">
-              {(campaign.required_hashtags || []).map((h:string, i:number) => (
-                <li key={h} className="flex items-start gap-2"><span className="inline-flex items-center justify-center w-6 h-6 bg-emerald-900/10 rounded-full text-emerald-300 text-xs font-mono">{i+1}</span><span>{h}</span></li>
-              ))}
-              {(!campaign.required_hashtags || campaign.required_hashtags.length===0) && <li className="text-provn-muted">No special requirements</li>}
-            </ul>
-          </div>
-
-          <div className="bg-provn-surface border border-provn-border rounded-xl p-4">
-            <h4 className="font-semibold mb-2">How to Participate</h4>
-            <ol className="list-decimal list-inside text-provn-muted text-sm space-y-2">
-              <li>Click Join Campaign</li>
-              <li>Complete the listed quests</li>
-              <li>Claim rewards when available</li>
-            </ol>
-          </div>
-        </aside>
-      </div>
+      )}
     </div>
   )
 }
