@@ -123,6 +123,12 @@
     font-style: normal;
   }
 
+  /* Force wallet balance text to theme foreground when external widget styles use dark colors */
+  .gear-wallet-override,
+  .gear-wallet-override * {
+    color: var(--provn-text) !important;
+  }
+
   .font-body {
     font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, -apple-system, sans-serif;
   }

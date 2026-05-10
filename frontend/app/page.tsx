@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef, useState } from "react"
+import React, { useRef, useState, useEffect } from "react"
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
@@ -44,6 +44,7 @@ import { WordRotate } from "@/components/v2/word-rotate"
 import { CodeTyping } from "@/components/v2/code-typing"
 import { MagnetButton } from "@/components/v2/magnet-button"
 import { TrueFocus } from "@/components/v2/true-focus"
+import { api } from '@/lib/growstreams-api'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -101,11 +102,80 @@ export default function HomeV2() {
   const heroParallax = useTransform(scrollYProgress, [0, 0.3], [0, -60])
   const [activeDemo, setActiveDemo] = useState<string>("Payroll")
   const scenario = demoScenarios[activeDemo]
+  const [activeQuest, setActiveQuest] = useState<any | null>(null)
+  const [bannerMode, setBannerMode] = useState<'hidden'|'large'|'minimized'>('hidden')
+
+  useEffect(() => {
+    let mounted = true
+    async function loadActive() {
+      try {
+        const res = await api.quests.questCampaigns()
+        const campaigns = (res?.campaigns) || []
+        const active = campaigns.filter((c: any) => c.status === 'ACTIVE')
+        const chosen = active.length ? active[active.length - 1] : campaigns.length ? campaigns[campaigns.length - 1] : null
+        if (mounted && chosen) {
+          setActiveQuest(chosen)
+          setBannerMode('large')
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    loadActive()
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    if (!activeQuest) return
+    setBannerMode('large')
+    const t = setTimeout(() => setBannerMode('minimized'), 10000)
+    return () => clearTimeout(t)
+  }, [activeQuest])
 
   return (
     <div className="min-h-screen bg-provn-bg text-provn-text">
       <NavigationV2 currentPage="home" />
       <ScrollProgress />
+
+      {/* Active Quest banner (glass) */}
+      {activeQuest && bannerMode !== 'hidden' && (
+        <div className="fixed inset-0 z-40 pointer-events-none">
+          <div className={"transition-all duration-700 ease-in-out " + (bannerMode === 'large' ? 'flex items-center justify-center w-full h-full' : '')}>
+            <Link
+              href={`/app/campaign/${activeQuest.slug}`}
+              className={
+                (bannerMode === 'large' ? 'w-80 h-80 md:w-96 md:h-96 mx-auto' : 'w-48 h-48 md:w-56 md:h-56 absolute bottom-6 right-6') +
+                ' rounded-2xl bg-black/40 backdrop-blur-sm ' +
+                (bannerMode === 'minimized' ? 'border-emerald-500/60 ring-1 ring-emerald-500/20' : 'border border-white/10') +
+                ' shadow-2xl ' + (bannerMode === 'minimized' ? 'p-0' : 'p-4') + ' flex flex-col overflow-hidden pointer-events-auto transform-gpu'
+              }
+            >
+              <div className="relative flex-1 w-full rounded-lg overflow-hidden">
+                {(activeQuest.banner_url || activeQuest.icon) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={activeQuest.banner_url || activeQuest.icon} alt={activeQuest.title} className="w-full h-full object-cover rounded-md" />
+                ) : (
+                  <div className="w-full h-full bg-black/20 rounded-md" />
+                )}
+                <div className="absolute inset-0 p-4 flex flex-col justify-between">
+                  <div>
+                    <div className="inline-block text-[11px] text-emerald-100 bg-emerald-900/10 border border-emerald-500 rounded-full px-2 py-0.5 font-semibold">Active Quest</div>
+                    <div className="text-sm font-semibold text-white mt-1">{activeQuest.title}</div>
+                    {activeQuest.seeds_reward != null && (
+                      <div className="mt-3 inline-block px-3 py-2 rounded-md bg-amber-800/30 border border-amber-700 text-amber-100 text-sm font-semibold">
+                        {activeQuest.reward_display || activeQuest.seeds_reward}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] text-provn-muted">{activeQuest.excerpt || activeQuest.description?.slice(0, 120)}</div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ============ HERO ============ */}
       <div className="min-h-screen flex items-center relative overflow-hidden">

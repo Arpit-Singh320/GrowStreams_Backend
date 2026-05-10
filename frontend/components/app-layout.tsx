@@ -26,7 +26,7 @@ const navItems = [
   { href: '/app/vault', label: 'Vault', icon: Vault },
   { href: '/app/bridge', label: 'Bridge', icon: ArrowLeftRight },
   { href: '/app/campaign', label: 'Campaign', icon: Zap },
-  { href: '/app/quests', label: 'Quests', icon: Sprout },
+  { href: '/app/quests', label: 'Earn', icon: Sprout },
   { href: '/app/leaderboard', label: 'Leaderboard', icon: Medal },
   { href: '/app/splits', label: 'Splits', icon: GitFork, soon: true },
   { href: '/app/bounties', label: 'Bounties', icon: Trophy, soon: true },
@@ -83,6 +83,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           />
         )}
       </div>
+      {/* darker overlay for glassmorphism (non-interactive) */}
+      <div className="fixed inset-0 pointer-events-none z-[5] bg-black/40 backdrop-blur-sm" />
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/60 z-30 lg:hidden"
@@ -120,14 +122,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   active
                     ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                     : soon
-                    ? 'text-provn-muted/50 hover:text-provn-muted hover:bg-provn-border/20'
+                    ? 'text-provn-muted hover:text-provn-muted hover:bg-provn-border/20'
                     : 'text-provn-muted hover:text-provn-text hover:bg-provn-border/30'
                 }`}
               >
                 <Icon className={`w-4 h-4 flex-shrink-0 ${soon ? 'opacity-50' : ''}`} />
                 <span className="flex-1">{label}</span>
                 {soon && (
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-provn-border/40 text-provn-muted/70">Soon</span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-provn-border/40 text-provn-muted">Soon</span>
                 )}
               </Link>
             );
@@ -163,7 +165,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
-            {isApiReady && <GearWallet theme="vara" displayBalance />}
+            {isApiReady && (
+              <div className="gear-wallet-override">
+                <GearWallet theme="vara" displayBalance />
+              </div>
+            )}
             {isApiReady && !account && (
               <button
                 onClick={wcConnect}

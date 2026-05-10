@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Toaster } from 'sonner';
 import { EvmWalletProvider } from '@/contexts/EvmWalletContext';
+import { WalletConnectProvider } from '@/contexts/WalletConnectContext';
 
 const VaraProviders = dynamic(
   () => import('@/contexts/VaraContext').then((mod) => mod.VaraProviders),
@@ -38,10 +39,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <EvmWalletProvider>
         <VaraProviders>
-          {children}
-          <Toaster position="top-right" richColors />
+          <WalletConnectProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </WalletConnectProvider>
         </VaraProviders>
       </EvmWalletProvider>
     </QueryClientProvider>
   );
-} 
+}

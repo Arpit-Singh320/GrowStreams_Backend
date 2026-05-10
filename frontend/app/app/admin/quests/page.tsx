@@ -37,9 +37,9 @@ function AdminGate({ onAuthed }: { onAuthed: (token: string) => void }) {
         <Shield className="w-8 h-8 text-emerald-400" />
       </div>
       <div>
-        <h1 className="text-2xl font-bold">Admin: Quest Review</h1>
+        <h1 className="text-2xl font-bold">Admin: Earn Review</h1>
         <p className="text-provn-muted text-sm mt-2">
-          Enter your admin token to review pending quest submissions.
+          Enter your admin token to review pending earn submissions.
         </p>
       </div>
       <div className="space-y-3">

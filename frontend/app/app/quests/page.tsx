@@ -8,6 +8,7 @@ import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
   Twitter, Users, Waves, Star, GitPullRequest,
   Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift, Pencil, Check, X as XIcon,
+  Eye, Heart,
 } from 'lucide-react';
 
 const QUEST_ICONS: Record<string, React.ElementType> = {
@@ -95,11 +96,11 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
 
   return (
     <div className="max-w-md mx-auto mt-12 space-y-6">
-      <div className="text-center space-y-2">
+        <div className="text-center space-y-2">
         <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
           <Sparkles className="w-6 h-6 text-emerald-400" />
         </div>
-        <h2 className="text-xl font-bold">Join GrowStreams Quests</h2>
+        <h2 className="text-xl font-bold">Join GrowStreams Earn</h2>
         <p className="text-provn-muted text-sm">
           Fill in your details to start earning XP
         </p>
@@ -145,7 +146,7 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sprout className="w-4 h-4" />}
-          Register & Start Questing
+          Register & Start Earning
         </button>
       </div>
 
@@ -442,12 +443,14 @@ function QuestDashboard({ wallet }: { wallet: string }) {
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
+  const [campaigns, setCampaigns] = useState<Array<any>>([]);
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.quests.me(wallet);
+      const [data, camps] = await Promise.all([api.quests.me(wallet), api.quests.questCampaigns()]);
       setProgress(data);
+      setCampaigns((camps && camps.campaigns) || []);
       const reg = data.registration as Record<string, unknown> | undefined;
       setDisplayName((reg?.display_name as string) || '');
     } catch (err) {
@@ -496,7 +499,7 @@ function QuestDashboard({ wallet }: { wallet: string }) {
     : 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 px-4 md:px-0">
       {/* Profile header */}
       <div className="flex items-center justify-between">
         <EditNameWidget
@@ -549,21 +552,67 @@ function QuestDashboard({ wallet }: { wallet: string }) {
         </p>
       </div>
 
-      {/* Quest Cards */}
+      {/* Projects / Campaigns */}
       <div>
         <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
-          <Sprout className="w-5 h-5 text-emerald-400" /> Quests
+          <Sprout className="w-5 h-5 text-emerald-400" /> Projects
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(progress.quests || []).map(quest => (
-            <QuestCard
-              key={quest.slug}
-              quest={quest}
-              wallet={wallet}
-              onClaim={handleClaim}
-              claiming={claiming === quest.slug}
-            />
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {campaigns.map((camp: any) => {
+            const rewardText = camp.reward_summary || (camp.total_seeds_pool ? `${camp.total_seeds_pool} CC` : null);
+            return (
+              <div key={camp.slug} className="relative bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-2xl p-5 hover:shadow-2xl transition-shadow">
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  {camp.is_new && <span className="text-[10px] px-2 py-1 rounded-md bg-emerald-700 text-emerald-100">NEW</span>}
+                  {camp.meta?.verified && <span className="text-[10px] px-2 py-1 rounded-md bg-slate-700 text-slate-100">VERIFIED</span>}
+                  {camp.status === 'ACTIVE' && <span className="text-[10px] px-2 py-1 rounded-md bg-slate-800 text-slate-200">ACTIVE</span>}
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-black/20 flex items-center justify-center flex-shrink-0 border border-slate-800">
+                    {camp.banner_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={camp.banner_url} alt={camp.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-provn-muted font-bold">{camp.title?.[0] || 'P'}</div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-white text-lg truncate">{camp.title}</h3>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-200">CAMPAIGN</span>
+                          <span className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-200">{(camp.difficulty || 'EASY').toUpperCase()}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {rewardText && (
+                      <div className="mt-4 p-3 rounded-md border border-emerald-700 bg-emerald-900/30 text-emerald-100 w-full">
+                        <div className="text-[10px] text-emerald-200 uppercase tracking-wider font-semibold">REWARD</div>
+                        <div className="text-sm font-mono font-semibold mt-1">{rewardText}</div>
+                      </div>
+                    )}
+
+                    <p className="text-sm text-provn-muted mt-4 line-clamp-3">{camp.description}</p>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex items-center gap-6 text-provn-muted text-sm">
+                        <div className="flex items-center gap-2"><Eye className="w-4 h-4 text-provn-muted" /> <span>{(camp.views || 0).toLocaleString()}</span></div>
+                        <div className="flex items-center gap-2"><Heart className="w-4 h-4 text-rose-400" /> <span className="text-rose-200">{(camp.likes || 0).toLocaleString()}</span></div>
+                      </div>
+
+                      <div>
+                        <a href={`/app/campaign/${camp.slug}`} className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-yellow-300 text-black font-semibold shadow-md">JOIN <ArrowRight className="w-4 h-4" /></a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

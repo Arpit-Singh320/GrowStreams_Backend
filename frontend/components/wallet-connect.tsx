@@ -56,7 +56,9 @@ export default function WalletConnect() {
         {mode === 'substrate' && (
           <div className="flex justify-center">
             {isApiReady ? (
-              <Wallet theme="vara" displayBalance />
+              <div className="gear-wallet-override">
+                <Wallet theme="vara" displayBalance />
+              </div>
             ) : (
               <p className="text-provn-muted text-sm animate-pulse">
                 Connecting to Vara network...
