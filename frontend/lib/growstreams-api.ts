@@ -390,6 +390,7 @@ export interface QuestData {
     proof: Record<string, unknown> | null;
     created_at: string;
   } | null;
+  meta?: Record<string, unknown> | null;
 }
 
 export interface QuestSubmission {
