@@ -159,10 +159,12 @@ export default function CampaignDetailPage() {
     setLoading(true)
     try {
       const res = await api.quests.questCampaign(params.slug) as any
-      setCampaign(res?.campaign || null)
+      // API returns flat object: { id, slug, title, quests: [...], ... }
+      const { quests: rawQuests, ...campaignData } = res || {}
+      setCampaign(campaignData?.slug ? campaignData : null)
 
       // Merge completion status from /me if wallet is connected
-      let userQuests: any[] = res?.quests || []
+      let userQuests: any[] = rawQuests || []
       if (wallet) {
         try {
           const me = await api.quests.me(wallet) as any
