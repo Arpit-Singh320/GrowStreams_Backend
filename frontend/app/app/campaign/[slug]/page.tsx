@@ -15,6 +15,7 @@ export default function CampaignDetailPage() {
   const wallet = account?.decodedAddress || ''
 
   const [campaign, setCampaign] = useState<any | null>(null)
+  const [quests, setQuests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -22,12 +23,13 @@ export default function CampaignDetailPage() {
     async function load() {
       setLoading(true)
       try {
-        const res = await api.quests.questCampaigns()
-        const camps = res?.campaigns || []
-        const found = camps.find((c: any) => c.slug === params.slug || String(c.id) === params.slug)
-        if (mounted) setCampaign(found || null)
+        const res = await api.quests.questCampaign(params.slug || '')
+        if (mounted) {
+          setCampaign((res as any)?.campaign || null)
+          setQuests((res as any)?.quests || [])
+        }
       } catch (err) {
-        // ignore
+        if (mounted) setCampaign(null)
       } finally {
         if (mounted) setLoading(false)
       }
@@ -98,8 +100,11 @@ export default function CampaignDetailPage() {
             <div className="mb-4">
               <button onClick={handleJoin} className="w-full bg-yellow-300 text-black rounded-full py-3 font-semibold">Complete Quests on Earn Page</button>
             </div>
+            {quests.length === 0 && (
+              <p className="text-sm text-provn-muted text-center py-2">No quests added yet.</p>
+            )}
             <div className="space-y-2">
-              {(campaign.quests || []).map((q:any) => (
+              {quests.map((q:any) => (
                 <div key={q.slug || q.id} className="bg-provn-bg/30 border border-provn-border rounded-lg p-3 flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="font-medium truncate">{q.title}</div>
