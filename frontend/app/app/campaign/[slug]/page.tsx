@@ -216,14 +216,16 @@ export default function CampaignDetailPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Banner */}
       <div className="rounded-2xl overflow-hidden border border-provn-border bg-provn-surface">
-        {campaign.banner_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={campaign.banner_url} alt={campaign.title} className="w-full h-52 object-cover" />
-        ) : (
-          <div className="w-full h-52 bg-gradient-to-br from-emerald-900/30 to-provn-bg flex items-center justify-center">
-            <Sprout className="w-16 h-16 text-emerald-700/40" />
-          </div>
-        )}
+        <div className="w-full" style={{ aspectRatio: '3/1' }}>
+          {campaign.banner_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={campaign.banner_url} alt={campaign.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-emerald-900/30 to-provn-bg flex items-center justify-center">
+              <Sprout className="w-16 h-16 text-emerald-700/40" />
+            </div>
+          )}
+        </div>
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>

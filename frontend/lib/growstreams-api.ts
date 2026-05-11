@@ -703,6 +703,10 @@ export const api = {
 
   // ─── Quests (M1-beta) ──────────────────────────────────────────────────────
   quests: {
+    sendOtp: (email: string) =>
+      post<{ sent: boolean }>('/api/quests/otp/send', { email } as Record<string, unknown>),
+    verifyOtp: (email: string, code: string) =>
+      post<{ valid: boolean }>('/api/quests/otp/verify', { email, code } as Record<string, unknown>),
     register: (params: { wallet?: string; evm_address?: string; email: string; display_name: string; ref_code?: string }) =>
       post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
     list: () =>

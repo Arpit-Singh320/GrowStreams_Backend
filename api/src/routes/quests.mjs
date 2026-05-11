@@ -33,6 +33,7 @@ import {
   upsertQuest,
   listAllQuests,
 } from '../services/quest-campaign-service.mjs';
+import { sendOtp, verifyOtp } from '../services/otp-service.mjs';
 
 const router = Router();
 
@@ -45,6 +46,30 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
+
+// ---------------------------------------------------------------------------
+// POST /api/quests/otp/send  — send 6-digit OTP to email
+// POST /api/quests/otp/verify — verify OTP
+// ---------------------------------------------------------------------------
+router.post('/otp/send', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    await sendOtp(email.trim().toLowerCase());
+    res.json({ sent: true });
+  } catch (err) { next(err); }
+});
+
+router.post('/otp/verify', async (req, res, next) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'email and code are required' });
+    const result = verifyOtp(email.trim().toLowerCase(), code);
+    res.json(result);
+  } catch (err) { next(err); }
+});
 
 // ---------------------------------------------------------------------------
 // POST /api/quests/verify-invite
