@@ -1,5 +1,6 @@
 import { scorePR } from './llm-scorer.mjs';
 import { awardXP, getInitialXP } from './xp-service.mjs';
+import { awardSeeds, isQuestCompleted } from './quest-service.mjs';
 import { queryOne, queryAll, query } from './db.mjs';
 
 function getToken() {
@@ -219,10 +220,20 @@ function buildMergeBonusComment(bonusXP, wallet) {
 
 // ---------------------------------------------------------------------------
 // Look up participant by GitHub username
+// Checks quest_registrations first (new quest system), then legacy participants.
+// Returns object with at least { wallet, github_username/github_handle }
 // ---------------------------------------------------------------------------
 async function findParticipant(githubUsername) {
+  // New quest system — primary lookup
+  const qr = await queryOne(
+    `SELECT * FROM quest_registrations WHERE LOWER(github_username) = LOWER($1)`,
+    [githubUsername]
+  );
+  if (qr) return { ...qr, github_handle: qr.github_username };
+
+  // Legacy campaign participants fallback
   return await queryOne(
-    `SELECT * FROM participants WHERE github_handle = $1`,
+    `SELECT * FROM participants WHERE LOWER(github_handle) = LOWER($1)`,
     [githubUsername]
   );
 }
@@ -247,6 +258,13 @@ async function insertContribution(wallet, prNumber, score, xpAwarded, status, ag
   const maxDailyUntil = isActive
     ? new Date(Date.now() + maxDailyDays * 86400000).toISOString()
     : null;
+
+  // Ensure participant row exists (quest users aren't in participants; upsert to satisfy FK)
+  await query(
+    `INSERT INTO participants (wallet, track) VALUES ($1, 'OSS')
+     ON CONFLICT (wallet) DO NOTHING`,
+    [wallet]
+  );
 
   const data = await queryOne(
     `INSERT INTO contributions
@@ -310,7 +328,7 @@ export async function handlePROpened(payload) {
   if (!participant) {
     console.log(`[github-agent] ${authorLogin} not registered, skipping`);
     await postComment(prNumber,
-      `👋 Hey @${authorLogin}! Register at [GrowStreams](https://growstreams.app/campaign) to earn XP for your contributions.`
+      `👋 Hey @${authorLogin}! Register at [GrowStreams](https://growstreams.app/app/quests) to earn XP for your contributions.`
     );
     return;
   }
@@ -370,6 +388,18 @@ export async function handlePROpened(payload) {
     } catch (err) {
       console.error(`[github-agent] XP award failed for PR #${prNumber}: ${err.message}`);
     }
+
+    // Also award quest seeds for raise-pr quest (quest system)
+    try {
+      const alreadyDone = await isQuestCompleted(participant.wallet, 'raise-pr');
+      if (!alreadyDone) {
+        await awardSeeds(participant.wallet, 'raise-pr', { pr_number: prNumber, score: result.score, source: 'github-agent' });
+        console.log(`[github-agent] Quest seeds awarded for raise-pr to ${participant.wallet}`);
+      }
+    } catch (questErr) {
+      console.warn(`[github-agent] Quest seeds award failed for PR #${prNumber}: ${questErr.message}`);
+    }
+
     await postComment(prNumber, buildScoreComment(result, xpAmount, participant.wallet));
 
     console.log(`[github-agent] PR #${prNumber}: score=${result.score}, xp=${xpAmount}`);
@@ -450,6 +480,18 @@ export async function handlePRSynchronized(payload) {
     } catch (err) {
       console.error(`[github-agent] XP award failed for PR #${prNumber} (upgrade): ${err.message}`);
     }
+
+    // Also award quest seeds for raise-pr quest on upgrade
+    try {
+      const alreadyDone = await isQuestCompleted(participant.wallet, 'raise-pr');
+      if (!alreadyDone) {
+        await awardSeeds(participant.wallet, 'raise-pr', { pr_number: prNumber, score: result.score, source: 'github-agent-upgrade' });
+        console.log(`[github-agent] Quest seeds awarded for raise-pr (upgrade) to ${participant.wallet}`);
+      }
+    } catch (questErr) {
+      console.warn(`[github-agent] Quest seeds award failed for PR #${prNumber} (upgrade): ${questErr.message}`);
+    }
+
     await postComment(prNumber, buildScoreComment(result, xpAmount, participant.wallet));
 
     console.log(`[github-agent] PR #${prNumber} upgraded: score=${result.score}, xp=${xpAmount}`);

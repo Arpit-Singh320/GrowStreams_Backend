@@ -808,6 +808,47 @@ export async function getQuestStats() {
   const totalSeeds = await queryOne(`SELECT COALESCE(SUM(delta), 0) AS total FROM seeds_ledger`);
   const invitesUsed = await queryOne(`SELECT COALESCE(SUM(current_uses), 0) AS total FROM quest_invites`);
   const invitesTotal = await queryOne(`SELECT COUNT(*) AS cnt FROM quest_invites`);
+  const pendingReview = await queryOne(`SELECT COUNT(*) AS cnt FROM quest_completions WHERE status = 'PENDING_REVIEW'`);
+  const totalQuests = await queryOne(`SELECT COUNT(*) AS cnt FROM quests WHERE active = true`);
+  const totalCampaigns = await queryOne(`SELECT COUNT(*) AS cnt FROM quest_campaigns WHERE status = 'ACTIVE'`);
+
+  // Per-quest completion counts
+  const questBreakdown = await queryAll(`
+    SELECT q.title, q.slug, COUNT(qc.id) AS completions, q.seeds_reward
+    FROM quests q
+    LEFT JOIN quest_completions qc ON qc.quest_id = q.id AND qc.status = 'VERIFIED'
+    WHERE q.active = true
+    GROUP BY q.id, q.title, q.slug, q.seeds_reward
+    ORDER BY completions DESC
+    LIMIT 20
+  `);
+
+  // Registrations by day (last 14 days)
+  const registrationsByDay = await queryAll(`
+    SELECT DATE(registered_at) AS day, COUNT(*) AS count
+    FROM quest_registrations
+    WHERE registered_at >= NOW() - INTERVAL '14 days'
+    GROUP BY DATE(registered_at)
+    ORDER BY day ASC
+  `);
+
+  // Completions by day (last 14 days)
+  const completionsByDay = await queryAll(`
+    SELECT DATE(created_at) AS day, COUNT(*) AS count
+    FROM quest_completions
+    WHERE status = 'VERIFIED' AND created_at >= NOW() - INTERVAL '14 days'
+    GROUP BY DATE(created_at)
+    ORDER BY day ASC
+  `);
+
+  // XP minted by day (last 14 days)
+  const xpByDay = await queryAll(`
+    SELECT DATE(created_at) AS day, COALESCE(SUM(delta), 0) AS xp
+    FROM seeds_ledger
+    WHERE created_at >= NOW() - INTERVAL '14 days'
+    GROUP BY DATE(created_at)
+    ORDER BY day ASC
+  `);
 
   return {
     totalRegistered: parseInt(totalRegistered?.cnt || '0', 10),
@@ -815,5 +856,16 @@ export async function getQuestStats() {
     totalSeedsMinted: parseInt(totalSeeds?.total || '0', 10),
     invitesUsed: parseInt(invitesUsed?.total || '0', 10),
     invitesTotal: parseInt(invitesTotal?.cnt || '0', 10),
+    pendingReview: parseInt(pendingReview?.cnt || '0', 10),
+    totalActiveQuests: parseInt(totalQuests?.cnt || '0', 10),
+    totalActiveCampaigns: parseInt(totalCampaigns?.cnt || '0', 10),
+    questBreakdown: questBreakdown.map(r => ({
+      title: r.title, slug: r.slug,
+      completions: parseInt(r.completions || '0', 10),
+      seeds_reward: r.seeds_reward,
+    })),
+    registrationsByDay: registrationsByDay.map(r => ({ day: r.day, count: parseInt(r.count, 10) })),
+    completionsByDay: completionsByDay.map(r => ({ day: r.day, count: parseInt(r.count, 10) })),
+    xpByDay: xpByDay.map(r => ({ day: r.day, xp: parseInt(r.xp, 10) })),
   };
 }

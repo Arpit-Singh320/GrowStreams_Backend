@@ -337,6 +337,28 @@ export async function listAllQuests() {
 }
 
 /**
+ * Admin: delete a campaign and all its quests (cascade).
+ */
+export async function deleteQuestCampaign(slug) {
+  const campaign = await queryOne(`SELECT id FROM quest_campaigns WHERE slug = $1`, [slug]);
+  if (!campaign) throw Object.assign(new Error(`Campaign not found: ${slug}`), { status: 404 });
+  // Delete quests first (FK constraint)
+  const deleted = await queryAll(`DELETE FROM quests WHERE campaign_id = $1 RETURNING slug`, [campaign.id]);
+  await queryOne(`DELETE FROM quest_campaigns WHERE id = $1`, [campaign.id]);
+  return { deleted_quests: deleted.map(q => q.slug) };
+}
+
+/**
+ * Admin: delete a single quest by slug.
+ */
+export async function deleteQuest(slug) {
+  const quest = await queryOne(`SELECT id FROM quests WHERE slug = $1`, [slug]);
+  if (!quest) throw Object.assign(new Error(`Quest not found: ${slug}`), { status: 404 });
+  await queryOne(`DELETE FROM quests WHERE id = $1`, [quest.id]);
+  return { deleted: slug };
+}
+
+/**
  * Admin: assign a quest to a campaign.
  */
 export async function assignQuestToCampaign(questSlug, campaignSlug) {

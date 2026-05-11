@@ -685,9 +685,9 @@ function QuestDashboard({ wallet }: { wallet: string }) {
 
                 <div className="flex items-start gap-4">
                   <div className="w-14 h-14 rounded-lg overflow-hidden bg-black/20 flex items-center justify-center flex-shrink-0 border border-slate-800">
-                    {camp.banner_url ? (
+                    {(camp.meta?.logo_url || camp.banner_url) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={camp.banner_url} alt={camp.title} className="w-full h-full object-cover" />
+                      <img src={camp.meta?.logo_url || camp.banner_url} alt={camp.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="text-provn-muted font-bold text-lg">{camp.title?.[0] || 'P'}</div>
                     )}

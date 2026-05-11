@@ -32,6 +32,8 @@ import {
   assignQuestToCampaign,
   upsertQuest,
   listAllQuests,
+  deleteQuestCampaign,
+  deleteQuest,
 } from '../services/quest-campaign-service.mjs';
 import { sendOtp, verifyOtp } from '../services/otp-service.mjs';
 
@@ -614,6 +616,28 @@ router.get('/admin/campaigns', requireAdmin, async (req, res, next) => {
     const campaigns = await listQuestCampaigns();
     res.json({ campaigns, total: campaigns.length });
   } catch (err) { next(err); }
+});
+
+// DELETE /api/quests/admin/campaigns/:slug — delete campaign + all its quests
+router.delete('/admin/campaigns/:slug', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await deleteQuestCampaign(req.params.slug);
+    res.json({ message: 'Campaign deleted', ...result });
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: err.message });
+    next(err);
+  }
+});
+
+// DELETE /api/quests/admin/quests/:slug — delete a single quest
+router.delete('/admin/quests/:slug', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await deleteQuest(req.params.slug);
+    res.json({ message: 'Quest deleted', ...result });
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: err.message });
+    next(err);
+  }
 });
 
 export default router;

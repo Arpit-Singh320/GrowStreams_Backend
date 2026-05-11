@@ -7,6 +7,7 @@ import {
   Twitter, RefreshCw, Lock, LogOut, Sprout, Plus, FolderOpen,
   ChevronDown, Link as LinkIcon, Star, GitPullRequest, Waves,
   Megaphone, Gift, Trophy, Send, Image as ImageIcon, Pencil,
+  Trash2, BarChart2, Users, TrendingUp, Activity,
 } from 'lucide-react';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -556,7 +557,7 @@ function ManageProjectsTab({ token }: { token: string }) {
 
   const emptyForm = {
     slug: '', title: '', description: '', partner: '',
-    banner_url: '', reward_summary: '', difficulty: 'EASY',
+    banner_url: '', logo_url: '', reward_summary: '', difficulty: 'EASY',
     status: 'ACTIVE', bonus_xp: 0, sort_order: 0, meta: '{}',
   };
   const [form, setForm] = useState(emptyForm);
@@ -589,6 +590,7 @@ function ManageProjectsTab({ token }: { token: string }) {
     setForm({
       slug: camp.slug, title: camp.title, description: camp.description || '',
       partner: camp.partner || '', banner_url: camp.banner_url || '',
+      logo_url: camp.meta?.logo_url || '',
       reward_summary: camp.reward_summary || '', difficulty: camp.difficulty || 'EASY',
       status: camp.status || 'ACTIVE', bonus_xp: camp.bonus_xp || 0,
       sort_order: camp.sort_order || 0, meta: JSON.stringify(camp.meta || {}, null, 2),
@@ -610,6 +612,7 @@ function ManageProjectsTab({ token }: { token: string }) {
     setError(''); setSuccess('');
     let meta: Record<string, unknown> = {};
     try { meta = JSON.parse(form.meta || '{}'); } catch { setError('Meta must be valid JSON'); return; }
+    if (form.logo_url) meta.logo_url = form.logo_url;
     setSaving(true);
     try {
       const res = await api.quests.adminUpsertCampaign(token, {
@@ -625,6 +628,25 @@ function ManageProjectsTab({ token }: { token: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
     } finally { setSaving(false); }
+  };
+
+  const handleDeleteCampaign = async (slug: string, title: string) => {
+    if (!window.confirm(`Delete project "${title}" and ALL its quests? This cannot be undone.`)) return;
+    try {
+      const res = await api.quests.adminDeleteCampaign(token, slug) as any;
+      const n = res.deleted_quests?.length || 0;
+      setSuccess(`✅ Deleted project "${title}" and ${n} quest${n !== 1 ? 's' : ''}.`);
+      load();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Delete failed'); }
+  };
+
+  const handleDeleteQuest = async (slug: string, title: string) => {
+    if (!window.confirm(`Delete quest "${title}"? This cannot be undone.`)) return;
+    try {
+      await api.quests.adminDeleteQuest(token, slug);
+      setSuccess(`✅ Quest "${title}" deleted.`);
+      load();
+    } catch (err) { setError(err instanceof Error ? err.message : 'Delete failed'); }
   };
 
   if (loading) return <div className="flex items-center justify-center h-40"><Loader2 className="w-6 h-6 text-emerald-400 animate-spin" /></div>;
@@ -668,10 +690,16 @@ function ManageProjectsTab({ token }: { token: string }) {
                     {c.reward_summary && <span className="text-emerald-400">{c.reward_summary}</span>}
                   </div>
                 </div>
-                <button onClick={() => openEdit(c)}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-provn-bg border border-provn-border hover:border-emerald-500/40 transition-colors flex-shrink-0">
-                  <Pencil className="w-3.5 h-3.5" /> Edit
-                </button>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button onClick={() => openEdit(c)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-provn-bg border border-provn-border hover:border-emerald-500/40 transition-colors">
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                  <button onClick={() => handleDeleteCampaign(c.slug, c.title)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -701,18 +729,33 @@ function ManageProjectsTab({ token }: { token: string }) {
               value={form.description} onChange={e => setF('description', e.target.value)} />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-provn-muted uppercase tracking-wider flex items-center gap-1.5">
-              <ImageIcon className="w-3.5 h-3.5" /> Banner Image URL
-            </label>
-            <input className={inp} placeholder="https://cdn.example.com/banner.png" value={form.banner_url} onChange={e => setF('banner_url', e.target.value)} />
-            {form.banner_url && (
-              <div className="mt-2 rounded-lg overflow-hidden border border-provn-border h-24">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={form.banner_url} alt="Banner preview" className="w-full h-full object-cover"
-                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              </div>
-            )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-provn-muted uppercase tracking-wider flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5" /> Banner URL <span className="text-provn-muted/50 normal-case font-normal">(1500×500, 3:1)</span>
+              </label>
+              <input className={inp} placeholder="https://cdn.example.com/banner.png" value={form.banner_url} onChange={e => setF('banner_url', e.target.value)} />
+              {form.banner_url && (
+                <div className="mt-1 rounded-lg overflow-hidden border border-provn-border" style={{ aspectRatio: '3/1' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={form.banner_url} alt="Banner preview" className="w-full h-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                </div>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-provn-muted uppercase tracking-wider flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5" /> Logo URL <span className="text-provn-muted/50 normal-case font-normal">(square, shown on card)</span>
+              </label>
+              <input className={inp} placeholder="https://cdn.example.com/logo.png" value={(form as any).logo_url || ''} onChange={e => setF('logo_url', e.target.value)} />
+              {(form as any).logo_url && (
+                <div className="mt-1 w-14 h-14 rounded-lg overflow-hidden border border-provn-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={(form as any).logo_url} alt="Logo preview" className="w-full h-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -778,6 +821,9 @@ function ManageProjectsTab({ token }: { token: string }) {
         </div>
       )}
 
+      {success && <p className="text-emerald-400 text-sm">{success}</p>}
+      {error && <p className="text-red-400 text-sm">{error}</p>}
+
       {/* All quests list */}
       <div>
         <h3 className="text-sm font-semibold text-provn-muted uppercase tracking-wider mb-3">
@@ -796,6 +842,10 @@ function ManageProjectsTab({ token }: { token: string }) {
               {q.campaign_title && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 truncate max-w-[120px]">{q.campaign_title}</span>
               )}
+              <button onClick={() => handleDeleteQuest(q.slug, q.title)}
+                className="flex-shrink-0 p-1.5 rounded text-red-400/60 hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           ))}
         </div>
@@ -804,79 +854,123 @@ function ManageProjectsTab({ token }: { token: string }) {
   );
 }
 
-// ─── Award XP Tab ─────────────────────────────────────────────────────────────
-function AwardXPTab({ token }: { token: string }) {
-  const [quests, setQuests] = useState<Array<any>>([]);
-  const [form, setForm] = useState({ wallet: '', quest_slug: '', proof: '{}' });
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState('');
+// ─── Analytics Tab ────────────────────────────────────────────────────────────
+function AnalyticsTab({ token }: { token: string }) {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    api.quests.adminListQuests(token).then(r => setQuests((r as any).quests || [])).catch(() => {});
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const s = await api.quests.adminStats(token) as any;
+      setStats(s);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Failed to load'); }
+    finally { setLoading(false); }
   }, [token]);
 
-  const handleAward = async () => {
-    setError(''); setSuccess('');
-    let proof: Record<string, unknown> = {};
-    try { proof = JSON.parse(form.proof || '{}'); } catch { setError('Proof must be valid JSON'); return; }
-    if (!form.wallet || !form.quest_slug) { setError('Wallet and quest are required'); return; }
-    setSaving(true);
-    try {
-      const res = await api.quests.adminAwardXP(token, form.wallet, form.quest_slug, proof);
-      const comp = (res as any).completion;
-      const txHash = comp?.tx_hash;
-      setSuccess(
-        `✅ Awarded ${comp?.seeds_awarded} XP to ${form.wallet.slice(0, 10)}…` +
-        (txHash ? ` · On-chain tx: ${txHash.slice(0, 18)}…` : ' · (queued for on-chain mint)')
-      );
-      setForm(f => ({ ...f, wallet: '', proof: '{}' }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to award XP');
-    } finally { setSaving(false); }
-  };
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <div className="flex items-center justify-center h-40"><Loader2 className="w-6 h-6 text-emerald-400 animate-spin" /></div>;
+  if (error) return <p className="text-red-400 text-sm">{error}</p>;
+  if (!stats) return null;
+
+  const maxReg = Math.max(...(stats.registrationsByDay?.map((d: any) => d.count) || [1]), 1);
+  const maxXp  = Math.max(...(stats.xpByDay?.map((d: any) => d.xp) || [1]), 1);
 
   return (
-    <div className="max-w-lg space-y-5">
-      <div className="px-4 py-3 bg-emerald-500/5 border border-emerald-500/15 rounded-lg text-xs text-provn-muted">
-        <span className="text-emerald-400 font-medium">On-chain XP</span> — Every approved award mints XP on VARA Network.
-        TX hash is stored and verifiable on the <a href="https://idea.gear-tech.io" target="_blank" rel="noopener noreferrer" className="underline text-emerald-400">VARA Idea portal</a>.
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-provn-muted uppercase tracking-wider flex items-center gap-2">
+          <BarChart2 className="w-4 h-4" /> Platform Analytics
+        </h3>
+        <button onClick={load} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-provn-surface border border-provn-border hover:border-provn-muted/40 transition-colors">
+          <RefreshCw className="w-3 h-3" /> Refresh
+        </button>
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-xs font-medium text-provn-muted uppercase tracking-wider">Wallet Address *</label>
-        <input className={inp} placeholder="0x86811d…" value={form.wallet} onChange={e => setForm(f => ({ ...f, wallet: e.target.value }))} />
+      {/* Top KPI cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Registered Users',  value: stats.totalRegistered,     icon: <Users className="w-4 h-4 text-blue-400" />,    color: 'text-blue-400' },
+          { label: 'Quest Completions', value: stats.totalCompletions,    icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />, color: 'text-emerald-400' },
+          { label: 'XP Minted',         value: stats.totalSeedsMinted,    icon: <Sprout className="w-4 h-4 text-emerald-400" />, color: 'text-emerald-400' },
+          { label: 'Pending Review',    value: stats.pendingReview,       icon: <Activity className="w-4 h-4 text-amber-400" />, color: 'text-amber-400' },
+          { label: 'Active Quests',     value: stats.totalActiveQuests,   icon: <Trophy className="w-4 h-4 text-purple-400" />, color: 'text-purple-400' },
+          { label: 'Active Campaigns',  value: stats.totalActiveCampaigns, icon: <FolderOpen className="w-4 h-4 text-sky-400" />, color: 'text-sky-400' },
+          { label: 'Invites Used',      value: stats.invitesUsed,         icon: <Send className="w-4 h-4 text-provn-muted" />,   color: '' },
+          { label: 'Invites Created',   value: stats.invitesTotal,        icon: <Plus className="w-4 h-4 text-provn-muted" />,   color: '' },
+        ].map(k => (
+          <div key={k.label} className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
+            <div className="flex justify-center mb-1">{k.icon}</div>
+            <p className={`text-2xl font-bold ${k.color}`}>{(k.value ?? 0).toLocaleString()}</p>
+            <p className="text-[10px] text-provn-muted uppercase tracking-wider mt-0.5">{k.label}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="space-y-1.5">
-        <label className="text-xs font-medium text-provn-muted uppercase tracking-wider">Quest *</label>
-        <div className="relative">
-          <select className={sel} value={form.quest_slug} onChange={e => setForm(f => ({ ...f, quest_slug: e.target.value }))}>
-            <option value="">— Select quest —</option>
-            {quests.map((q: any) => (
-              <option key={q.slug} value={q.slug}>{q.title} (+{q.seeds_reward} XP)</option>
+      {/* Registrations bar chart (last 14 days) */}
+      {stats.registrationsByDay?.length > 0 && (
+        <div className="bg-provn-surface border border-provn-border rounded-xl p-4">
+          <h4 className="text-xs font-semibold text-provn-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <TrendingUp className="w-3.5 h-3.5" /> New Registrations — last 14 days
+          </h4>
+          <div className="flex items-end gap-1 h-24">
+            {stats.registrationsByDay.map((d: any, i: number) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${d.day}: ${d.count}`}>
+                <div className="w-full rounded-sm bg-blue-500/60 transition-all" style={{ height: `${Math.max(4, Math.round((d.count / maxReg) * 88))}px` }} />
+                <span className="text-[9px] text-provn-muted/60 rotate-45 origin-left whitespace-nowrap hidden sm:block">
+                  {new Date(d.day).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                </span>
+              </div>
             ))}
-          </select>
-          <ChevronDown className="w-4 h-4 text-provn-muted absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="space-y-1.5">
-        <label className="text-xs font-medium text-provn-muted uppercase tracking-wider">
-          Proof JSON <span className="text-provn-muted/70 normal-case font-normal ml-1">e.g. {`{"tweet_url":"https://x.com/..."}`}</span>
-        </label>
-        <textarea className={`${inp} h-16 resize-none font-mono text-xs`}
-          value={form.proof} onChange={e => setForm(f => ({ ...f, proof: e.target.value }))} />
-      </div>
+      {/* XP minted bar chart (last 14 days) */}
+      {stats.xpByDay?.length > 0 && (
+        <div className="bg-provn-surface border border-provn-border rounded-xl p-4">
+          <h4 className="text-xs font-semibold text-provn-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Sprout className="w-3.5 h-3.5 text-emerald-400" /> XP Minted per Day — last 14 days
+          </h4>
+          <div className="flex items-end gap-1 h-24">
+            {stats.xpByDay.map((d: any, i: number) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1" title={`${d.day}: ${d.xp} XP`}>
+                <div className="w-full rounded-sm bg-emerald-500/60 transition-all" style={{ height: `${Math.max(4, Math.round((d.xp / maxXp) * 88))}px` }} />
+                <span className="text-[9px] text-provn-muted/60 rotate-45 origin-left whitespace-nowrap hidden sm:block">
+                  {new Date(d.day).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-      {success && <p className="text-emerald-400 text-sm">{success}</p>}
-
-      <button onClick={handleAward} disabled={saving || !form.wallet || !form.quest_slug}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 transition-colors">
-        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sprout className="w-4 h-4" />}
-        Award XP & Mint On-Chain
-      </button>
+      {/* Per-quest completion breakdown */}
+      {stats.questBreakdown?.length > 0 && (
+        <div className="bg-provn-surface border border-provn-border rounded-xl p-4">
+          <h4 className="text-xs font-semibold text-provn-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" /> Quest Completions Breakdown
+          </h4>
+          <div className="space-y-2">
+            {stats.questBreakdown.map((q: any) => {
+              const max = stats.questBreakdown[0]?.completions || 1;
+              return (
+                <div key={q.slug} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="truncate max-w-[60%]">{q.title}</span>
+                    <span className="text-provn-muted font-mono">{q.completions} completions · {q.seeds_reward} XP</span>
+                  </div>
+                  <div className="w-full bg-provn-bg rounded-full h-1.5 overflow-hidden">
+                    <div className="h-full rounded-full bg-emerald-500/70" style={{ width: `${Math.round((q.completions / max) * 100)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -953,16 +1047,16 @@ function SubmissionsTab({ token, onLogout }: { token: string; onLogout: () => vo
 }
 
 // ─── Admin Dashboard (tabs shell) ────────────────────────────────────────────
-type Tab = 'submissions' | 'create-quest' | 'projects' | 'award';
+type Tab = 'submissions' | 'create-quest' | 'projects' | 'analytics';
 
 function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('submissions');
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'submissions',  label: 'Submissions',    icon: <CheckCircle2 className="w-4 h-4" /> },
-    { id: 'create-quest', label: 'Create Quest',   icon: <Plus className="w-4 h-4" /> },
-    { id: 'projects',     label: 'Projects',       icon: <FolderOpen className="w-4 h-4" /> },
-    { id: 'award',        label: 'Award XP',       icon: <Sprout className="w-4 h-4" /> },
+    { id: 'submissions',  label: 'Submissions',  icon: <CheckCircle2 className="w-4 h-4" /> },
+    { id: 'create-quest', label: 'Create Quest', icon: <Plus className="w-4 h-4" /> },
+    { id: 'projects',     label: 'Projects',     icon: <FolderOpen className="w-4 h-4" /> },
+    { id: 'analytics',    label: 'Analytics',    icon: <BarChart2 className="w-4 h-4" /> },
   ];
 
   return (
@@ -997,7 +1091,7 @@ function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => vo
       {tab === 'submissions'  && <SubmissionsTab token={token} onLogout={onLogout} />}
       {tab === 'create-quest' && <CreateQuestTab token={token} />}
       {tab === 'projects'     && <ManageProjectsTab token={token} />}
-      {tab === 'award'        && <AwardXPTab token={token} />}
+      {tab === 'analytics'    && <AnalyticsTab token={token} />}
     </div>
   );
 }

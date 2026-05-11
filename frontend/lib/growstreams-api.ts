@@ -786,5 +786,13 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ wallet, quest_slug, proof: proof || {} }),
       }),
+    adminDeleteCampaign: (token: string, slug: string) =>
+      authedRequest<{ message: string; deleted_quests: string[] }>(token, `/api/quests/admin/campaigns/${slug}`, {
+        method: 'DELETE',
+      }),
+    adminDeleteQuest: (token: string, slug: string) =>
+      authedRequest<{ message: string; deleted: string }>(token, `/api/quests/admin/quests/${slug}`, {
+        method: 'DELETE',
+      }),
   },
 };
