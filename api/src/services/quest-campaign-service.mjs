@@ -342,10 +342,17 @@ export async function listAllQuests() {
 export async function deleteQuestCampaign(slug) {
   const campaign = await queryOne(`SELECT id FROM quest_campaigns WHERE slug = $1`, [slug]);
   if (!campaign) throw Object.assign(new Error(`Campaign not found: ${slug}`), { status: 404 });
-  // Delete quests first (FK constraint)
-  const deleted = await queryAll(`DELETE FROM quests WHERE campaign_id = $1 RETURNING slug`, [campaign.id]);
+  // Collect quest IDs belonging to this campaign
+  const quests = await queryAll(`SELECT id, slug FROM quests WHERE campaign_id = $1`, [campaign.id]);
+  if (quests.length) {
+    const ids = quests.map(q => q.id);
+    // Delete FK-dependent rows first
+    await queryAll(`DELETE FROM quest_completions WHERE quest_id = ANY($1::int[])`, [ids]);
+    await queryAll(`DELETE FROM seeds_ledger WHERE quest_id = ANY($1::int[])`, [ids]);
+    await queryAll(`DELETE FROM quests WHERE id = ANY($1::int[])`, [ids]);
+  }
   await queryOne(`DELETE FROM quest_campaigns WHERE id = $1`, [campaign.id]);
-  return { deleted_quests: deleted.map(q => q.slug) };
+  return { deleted_quests: quests.map(q => q.slug) };
 }
 
 /**
@@ -354,6 +361,9 @@ export async function deleteQuestCampaign(slug) {
 export async function deleteQuest(slug) {
   const quest = await queryOne(`SELECT id FROM quests WHERE slug = $1`, [slug]);
   if (!quest) throw Object.assign(new Error(`Quest not found: ${slug}`), { status: 404 });
+  // Delete FK-dependent rows first
+  await queryAll(`DELETE FROM quest_completions WHERE quest_id = $1`, [quest.id]);
+  await queryAll(`DELETE FROM seeds_ledger WHERE quest_id = $1`, [quest.id]);
   await queryOne(`DELETE FROM quests WHERE id = $1`, [quest.id]);
   return { deleted: slug };
 }
