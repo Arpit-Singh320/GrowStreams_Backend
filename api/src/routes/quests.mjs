@@ -416,6 +416,14 @@ router.get('/campaigns', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/quests/campaigns/history — ended/closed campaigns (must be before :slug)
+router.get('/campaigns/history', async (req, res, next) => {
+  try {
+    const campaigns = await listEndedQuestCampaigns();
+    res.json({ campaigns });
+  } catch (err) { next(err); }
+});
+
 // GET /api/quests/campaigns/:slug
 // Single campaign with full quest list (for the campaign detail page)
 router.get('/campaigns/:slug', async (req, res, next) => {
@@ -618,14 +626,6 @@ router.post('/admin/quests', requireAdmin, async (req, res, next) => {
     }
     next(err);
   }
-});
-
-// GET /api/quests/campaigns/history — ended/closed campaigns for history section
-router.get('/campaigns/history', async (req, res, next) => {
-  try {
-    const campaigns = await listEndedQuestCampaigns();
-    res.json({ campaigns });
-  } catch (err) { next(err); }
 });
 
 // GET /api/quests/admin/campaigns — list all campaigns (for dropdowns)
