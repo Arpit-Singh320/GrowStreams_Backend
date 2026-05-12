@@ -206,7 +206,7 @@ router.get('/seeds/:wallet', async (req, res, next) => {
 router.post('/:slug/claim', async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const { wallet, x_username, tweet_url } = req.body;
+    const { wallet, x_username, tweet_url, party_id, contract_id, partner_url } = req.body;
 
     if (!wallet) return res.status(400).json({ error: 'Wallet is required' });
 
@@ -327,6 +327,28 @@ router.post('/:slug/claim', async (req, res, next) => {
         wallet,
         status: 'VERIFIED',
         completion,
+      });
+    }
+
+    // Partner contract quests (e.g. Canton/Ginie): user submits party_id + contract_id for admin review
+    if (quest.quest_type === 'PARTNER_CONTRACT') {
+      const pid = (party_id || '').trim();
+      const cid = (contract_id || '').trim();
+      if (!pid && !cid) {
+        return res.status(400).json({ error: 'Please enter your Party ID or Contract ID from the partner platform.' });
+      }
+      const result = await submitQuestProof(wallet, slug, {
+        party_id: pid || undefined,
+        contract_id: cid || undefined,
+        partner_url: (partner_url || quest.meta?.partner_url || '').trim() || undefined,
+        source: 'manual-review',
+      });
+      return res.json({
+        message: 'Submitted for review. An admin will verify your contract and award XP shortly.',
+        slug,
+        wallet,
+        status: 'PENDING_REVIEW',
+        submission: result,
       });
     }
 

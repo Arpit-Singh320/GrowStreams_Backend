@@ -270,11 +270,14 @@ function QuestCard({
   const isMentionX = quest.quest_type === 'X_MENTION';
   const isRetweet = quest.quest_type === 'X_RETWEET';
   const isTweetKeyword = quest.quest_type === 'X_TWEET_KEYWORD';
-  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword;
+  const isPartnerContract = quest.quest_type === 'PARTNER_CONTRACT';
+  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword || isPartnerContract;
   const needsTweetUrl = isMentionX || isRetweet || isTweetKeyword;
   const xRef = X_HANDLE_BY_SLUG[quest.slug];
   const [xUsername, setXUsername] = useState('');
   const [tweetUrl, setTweetUrl] = useState('');
+  const [partyId, setPartyId] = useState('');
+  const [contractId, setContractId] = useState('');
   const questMeta = (quest.meta || {}) as Record<string, unknown>;
   const inputLabel = (questMeta.input_label as string) || (isFollowX ? 'Your X username' : 'Tweet URL');
   const inputPlaceholder = (questMeta.input_placeholder as string) || (isFollowX ? '@yourhandle' : 'https://x.com/yourhandle/status/123...');
@@ -282,13 +285,23 @@ function QuestCard({
 
   const inputValue = isFollowX ? xUsername : tweetUrl;
   const inputValid = needsManualInput
-    ? (isFollowX ? xUsername.trim().length > 0 : /^https?:\/\/(x\.com|twitter\.com)\//i.test(tweetUrl.trim()))
+    ? isFollowX
+      ? xUsername.trim().length > 0
+      : isPartnerContract
+      ? partyId.trim().length > 0 || contractId.trim().length > 0
+      : /^https?:\/\/(x\.com|twitter\.com)\//i.test(tweetUrl.trim())
     : true;
 
   const handleClaimClick = () => {
     if (isFollowX) {
       if (!xUsername.trim()) return;
       onClaim(quest.slug, { x_username: xUsername.trim().replace(/^@/, '') });
+    } else if (isPartnerContract) {
+      onClaim(quest.slug, {
+        party_id: partyId.trim() || undefined,
+        contract_id: contractId.trim() || undefined,
+        partner_url: (questMeta.partner_url as string) || undefined,
+      } as Record<string, string | undefined>);
     } else if (needsTweetUrl) {
       if (!tweetUrl.trim()) return;
       onClaim(quest.slug, { tweet_url: tweetUrl.trim() });
@@ -400,14 +413,55 @@ function QuestCard({
               {' '}Paste your tweet URL below.
             </div>
           )}
-          <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
-          <input
-            type="text"
-            value={inputValue}
-            onChange={(e) => isFollowX ? setXUsername(e.target.value) : setTweetUrl(e.target.value)}
-            placeholder={inputPlaceholder}
-            className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none"
-          />
+          {isPartnerContract && (
+            <div className="space-y-3">
+              <div className="text-[11px] text-provn-muted space-y-1">
+                <p>
+                  Deploy a contract on{' '}
+                  {(questMeta.partner_url as string) ? (
+                    <a href={questMeta.partner_url as string} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
+                      {(questMeta.partner_name as string) || 'the partner platform'}
+                    </a>
+                  ) : (
+                    <span className="text-emerald-400">{(questMeta.partner_name as string) || 'the partner platform'}</span>
+                  )}
+                  {(questMeta.contract_type as string) && <>, then submit your <span className="text-emerald-400">{questMeta.contract_type as string}</span> contract details below.</>}.
+                </p>
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-provn-muted">Party ID</label>
+                <input
+                  type="text"
+                  value={partyId}
+                  onChange={e => setPartyId(e.target.value)}
+                  placeholder="Your Party ID from the platform"
+                  className="w-full mt-1 px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-provn-muted">Contract ID</label>
+                <input
+                  type="text"
+                  value={contractId}
+                  onChange={e => setContractId(e.target.value)}
+                  placeholder="Your Contract ID from the platform"
+                  className="w-full mt-1 px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none font-mono"
+                />
+              </div>
+            </div>
+          )}
+          {!isPartnerContract && (
+            <>
+              <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => isFollowX ? setXUsername(e.target.value) : setTweetUrl(e.target.value)}
+                placeholder={inputPlaceholder}
+                className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none"
+              />
+            </>
+          )}
           {isRejected && quest.rejectedSubmission?.proof && (quest.rejectedSubmission.proof as { reject_reason?: string }).reject_reason && (
             <p className="text-[11px] text-red-400">
               Previous submission rejected: {(quest.rejectedSubmission.proof as { reject_reason?: string }).reject_reason}
@@ -420,7 +474,7 @@ function QuestCard({
       {isPending && quest.pendingSubmission && (
         <div className="mb-3 px-3 py-2 bg-amber-500/5 border border-amber-500/20 rounded-lg space-y-1">
           <p className="text-[11px] text-amber-400 font-medium">Awaiting admin review</p>
-          {(quest.pendingSubmission.proof as { x_username?: string; tweet_url?: string })?.x_username && (
+          {(quest.pendingSubmission.proof as { x_username?: string })?.x_username && (
             <p className="text-[11px] text-provn-muted">
               X username: <span className="text-emerald-400">@{(quest.pendingSubmission.proof as { x_username?: string }).x_username}</span>
             </p>
@@ -436,6 +490,16 @@ function QuestCard({
               >
                 {(quest.pendingSubmission.proof as { tweet_url?: string }).tweet_url}
               </a>
+            </p>
+          )}
+          {(quest.pendingSubmission.proof as { party_id?: string })?.party_id && (
+            <p className="text-[11px] text-provn-muted">
+              Party ID: <code className="text-emerald-400 font-mono">{(quest.pendingSubmission.proof as { party_id?: string }).party_id}</code>
+            </p>
+          )}
+          {(quest.pendingSubmission.proof as { contract_id?: string })?.contract_id && (
+            <p className="text-[11px] text-provn-muted">
+              Contract ID: <code className="text-emerald-400 font-mono">{(quest.pendingSubmission.proof as { contract_id?: string }).contract_id}</code>
             </p>
           )}
         </div>

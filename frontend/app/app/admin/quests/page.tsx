@@ -23,6 +23,7 @@ const QUEST_TYPES = [
   { value: 'TELEGRAM_JOIN',   label: 'Telegram — Join Group',       icon: '✈️', hint: 'Auto-claimed, no proof needed' },
   { value: 'REFERRAL',        label: 'Referral',                    icon: '👥', hint: 'Auto-triggered on registration' },
   { value: 'WELCOME',         label: 'Welcome Bonus',               icon: '🎁', hint: 'One-time, auto-awarded on join' },
+  { value: 'PARTNER_CONTRACT', label: 'Partner — Deploy Contract',    icon: '📄', hint: 'User pastes their Party ID + Contract ID from a partner platform (e.g. Canton/Ginie). Admin verifies on-chain.' },
 ];
 
 const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'];
@@ -105,8 +106,9 @@ function SubmissionRow({
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [error, setError] = useState('');
 
-  const proof = (submission.proof || {}) as { x_username?: string; tweet_url?: string };
+  const proof = (submission.proof || {}) as { x_username?: string; tweet_url?: string; party_id?: string; contract_id?: string; partner_url?: string };
   const isFollow = submission.quest_slug === 'follow-x';
+  const isPartnerContract = submission.quest_slug?.startsWith('partner-') || (submission as any).quest_type === 'PARTNER_CONTRACT';
 
   const handleApprove = async () => {
     if (busy) return;
@@ -189,7 +191,36 @@ function SubmissionRow({
             </a>
           </div>
         )}
-        {!isFollow && proof.tweet_url && (
+        {isPartnerContract && (
+          <div className="space-y-2 text-sm">
+            {proof.party_id && (
+              <div className="flex items-center gap-2">
+                <span className="text-provn-muted w-24 flex-shrink-0">Party ID:</span>
+                <code className="text-emerald-400 font-mono text-xs break-all">{proof.party_id}</code>
+              </div>
+            )}
+            {proof.contract_id && (
+              <div className="flex items-center gap-2">
+                <span className="text-provn-muted w-24 flex-shrink-0">Contract ID:</span>
+                <code className="text-emerald-400 font-mono text-xs break-all">{proof.contract_id}</code>
+              </div>
+            )}
+            {proof.partner_url && (
+              <a
+                href={proof.partner_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-sky-400 hover:text-sky-300"
+              >
+                <ExternalLink className="w-3 h-3" /> Verify on partner platform
+              </a>
+            )}
+            {(!proof.party_id && !proof.contract_id) && (
+              <p className="text-provn-muted text-xs">No party/contract ID submitted.</p>
+            )}
+          </div>
+        )}
+        {!isFollow && !isPartnerContract && proof.tweet_url && (
           <div className="flex items-start gap-2 text-sm">
             <span className="text-provn-muted">Tweet URL:</span>
             <a
@@ -301,6 +332,11 @@ const META_FIELDS: Record<string, MetaField[]> = {
   ],
   REFERRAL: [],
   WELCOME: [],
+  PARTNER_CONTRACT: [
+    { key: 'partner_name',      label: 'Partner Name',          placeholder: 'Ginie / Canton', hint: 'Shown on the quest card so users know which platform to use.' },
+    { key: 'partner_url',       label: 'Partner Platform URL',  placeholder: 'https://canton.ginie.xyz', type: 'url' as const, hint: 'Users visit this to create their contract.' },
+    { key: 'contract_type',     label: 'Expected Contract Type',placeholder: 'e.g. Stream, Escrow, Any', hint: 'Optional — shown to user as guidance.' },
+  ],
 };
 
 // ─── Meta Fields Builder component ───────────────────────────────────────────

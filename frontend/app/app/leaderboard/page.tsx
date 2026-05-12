@@ -20,8 +20,10 @@ interface LbRow {
 }
 
 // Level system: every 200 XP = 1 level (Lv 1 = 0–199 XP, Lv 2 = 200–399, ...)
+// 0 XP → Lv 1, 200 XP → Lv 2, 400 XP → Lv 3, ...
 function calcLevel(xp: number) {
-  return Math.max(1, Math.floor(xp / 200) + 1);
+  if (xp <= 0) return 1;
+  return Math.floor(xp / 200) + 1;
 }
 
 function levelTitle(level: number) {
@@ -124,9 +126,10 @@ function Row({
   rank: number;
   isMe: boolean;
 }) {
-  const lvl = calcLevel(row.total_xp);
+  const xp = row.onchain_xp ?? row.total_xp;
+  const lvl = calcLevel(xp);
   const lvlNext = lvl + 1;
-  const xpInLevel = row.total_xp % 200;
+  const xpInLevel = xp % 200;
   const pct = Math.round((xpInLevel / 200) * 100);
   const color = levelColor(lvl);
   const badge = rankBadge(rank);
@@ -244,7 +247,12 @@ export default function LeaderboardPage() {
     setError('');
     try {
       const res = await api.quests.leaderboard();
-      setRows(res.leaderboard);
+      const lb = [...res.leaderboard].sort((a, b) => {
+        const aXp = (a.onchain_xp ?? a.total_xp) as number;
+        const bXp = (b.onchain_xp ?? b.total_xp) as number;
+        return bXp - aXp;
+      });
+      setRows(lb);
       if (res.onchain_total_xp !== null && res.onchain_total_xp !== undefined) {
         setOnchainTotal(res.onchain_total_xp);
       }
@@ -273,11 +281,13 @@ export default function LeaderboardPage() {
     return { totalXP, totalCompletions, totalUsers: rows.length };
   }, [rows]);
 
+  const sorted = rows;
+
   const myRank = useMemo(() => {
     if (!myWallet) return null;
-    const idx = rows.findIndex(r => r.wallet === myWallet);
+    const idx = sorted.findIndex(r => r.wallet === myWallet);
     return idx === -1 ? null : idx + 1;
-  }, [rows, myWallet]);
+  }, [sorted, myWallet]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -376,7 +386,7 @@ export default function LeaderboardPage() {
           </p>
         )}
         {filtered.map((row) => {
-          const rank = rows.findIndex(r => r.wallet === row.wallet) + 1;
+          const rank = sorted.findIndex(r => r.wallet === row.wallet) + 1;
           return (
             <Row
               key={row.wallet}
