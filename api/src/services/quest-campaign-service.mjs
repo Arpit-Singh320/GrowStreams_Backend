@@ -22,6 +22,23 @@ export async function listQuestCampaigns() {
 }
 
 /**
+ * List ended/closed/draft campaigns for the history section.
+ */
+export async function listEndedQuestCampaigns() {
+  return queryAll(`
+    SELECT
+      qc.*,
+      COUNT(q.id)::int          AS quest_count,
+      COALESCE(SUM(q.seeds_reward), 0)::int AS total_seeds_pool
+    FROM quest_campaigns qc
+    LEFT JOIN quests q ON q.campaign_id = qc.id
+    WHERE qc.status <> 'ACTIVE' AND qc.slug IS NOT NULL AND qc.slug <> ''
+    GROUP BY qc.id
+    ORDER BY qc.created_at DESC
+  `);
+}
+
+/**
  * Get a single quest campaign with its full quest list.
  */
 export async function getQuestCampaignBySlug(slug) {

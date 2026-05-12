@@ -25,6 +25,7 @@ import {
 import { runStreamCheck } from '../cron/quest-stream-monitor.mjs';
 import {
   listQuestCampaigns,
+  listEndedQuestCampaigns,
   getQuestCampaignBySlug,
   getCampaignProgress,
   getCampaignLeaderboardBySlug,
@@ -617,6 +618,14 @@ router.post('/admin/quests', requireAdmin, async (req, res, next) => {
     }
     next(err);
   }
+});
+
+// GET /api/quests/campaigns/history — ended/closed campaigns for history section
+router.get('/campaigns/history', async (req, res, next) => {
+  try {
+    const campaigns = await listEndedQuestCampaigns();
+    res.json({ campaigns });
+  } catch (err) { next(err); }
 });
 
 // GET /api/quests/admin/campaigns — list all campaigns (for dropdowns)

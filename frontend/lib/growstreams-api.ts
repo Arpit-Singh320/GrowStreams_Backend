@@ -734,6 +734,7 @@ export const api = {
           total_xp: number;
           quests_completed: number;
           last_completed_at: string | null;
+          onchain_xp?: number | null;
         }>;
         total: number;
         onchain_total_xp: number | null;
@@ -744,6 +745,8 @@ export const api = {
 
     questCampaigns: () =>
       get<{ campaigns: Array<Record<string, unknown>> }>('/api/quests/campaigns'),
+    questCampaignsHistory: () =>
+      get<{ campaigns: Array<Record<string, unknown>> }>('/api/quests/campaigns/history'),
     questCampaign: (slug: string) =>
       get<Record<string, unknown>>(`/api/quests/campaigns/${slug}`),
     campaignProgress: (slug: string, wallet: string) =>

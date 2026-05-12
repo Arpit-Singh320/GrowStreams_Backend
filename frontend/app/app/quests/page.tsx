@@ -8,7 +8,7 @@ import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
   Twitter, Users, Waves, Star, GitPullRequest,
   Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift, Pencil, Check, X as XIcon,
-  Eye, Heart,
+  Eye, Heart, ChevronDown,
 } from 'lucide-react';
 
 const QUEST_ICONS: Record<string, React.ElementType> = {
@@ -561,13 +561,20 @@ function QuestDashboard({ wallet }: { wallet: string }) {
   const [claiming, setClaiming] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [campaigns, setCampaigns] = useState<Array<any>>([]);
+  const [historyCampaigns, setHistoryCampaigns] = useState<Array<any>>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, camps] = await Promise.all([api.quests.me(wallet), api.quests.questCampaigns()]);
+      const [data, camps, history] = await Promise.all([
+        api.quests.me(wallet),
+        api.quests.questCampaigns(),
+        api.quests.questCampaignsHistory(),
+      ]);
       setProgress(data);
       setCampaigns((camps && camps.campaigns) || []);
+      setHistoryCampaigns((history && history.campaigns) || []);
       const reg = data.registration as Record<string, unknown> | undefined;
       setDisplayName((reg?.display_name as string) || '');
     } catch (err) {
@@ -731,6 +738,51 @@ function QuestDashboard({ wallet }: { wallet: string }) {
           })}
         </div>
       </div>
+
+      {/* Past / Ended Campaigns (collapsible) */}
+      {historyCampaigns.length > 0 && (
+        <div>
+          <button
+            onClick={() => setHistoryOpen(o => !o)}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-700 bg-slate-900/40 hover:bg-slate-800/50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-provn-muted flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Past Campaigns
+              <span className="ml-1 text-[11px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">{historyCampaigns.length}</span>
+            </span>
+            <ChevronDown className={`w-4 h-4 text-provn-muted transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {historyOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {historyCampaigns.map((camp: any) => (
+                <div key={camp.slug} className="relative bg-slate-900/40 border border-slate-700/50 rounded-2xl p-4 opacity-75">
+                  <div className="absolute top-3 right-3">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 uppercase">{camp.status || 'ENDED'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mb-2">
+                    {camp.meta?.logo_url ? (
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-600 flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={camp.meta.logo_url} alt={camp.title} className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex-shrink-0 flex items-center justify-center text-slate-400 font-bold text-xs">
+                        {camp.title?.[0] || 'P'}
+                      </div>
+                    )}
+                    <h3 className="font-semibold text-slate-300 text-sm truncate">{camp.title}</h3>
+                  </div>
+                  <p className="text-xs text-provn-muted line-clamp-2">{camp.description}</p>
+                  <div className="mt-2 flex items-center gap-3 text-xs text-provn-muted">
+                    <span className="flex items-center gap-1"><Sprout className="w-3 h-3 text-emerald-500/50" />{camp.quest_count || 0} quests</span>
+                    {camp.reward_summary && <span className="text-slate-400 truncate">{camp.reward_summary}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recent Activity */}
       {progress.recentActivity && progress.recentActivity.length > 0 && (

@@ -16,6 +16,7 @@ interface LbRow {
   total_xp: number;
   quests_completed: number;
   last_completed_at: string | null;
+  onchain_xp?: number | null;
 }
 
 // Level system: every 200 XP = 1 level (Lv 1 = 0–199 XP, Lv 2 = 200–399, ...)
@@ -103,8 +104,7 @@ function Podium({ rows }: { rows: LbRow[] }) {
                 </span>
               </div>
               <div className="flex items-center gap-1 text-emerald-400 font-bold">
-                <Sprout className="w-4 h-4" />
-                {row.total_xp.toLocaleString()} XP
+                <Sprout className="w-4 h-4" />{(row.onchain_xp ?? row.total_xp).toLocaleString()} XP
               </div>
             </div>
           </div>
@@ -189,9 +189,12 @@ function Row({
             Lv {lvl}
           </span>
           <span className="text-emerald-400 font-bold">
-            {row.total_xp.toLocaleString()}
+            {(row.onchain_xp ?? row.total_xp).toLocaleString()}
           </span>
           <Sprout className="w-3 h-3 text-emerald-400" />
+          {row.onchain_xp !== null && row.onchain_xp !== undefined && (
+            <span className="text-[9px] text-provn-muted">on-chain</span>
+          )}
         </div>
         <div className="w-full h-1 bg-provn-bg rounded-full mt-1 overflow-hidden">
           <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: `${pct}%` }} />
@@ -203,7 +206,7 @@ function Row({
       <div className="sm:hidden flex flex-col items-end flex-shrink-0">
         <div className="flex items-center gap-1 text-emerald-400 font-bold text-xs">
           <Sprout className="w-3 h-3" />
-          {row.total_xp.toLocaleString()}
+          {(row.onchain_xp ?? row.total_xp).toLocaleString()}
         </div>
         <span className={`text-[9px] font-bold ${color.text}`}>Lv {lvl}</span>
       </div>

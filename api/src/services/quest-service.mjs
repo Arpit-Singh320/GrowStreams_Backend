@@ -751,9 +751,10 @@ export async function getAllRegisteredUsers() {
 /**
  * Quest leaderboard: every registered user with their total XP, quests completed,
  * and registered handles. Ranked by total XP descending.
+ * Also fetches on-chain BalanceOf for each wallet in parallel.
  */
 export async function getQuestLeaderboard() {
-  return queryAll(`
+  const rows = await queryAll(`
     SELECT
       r.wallet,
       r.display_name,
@@ -778,6 +779,34 @@ export async function getQuestLeaderboard() {
     ) c ON c.wallet = r.wallet
     ORDER BY total_xp DESC, r.registered_at ASC
   `);
+
+  // Fetch on-chain balance for each wallet in parallel (non-fatal)
+  try {
+    const { query: sailsQuery, getContract } = await import('../sails-client.mjs');
+    if (getContract('questSeeds')) {
+      const balances = await Promise.all(
+        rows.map(async (row) => {
+          try {
+            const { decodeAddress } = await import('@polkadot/util-crypto');
+            let actorId = row.wallet;
+            if (!actorId.startsWith('0x') || actorId.length !== 66) {
+              const pub = decodeAddress(actorId);
+              actorId = '0x' + Buffer.from(pub).toString('hex');
+            }
+            const raw = await sailsQuery('questSeeds', 'BalanceOf', actorId);
+            return Number(raw);
+          } catch {
+            return null;
+          }
+        })
+      );
+      return rows.map((row, i) => ({ ...row, onchain_xp: balances[i] }));
+    }
+  } catch {
+    // contract not loaded — return rows without onchain_xp
+  }
+
+  return rows.map(row => ({ ...row, onchain_xp: null }));
 }
 
 /**
