@@ -1,4 +1,4 @@
-﻿const API_BASE = process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'https://growstreams-api-v3-production.up.railway.app';
+﻿const API_BASE = (process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'https://growstreams-api-v3-production.up.railway.app').replace(/\/$/, '');
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -703,6 +703,10 @@ export const api = {
 
   // ─── Quests (M1-beta) ──────────────────────────────────────────────────────
   quests: {
+    sendOtp: (email: string) =>
+      post<{ sent: boolean }>('/api/quests/otp/send', { email } as Record<string, unknown>),
+    verifyOtp: (email: string, code: string) =>
+      post<{ valid: boolean }>('/api/quests/otp/verify', { email, code } as Record<string, unknown>),
     register: (params: { wallet?: string; evm_address?: string; email: string; display_name: string; ref_code?: string }) =>
       post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
     list: () =>
@@ -730,8 +734,10 @@ export const api = {
           total_xp: number;
           quests_completed: number;
           last_completed_at: string | null;
+          onchain_xp?: number | null;
         }>;
         total: number;
+        onchain_total_xp: number | null;
       }>('/api/quests/leaderboard'),
 
     referral: (wallet: string) =>
@@ -739,6 +745,8 @@ export const api = {
 
     questCampaigns: () =>
       get<{ campaigns: Array<Record<string, unknown>> }>('/api/quests/campaigns'),
+    questCampaignsHistory: () =>
+      get<{ campaigns: Array<Record<string, unknown>> }>('/api/quests/campaigns/history'),
     questCampaign: (slug: string) =>
       get<Record<string, unknown>>(`/api/quests/campaigns/${slug}`),
     campaignProgress: (slug: string, wallet: string) =>
@@ -781,6 +789,14 @@ export const api = {
       authedRequest<{ message: string; completion: Record<string, unknown> }>(token, '/api/quests/admin/award', {
         method: 'POST',
         body: JSON.stringify({ wallet, quest_slug, proof: proof || {} }),
+      }),
+    adminDeleteCampaign: (token: string, slug: string) =>
+      authedRequest<{ message: string; deleted_quests: string[] }>(token, `/api/quests/admin/campaigns/${slug}`, {
+        method: 'DELETE',
+      }),
+    adminDeleteQuest: (token: string, slug: string) =>
+      authedRequest<{ message: string; deleted: string }>(token, `/api/quests/admin/quests/${slug}`, {
+        method: 'DELETE',
       }),
   },
 };

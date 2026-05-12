@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { query as sailsQuery, getContract } from '../sails-client.mjs';
 import {
   validateInvite,
   registerForQuests,
@@ -24,6 +25,7 @@ import {
 import { runStreamCheck } from '../cron/quest-stream-monitor.mjs';
 import {
   listQuestCampaigns,
+  listEndedQuestCampaigns,
   getQuestCampaignBySlug,
   getCampaignProgress,
   getCampaignLeaderboardBySlug,
@@ -32,7 +34,10 @@ import {
   assignQuestToCampaign,
   upsertQuest,
   listAllQuests,
+  deleteQuestCampaign,
+  deleteQuest,
 } from '../services/quest-campaign-service.mjs';
+import { sendOtp, verifyOtp } from '../services/otp-service.mjs';
 
 const router = Router();
 
@@ -45,6 +50,30 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
+
+// ---------------------------------------------------------------------------
+// POST /api/quests/otp/send  — send 6-digit OTP to email
+// POST /api/quests/otp/verify — verify OTP
+// ---------------------------------------------------------------------------
+router.post('/otp/send', async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    await sendOtp(email.trim().toLowerCase());
+    res.json({ sent: true });
+  } catch (err) { next(err); }
+});
+
+router.post('/otp/verify', async (req, res, next) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'email and code are required' });
+    const result = verifyOtp(email.trim().toLowerCase(), code);
+    res.json(result);
+  } catch (err) { next(err); }
+});
 
 // ---------------------------------------------------------------------------
 // POST /api/quests/verify-invite
@@ -352,7 +381,15 @@ router.get('/referral/:wallet', async (req, res, next) => {
 router.get('/leaderboard', async (req, res, next) => {
   try {
     const rows = await getQuestLeaderboard();
-    res.json({ leaderboard: rows, total: rows.length });
+    // Also fetch on-chain total supply so the UI can show real minted XP
+    let onchainTotal = null;
+    try {
+      if (getContract('questSeeds')) {
+        const raw = await sailsQuery('questSeeds', 'TotalSupply');
+        onchainTotal = Number(raw);
+      }
+    } catch (_) { /* non-fatal */ }
+    res.json({ leaderboard: rows, total: rows.length, onchain_total_xp: onchainTotal });
   } catch (err) { next(err); }
 });
 
@@ -376,6 +413,14 @@ router.get('/campaigns', async (req, res, next) => {
   try {
     const campaigns = await listQuestCampaigns();
     res.json({ campaigns, total: campaigns.length });
+  } catch (err) { next(err); }
+});
+
+// GET /api/quests/campaigns/history — ended/closed campaigns (must be before :slug)
+router.get('/campaigns/history', async (req, res, next) => {
+  try {
+    const campaigns = await listEndedQuestCampaigns();
+    res.json({ campaigns });
   } catch (err) { next(err); }
 });
 
@@ -589,6 +634,28 @@ router.get('/admin/campaigns', requireAdmin, async (req, res, next) => {
     const campaigns = await listQuestCampaigns();
     res.json({ campaigns, total: campaigns.length });
   } catch (err) { next(err); }
+});
+
+// DELETE /api/quests/admin/campaigns/:slug — delete campaign + all its quests
+router.delete('/admin/campaigns/:slug', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await deleteQuestCampaign(req.params.slug);
+    res.json({ message: 'Campaign deleted', ...result });
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: err.message });
+    next(err);
+  }
+});
+
+// DELETE /api/quests/admin/quests/:slug — delete a single quest
+router.delete('/admin/quests/:slug', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await deleteQuest(req.params.slug);
+    res.json({ message: 'Quest deleted', ...result });
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: err.message });
+    next(err);
+  }
 });
 
 export default router;

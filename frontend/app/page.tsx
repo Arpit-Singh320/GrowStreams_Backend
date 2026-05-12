@@ -112,7 +112,7 @@ export default function HomeV2() {
         const res = await api.quests.questCampaigns()
         const campaigns = (res?.campaigns) || []
         const active = campaigns.filter((c: any) => c.status === 'ACTIVE')
-        const chosen = active.length ? active[active.length - 1] : campaigns.length ? campaigns[campaigns.length - 1] : null
+        const chosen = active.length ? active[0] : null
         if (mounted && chosen) {
           setActiveQuest(chosen)
           setBannerMode('large')
@@ -137,40 +137,59 @@ export default function HomeV2() {
       <NavigationV2 currentPage="home" />
       <ScrollProgress />
 
-      {/* Active Quest banner (glass) */}
+      {/* Active Campaign banner (glass card) */}
       {activeQuest && bannerMode !== 'hidden' && (
         <div className="fixed inset-0 z-40 pointer-events-none">
           <div className={"transition-all duration-700 ease-in-out " + (bannerMode === 'large' ? 'flex items-center justify-center w-full h-full' : '')}>
             <Link
               href={`/app/campaign/${activeQuest.slug}`}
               className={
-                (bannerMode === 'large' ? 'w-80 h-80 md:w-96 md:h-96 mx-auto' : 'w-48 h-48 md:w-56 md:h-56 absolute bottom-6 right-6') +
-                ' rounded-2xl bg-black/40 backdrop-blur-sm ' +
-                (bannerMode === 'minimized' ? 'border-emerald-500/60 ring-1 ring-emerald-500/20' : 'border border-white/10') +
-                ' shadow-2xl ' + (bannerMode === 'minimized' ? 'p-0' : 'p-4') + ' flex flex-col overflow-hidden pointer-events-auto transform-gpu'
+                (bannerMode === 'large'
+                  ? 'w-80 md:w-96 mx-auto'
+                  : 'w-56 md:w-64 absolute bottom-6 right-6') +
+                ' rounded-2xl bg-black/60 backdrop-blur-md border ' +
+                (bannerMode === 'minimized' ? 'border-emerald-500/60 ring-1 ring-emerald-500/20' : 'border-white/10') +
+                ' shadow-2xl overflow-hidden pointer-events-auto transform-gpu flex flex-col'
               }
             >
-              <div className="relative flex-1 w-full rounded-lg overflow-hidden">
-                {(activeQuest.banner_url || activeQuest.icon) ? (
+              {/* Banner image — 3:1 aspect ratio */}
+              <div className="relative w-full" style={{ aspectRatio: '3/1' }}>
+                {activeQuest.banner_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={activeQuest.banner_url || activeQuest.icon} alt={activeQuest.title} className="w-full h-full object-cover rounded-md" />
+                  <img src={activeQuest.banner_url} alt={activeQuest.title} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-black/20 rounded-md" />
+                  <div className="w-full h-full bg-gradient-to-br from-emerald-900/50 to-black/60 flex items-center justify-center">
+                    <span className="text-emerald-500/40 text-3xl font-bold">{activeQuest.title?.[0]}</span>
+                  </div>
                 )}
-                <div className="absolute inset-0 p-4 flex flex-col justify-between">
-                  <div>
-                    <div className="inline-block text-[11px] text-emerald-100 bg-emerald-900/10 border border-emerald-500 rounded-full px-2 py-0.5 font-semibold">Active Quest</div>
-                    <div className="text-sm font-semibold text-white mt-1">{activeQuest.title}</div>
-                    {activeQuest.seeds_reward != null && (
-                      <div className="mt-3 inline-block px-3 py-2 rounded-md bg-amber-800/30 border border-amber-700 text-amber-100 text-sm font-semibold">
-                        {activeQuest.reward_display || activeQuest.seeds_reward}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-[11px] text-provn-muted">{activeQuest.excerpt || activeQuest.description?.slice(0, 120)}</div>
-                  </div>
+                {/* Active badge */}
+                <div className="absolute top-2 left-2">
+                  <span className="text-[10px] text-emerald-100 bg-emerald-700/80 border border-emerald-500 rounded-full px-2 py-0.5 font-semibold backdrop-blur-sm">
+                    ● ACTIVE
+                  </span>
                 </div>
+              </div>
+
+              {/* Info row: logo circle + title */}
+              <div className="px-3 py-2.5 flex items-center gap-2.5">
+                {/* Logo circle */}
+                {activeQuest.meta?.logo_url ? (
+                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-emerald-600/60 flex-shrink-0 bg-black/40">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={activeQuest.meta.logo_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-emerald-900/60 border-2 border-emerald-700/50 flex-shrink-0 flex items-center justify-center text-emerald-400 font-bold text-xs">
+                    {activeQuest.title?.[0] || 'C'}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-white truncate">{activeQuest.title}</div>
+                  {activeQuest.reward_summary && (
+                    <div className="text-[10px] text-emerald-400 truncate">{activeQuest.reward_summary}</div>
+                  )}
+                </div>
+                <span className="text-[10px] text-emerald-300 font-medium flex-shrink-0">View →</span>
               </div>
             </Link>
           </div>

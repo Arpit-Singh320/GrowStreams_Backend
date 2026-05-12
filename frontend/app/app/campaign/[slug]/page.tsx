@@ -214,16 +214,19 @@ export default function CampaignDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Banner */}
+      {/* Banner + Logo */}
       <div className="rounded-2xl overflow-hidden border border-provn-border bg-provn-surface">
-        {campaign.banner_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={campaign.banner_url} alt={campaign.title} className="w-full h-52 object-cover" />
-        ) : (
-          <div className="w-full h-52 bg-gradient-to-br from-emerald-900/30 to-provn-bg flex items-center justify-center">
-            <Sprout className="w-16 h-16 text-emerald-700/40" />
-          </div>
-        )}
+        {/* Banner (3:1 ratio) */}
+        <div className="w-full" style={{ aspectRatio: '3/1' }}>
+          {campaign.banner_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={campaign.banner_url} alt={campaign.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-emerald-900/30 to-provn-bg flex items-center justify-center">
+              <Sprout className="w-16 h-16 text-emerald-700/40" />
+            </div>
+          )}
+        </div>
         <div className="px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -232,7 +235,20 @@ export default function CampaignDetailPage() {
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-provn-border/40 text-provn-muted">CAMPAIGN</span>
                 {campaign.partner && <span className="text-[10px] px-2 py-0.5 rounded-full bg-provn-border/40 text-provn-muted">by {campaign.partner}</span>}
               </div>
-              <h1 className="text-2xl font-bold">{campaign.title}</h1>
+              {/* Logo circle + title */}
+              <div className="flex items-center gap-3">
+                {campaign.meta?.logo_url ? (
+                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-provn-border flex-shrink-0 bg-provn-bg">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={campaign.meta.logo_url} alt={`${campaign.title} logo`} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-emerald-900/40 border-2 border-emerald-700/40 flex items-center justify-center flex-shrink-0">
+                    <Sprout className="w-5 h-5 text-emerald-600" />
+                  </div>
+                )}
+                <h1 className="text-2xl font-bold">{campaign.title}</h1>
+              </div>
               {campaign.reward_summary && (
                 <p className="text-sm font-semibold text-emerald-400 mt-1">{campaign.reward_summary}</p>
               )}

@@ -22,6 +22,23 @@ export async function listQuestCampaigns() {
 }
 
 /**
+ * List ended/closed/draft campaigns for the history section.
+ */
+export async function listEndedQuestCampaigns() {
+  return queryAll(`
+    SELECT
+      qc.*,
+      COUNT(q.id)::int          AS quest_count,
+      COALESCE(SUM(q.seeds_reward), 0)::int AS total_seeds_pool
+    FROM quest_campaigns qc
+    LEFT JOIN quests q ON q.campaign_id = qc.id
+    WHERE qc.status <> 'ACTIVE' AND qc.slug IS NOT NULL AND qc.slug <> ''
+    GROUP BY qc.id
+    ORDER BY qc.created_at DESC
+  `);
+}
+
+/**
  * Get a single quest campaign with its full quest list.
  */
 export async function getQuestCampaignBySlug(slug) {
@@ -334,6 +351,38 @@ export async function listAllQuests() {
     LEFT JOIN quest_campaigns qc ON qc.id = q.campaign_id
     ORDER BY q.sort_order ASC, q.created_at ASC
   `);
+}
+
+/**
+ * Admin: delete a campaign and all its quests (cascade).
+ */
+export async function deleteQuestCampaign(slug) {
+  const campaign = await queryOne(`SELECT id FROM quest_campaigns WHERE slug = $1`, [slug]);
+  if (!campaign) throw Object.assign(new Error(`Campaign not found: ${slug}`), { status: 404 });
+  // Collect quest IDs belonging to this campaign
+  const quests = await queryAll(`SELECT id, slug FROM quests WHERE campaign_id = $1`, [campaign.id]);
+  if (quests.length) {
+    const ids = quests.map(q => q.id);
+    // Delete FK-dependent rows first
+    await queryAll(`DELETE FROM quest_completions WHERE quest_id = ANY($1::int[])`, [ids]);
+    await queryAll(`DELETE FROM seeds_ledger WHERE quest_id = ANY($1::int[])`, [ids]);
+    await queryAll(`DELETE FROM quests WHERE id = ANY($1::int[])`, [ids]);
+  }
+  await queryOne(`DELETE FROM quest_campaigns WHERE id = $1`, [campaign.id]);
+  return { deleted_quests: quests.map(q => q.slug) };
+}
+
+/**
+ * Admin: delete a single quest by slug.
+ */
+export async function deleteQuest(slug) {
+  const quest = await queryOne(`SELECT id FROM quests WHERE slug = $1`, [slug]);
+  if (!quest) throw Object.assign(new Error(`Quest not found: ${slug}`), { status: 404 });
+  // Delete FK-dependent rows first
+  await queryAll(`DELETE FROM quest_completions WHERE quest_id = $1`, [quest.id]);
+  await queryAll(`DELETE FROM seeds_ledger WHERE quest_id = $1`, [quest.id]);
+  await queryOne(`DELETE FROM quests WHERE id = $1`, [quest.id]);
+  return { deleted: slug };
 }
 
 /**

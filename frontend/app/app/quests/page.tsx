@@ -8,7 +8,7 @@ import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
   Twitter, Users, Waves, Star, GitPullRequest,
   Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift, Pencil, Check, X as XIcon,
-  Eye, Heart,
+  Eye, Heart, ChevronDown,
 } from 'lucide-react';
 
 const QUEST_ICONS: Record<string, React.ElementType> = {
@@ -62,23 +62,53 @@ function XpBadge({ amount }: { amount: number }) {
   );
 }
 
-// ─── Registration Form ───────────────────────────────────────────────────────
+// ─── Registration Form (3-step: email → OTP → name) ─────────────────────────
 function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegistered: () => void }) {
   const searchParams = useSearchParams();
   const refCode = searchParams.get('ref') || undefined;
 
+  // step: 'email' | 'otp' | 'name'
+  const [step, setStep]             = useState<'email' | 'otp' | 'name'>('email');
+  const [email, setEmail]           = useState('');
+  const [otp, setOtp]               = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // countdown timer for resend
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  const handleSendOtp = async () => {
+    if (!email.trim()) { setError('Email is required'); return; }
+    setLoading(true); setError('');
+    try {
+      await api.quests.sendOtp(email.trim().toLowerCase());
+      setStep('otp');
+      setResendCooldown(60);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to send code');
+    } finally { setLoading(false); }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp.trim()) { setError('Enter the 6-digit code'); return; }
+    setLoading(true); setError('');
+    try {
+      await api.quests.verifyOtp(email.trim().toLowerCase(), otp.trim());
+      setStep('name');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid code');
+    } finally { setLoading(false); }
+  };
 
   const handleRegister = async () => {
-    if (!displayName.trim() || !email) {
-      setError('Display name and email are required');
-      return;
-    }
-    setLoading(true);
-    setError('');
+    if (!displayName.trim()) { setError('Display name is required'); return; }
+    setLoading(true); setError('');
     try {
       await api.quests.register({
         wallet,
@@ -89,65 +119,128 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
       onRegistered();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
     <div className="max-w-md mx-auto mt-12 space-y-6">
-        <div className="text-center space-y-2">
+      <div className="text-center space-y-2">
         <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
           <Sparkles className="w-6 h-6 text-emerald-400" />
         </div>
         <h2 className="text-xl font-bold">Join GrowStreams Earn</h2>
         <p className="text-provn-muted text-sm">
-          Fill in your details to start earning XP
+          {step === 'email' && 'Enter your email to receive a verification code'}
+          {step === 'otp'   && `Enter the 6-digit code sent to ${email}`}
+          {step === 'name'  && 'Almost there — choose your display name'}
         </p>
       </div>
 
+      {/* Step indicators */}
+      <div className="flex items-center justify-center gap-2">
+        {(['email','otp','name'] as const).map((s, i) => (
+          <div key={s} className={`w-2 h-2 rounded-full transition-colors ${step === s ? 'bg-emerald-400' : i < ['email','otp','name'].indexOf(step) ? 'bg-emerald-700' : 'bg-provn-border'}`} />
+        ))}
+      </div>
+
       <div className="bg-provn-surface border border-provn-border rounded-xl p-5 space-y-4">
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
-            <Sprout className="w-3.5 h-3.5" /> Display Name
-          </label>
-          <input
-            type="text"
-            value={displayName}
-            onChange={e => setDisplayName(e.target.value)}
-            placeholder="Your name on the leaderboard"
-            className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
-          />
-        </div>
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
-            <Mail className="w-3.5 h-3.5" /> Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@gmail.com"
-            className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
-          />
-        </div>
-        {refCode && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
-            <Users className="w-3.5 h-3.5" />
-            Referral code applied: <span className="font-mono font-bold">{refCode}</span>
-          </div>
+        {/* Step 1 — Email */}
+        {step === 'email' && (
+          <>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
+                <Mail className="w-3.5 h-3.5" /> Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSendOtp()}
+                placeholder="you@gmail.com"
+                className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
+              />
+            </div>
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button onClick={handleSendOtp} disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+              Send Verification Code
+            </button>
+          </>
         )}
 
-        {error && <p className="text-red-400 text-sm">{error}</p>}
+        {/* Step 2 — OTP */}
+        {step === 'otp' && (
+          <>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
+                <Sparkles className="w-3.5 h-3.5" /> Verification Code
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otp}
+                onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
+                placeholder="123456"
+                className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm text-center tracking-[0.5em] font-mono focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
+              />
+            </div>
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button onClick={handleVerifyOtp} disabled={loading || otp.length !== 6}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Verify Code
+            </button>
+            <button onClick={() => { setStep('email'); setOtp(''); setError(''); }}
+              className="w-full text-xs text-provn-muted hover:text-provn-text transition-colors py-1">
+              ← Change email
+            </button>
+            {resendCooldown > 0 ? (
+              <p className="text-center text-xs text-provn-muted">Resend in {resendCooldown}s</p>
+            ) : (
+              <button onClick={handleSendOtp} disabled={loading}
+                className="w-full text-xs text-emerald-400 hover:text-emerald-300 transition-colors py-1">
+                Resend code
+              </button>
+            )}
+          </>
+        )}
 
-        <button
-          onClick={handleRegister}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sprout className="w-4 h-4" />}
-          Register & Start Earning
-        </button>
+        {/* Step 3 — Display Name */}
+        {step === 'name' && (
+          <>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+              <Check className="w-3.5 h-3.5" /> Email verified: <span className="font-medium">{email}</span>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
+                <Sprout className="w-3.5 h-3.5" /> Display Name
+              </label>
+              <input
+                type="text"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleRegister()}
+                placeholder="Your name on the leaderboard"
+                className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
+              />
+            </div>
+            {refCode && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+                <Users className="w-3.5 h-3.5" />
+                Referral code applied: <span className="font-mono font-bold">{refCode}</span>
+              </div>
+            )}
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button onClick={handleRegister} disabled={loading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sprout className="w-4 h-4" />}
+              Register & Start Earning
+            </button>
+          </>
+        )}
       </div>
 
       <p className="text-center text-[10px] text-provn-muted">
@@ -468,13 +561,20 @@ function QuestDashboard({ wallet }: { wallet: string }) {
   const [claiming, setClaiming] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [campaigns, setCampaigns] = useState<Array<any>>([]);
+  const [historyCampaigns, setHistoryCampaigns] = useState<Array<any>>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, camps] = await Promise.all([api.quests.me(wallet), api.quests.questCampaigns()]);
+      const [data, camps, history] = await Promise.all([
+        api.quests.me(wallet),
+        api.quests.questCampaigns(),
+        api.quests.questCampaignsHistory(),
+      ]);
       setProgress(data);
       setCampaigns((camps && camps.campaigns) || []);
+      setHistoryCampaigns((history && history.campaigns) || []);
       const reg = data.registration as Record<string, unknown> | undefined;
       setDisplayName((reg?.display_name as string) || '');
     } catch (err) {
@@ -591,21 +691,25 @@ function QuestDashboard({ wallet }: { wallet: string }) {
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-black/20 flex items-center justify-center flex-shrink-0 border border-slate-800">
-                    {camp.banner_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={camp.banner_url} alt={camp.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-provn-muted font-bold text-lg">{camp.title?.[0] || 'P'}</div>
-                    )}
-                  </div>
-
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-2">
                       <span className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-200">CAMPAIGN</span>
                       <span className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-200">{(camp.difficulty || 'EASY').toUpperCase()}</span>
                     </div>
-                    <h3 className="font-semibold text-white text-lg truncate">{camp.title}</h3>
+                    {/* Logo circle + title */}
+                    <div className="flex items-center gap-3 mb-1">
+                      {camp.meta?.logo_url ? (
+                        <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-slate-700 flex-shrink-0 bg-black/30">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={camp.meta.logo_url} alt={camp.title} className="w-full h-full object-cover" loading="lazy" />
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center flex-shrink-0 text-slate-400 font-bold text-sm">
+                          {camp.title?.[0] || 'P'}
+                        </div>
+                      )}
+                      <h3 className="font-semibold text-white text-lg truncate">{camp.title}</h3>
+                    </div>
 
                     {rewardText && (
                       <div className="mt-3 p-2.5 rounded-md border border-emerald-700 bg-emerald-900/30 text-emerald-100 w-full">
@@ -634,6 +738,51 @@ function QuestDashboard({ wallet }: { wallet: string }) {
           })}
         </div>
       </div>
+
+      {/* Past / Ended Campaigns (collapsible) */}
+      {historyCampaigns.length > 0 && (
+        <div>
+          <button
+            onClick={() => setHistoryOpen(o => !o)}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-700 bg-slate-900/40 hover:bg-slate-800/50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-provn-muted flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Past Campaigns
+              <span className="ml-1 text-[11px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-full">{historyCampaigns.length}</span>
+            </span>
+            <ChevronDown className={`w-4 h-4 text-provn-muted transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {historyOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              {historyCampaigns.map((camp: any) => (
+                <div key={camp.slug} className="relative bg-slate-900/40 border border-slate-700/50 rounded-2xl p-4 opacity-75">
+                  <div className="absolute top-3 right-3">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 uppercase">{camp.status || 'ENDED'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mb-2">
+                    {camp.meta?.logo_url ? (
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-600 flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={camp.meta.logo_url} alt={camp.title} className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex-shrink-0 flex items-center justify-center text-slate-400 font-bold text-xs">
+                        {camp.title?.[0] || 'P'}
+                      </div>
+                    )}
+                    <h3 className="font-semibold text-slate-300 text-sm truncate">{camp.title}</h3>
+                  </div>
+                  <p className="text-xs text-provn-muted line-clamp-2">{camp.description}</p>
+                  <div className="mt-2 flex items-center gap-3 text-xs text-provn-muted">
+                    <span className="flex items-center gap-1"><Sprout className="w-3 h-3 text-emerald-500/50" />{camp.quest_count || 0} quests</span>
+                    {camp.reward_summary && <span className="text-slate-400 truncate">{camp.reward_summary}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Recent Activity */}
       {progress.recentActivity && progress.recentActivity.length > 0 && (

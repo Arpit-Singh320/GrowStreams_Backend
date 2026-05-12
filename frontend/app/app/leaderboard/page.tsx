@@ -16,6 +16,7 @@ interface LbRow {
   total_xp: number;
   quests_completed: number;
   last_completed_at: string | null;
+  onchain_xp?: number | null;
 }
 
 // Level system: every 200 XP = 1 level (Lv 1 = 0–199 XP, Lv 2 = 200–399, ...)
@@ -103,8 +104,7 @@ function Podium({ rows }: { rows: LbRow[] }) {
                 </span>
               </div>
               <div className="flex items-center gap-1 text-emerald-400 font-bold">
-                <Sprout className="w-4 h-4" />
-                {row.total_xp.toLocaleString()} XP
+                <Sprout className="w-4 h-4" />{(row.onchain_xp ?? row.total_xp).toLocaleString()} XP
               </div>
             </div>
           </div>
@@ -189,9 +189,12 @@ function Row({
             Lv {lvl}
           </span>
           <span className="text-emerald-400 font-bold">
-            {row.total_xp.toLocaleString()}
+            {(row.onchain_xp ?? row.total_xp).toLocaleString()}
           </span>
           <Sprout className="w-3 h-3 text-emerald-400" />
+          {row.onchain_xp !== null && row.onchain_xp !== undefined && (
+            <span className="text-[9px] text-provn-muted">on-chain</span>
+          )}
         </div>
         <div className="w-full h-1 bg-provn-bg rounded-full mt-1 overflow-hidden">
           <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: `${pct}%` }} />
@@ -203,7 +206,7 @@ function Row({
       <div className="sm:hidden flex flex-col items-end flex-shrink-0">
         <div className="flex items-center gap-1 text-emerald-400 font-bold text-xs">
           <Sprout className="w-3 h-3" />
-          {row.total_xp.toLocaleString()}
+          {(row.onchain_xp ?? row.total_xp).toLocaleString()}
         </div>
         <span className={`text-[9px] font-bold ${color.text}`}>Lv {lvl}</span>
       </div>
@@ -231,6 +234,7 @@ export default function LeaderboardPage() {
   const myWallet = account?.decodedAddress || '';
 
   const [rows, setRows] = useState<LbRow[]>([]);
+  const [onchainTotal, setOnchainTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -241,6 +245,9 @@ export default function LeaderboardPage() {
     try {
       const res = await api.quests.leaderboard();
       setRows(res.leaderboard);
+      if (res.onchain_total_xp !== null && res.onchain_total_xp !== undefined) {
+        setOnchainTotal(res.onchain_total_xp);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
@@ -308,8 +315,9 @@ export default function LeaderboardPage() {
           <p className="text-xs text-provn-muted">XP Minted</p>
           <p className="text-2xl font-bold text-emerald-400 mt-0.5 flex items-center justify-center gap-1">
             <Sprout className="w-4 h-4" />
-            {totals.totalXP.toLocaleString()}
+            {(onchainTotal ?? totals.totalXP).toLocaleString()}
           </p>
+          {onchainTotal !== null && <p className="text-[10px] text-provn-muted mt-0.5">on-chain</p>}
         </div>
         <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
           <p className="text-xs text-provn-muted">Completions</p>
