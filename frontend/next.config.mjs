@@ -5,7 +5,23 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   },
-  
+
+  // Compress responses
+  compress: true,
+
+  // Faster builds + smaller output
+  poweredByHeader: false,
+  reactStrictMode: false,
+
+  // Image optimization — allow external logo/banner URLs
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    remotePatterns: [
+      { protocol: 'https', hostname: '**' },
+    ],
+    minimumCacheTTL: 86400,
+  },
+
   // Handle ES modules and external packages
   serverExternalPackages: [
     'viem', 'wagmi',
@@ -16,21 +32,33 @@ const nextConfig = {
 
   // Webpack configuration
   webpack: (config, { isServer }) => {
-    // Handle viem and other ESM packages
     config.externals = config.externals || []
     if (isServer) {
       config.externals.push({
         'viem': 'commonjs viem',
-        'wagmi': 'commonjs wagmi'
+        'wagmi': 'commonjs wagmi',
       })
     }
 
-    // Only warn about missing env vars instead of throwing
     if (isServer && (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)) {
-      console.warn('⚠️ Warning: Missing Supabase environment variables. Using mock data for development.')
+      console.warn('⚠️ Warning: Missing Supabase environment variables.')
     }
-    
+
     return config;
+  },
+
+  // HTTP headers for caching static assets
+  async headers() {
+    return [
+      {
+        source: '/_next/static/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        source: '/fonts/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+    ];
   },
 };
 

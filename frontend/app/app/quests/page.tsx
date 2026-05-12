@@ -684,21 +684,25 @@ function QuestDashboard({ wallet }: { wallet: string }) {
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-black/20 flex items-center justify-center flex-shrink-0 border border-slate-800">
-                    {(camp.meta?.logo_url || camp.banner_url) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={camp.meta?.logo_url || camp.banner_url} alt={camp.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="text-provn-muted font-bold text-lg">{camp.title?.[0] || 'P'}</div>
-                    )}
-                  </div>
-
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-2">
                       <span className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-200">CAMPAIGN</span>
                       <span className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-200">{(camp.difficulty || 'EASY').toUpperCase()}</span>
                     </div>
-                    <h3 className="font-semibold text-white text-lg truncate">{camp.title}</h3>
+                    {/* Logo circle + title */}
+                    <div className="flex items-center gap-3 mb-1">
+                      {camp.meta?.logo_url ? (
+                        <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-slate-700 flex-shrink-0 bg-black/30">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={camp.meta.logo_url} alt={camp.title} className="w-full h-full object-cover" loading="lazy" />
+                        </div>
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center flex-shrink-0 text-slate-400 font-bold text-sm">
+                          {camp.title?.[0] || 'P'}
+                        </div>
+                      )}
+                      <h3 className="font-semibold text-white text-lg truncate">{camp.title}</h3>
+                    </div>
 
                     {rewardText && (
                       <div className="mt-3 p-2.5 rounded-md border border-emerald-700 bg-emerald-900/30 text-emerald-100 w-full">

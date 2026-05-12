@@ -37,3 +37,8 @@ frontend/.git.backup/
 # deploy-state.json
 .vercel
 .env*.local
+
+# Zip files and extracted archives
+*.zip
+zip_extracted/
+*_extracted/
