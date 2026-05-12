@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { query as sailsQuery, getContract } from '../sails-client.mjs';
 import {
   validateInvite,
   registerForQuests,
@@ -379,7 +380,15 @@ router.get('/referral/:wallet', async (req, res, next) => {
 router.get('/leaderboard', async (req, res, next) => {
   try {
     const rows = await getQuestLeaderboard();
-    res.json({ leaderboard: rows, total: rows.length });
+    // Also fetch on-chain total supply so the UI can show real minted XP
+    let onchainTotal = null;
+    try {
+      if (getContract('questSeeds')) {
+        const raw = await sailsQuery('questSeeds', 'TotalSupply');
+        onchainTotal = Number(raw);
+      }
+    } catch (_) { /* non-fatal */ }
+    res.json({ leaderboard: rows, total: rows.length, onchain_total_xp: onchainTotal });
   } catch (err) { next(err); }
 });
 

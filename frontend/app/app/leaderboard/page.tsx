@@ -231,6 +231,7 @@ export default function LeaderboardPage() {
   const myWallet = account?.decodedAddress || '';
 
   const [rows, setRows] = useState<LbRow[]>([]);
+  const [onchainTotal, setOnchainTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -241,6 +242,9 @@ export default function LeaderboardPage() {
     try {
       const res = await api.quests.leaderboard();
       setRows(res.leaderboard);
+      if (res.onchain_total_xp !== null && res.onchain_total_xp !== undefined) {
+        setOnchainTotal(res.onchain_total_xp);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
@@ -308,8 +312,9 @@ export default function LeaderboardPage() {
           <p className="text-xs text-provn-muted">XP Minted</p>
           <p className="text-2xl font-bold text-emerald-400 mt-0.5 flex items-center justify-center gap-1">
             <Sprout className="w-4 h-4" />
-            {totals.totalXP.toLocaleString()}
+            {(onchainTotal ?? totals.totalXP).toLocaleString()}
           </p>
+          {onchainTotal !== null && <p className="text-[10px] text-provn-muted mt-0.5">on-chain</p>}
         </div>
         <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
           <p className="text-xs text-provn-muted">Completions</p>

@@ -736,6 +736,7 @@ export const api = {
           last_completed_at: string | null;
         }>;
         total: number;
+        onchain_total_xp: number | null;
       }>('/api/quests/leaderboard'),
 
     referral: (wallet: string) =>
