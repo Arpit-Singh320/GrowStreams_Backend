@@ -36,11 +36,12 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
   const isCompleted = quest.completed
   const isPending   = !!quest.pendingSubmission
   const isRejected  = !!quest.rejectedSubmission
-  const isFollowX      = quest.quest_type === 'X_FOLLOW'
-  const isMentionX     = quest.quest_type === 'X_MENTION'
-  const isRetweet      = quest.quest_type === 'X_RETWEET'
-  const isTweetKeyword = quest.quest_type === 'X_TWEET_KEYWORD'
-  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword
+  const isFollowX        = quest.quest_type === 'X_FOLLOW'
+  const isMentionX       = quest.quest_type === 'X_MENTION'
+  const isRetweet        = quest.quest_type === 'X_RETWEET'
+  const isTweetKeyword   = quest.quest_type === 'X_TWEET_KEYWORD'
+  const isPartnerContract = quest.quest_type === 'PARTNER_CONTRACT'
+  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword || isPartnerContract
   const needsTweetUrl    = isMentionX || isRetweet || isTweetKeyword
 
   const questMeta      = (quest.meta || {}) as Record<string, unknown>
@@ -50,15 +51,31 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
 
   const [xUsername, setXUsername] = useState('')
   const [tweetUrl, setTweetUrl]   = useState('')
+  const [partyId, setPartyId]     = useState('')
+  const [contractId, setContractId] = useState('')
   const inputValue = isFollowX ? xUsername : tweetUrl
   const inputValid = needsManualInput
-    ? (isFollowX ? xUsername.trim().length > 0 : /^https?:\/\/(x\.com|twitter\.com)\//i.test(tweetUrl.trim()))
+    ? isFollowX
+      ? xUsername.trim().length > 0
+      : isPartnerContract
+      ? partyId.trim().length > 0 || contractId.trim().length > 0
+      : /^https?:\/\/(x\.com|twitter\.com)\//i.test(tweetUrl.trim())
     : true
 
   const handleClaim = () => {
-    if (isFollowX)        onClaim(quest.slug, { x_username: xUsername.trim().replace(/^@/, '') })
-    else if (needsTweetUrl) onClaim(quest.slug, { tweet_url: tweetUrl.trim() })
-    else                  onClaim(quest.slug)
+    if (isFollowX) {
+      onClaim(quest.slug, { x_username: xUsername.trim().replace(/^@/, '') })
+    } else if (isPartnerContract) {
+      onClaim(quest.slug, {
+        ...(partyId.trim()    ? { party_id:    partyId.trim() }    : {}),
+        ...(contractId.trim() ? { contract_id: contractId.trim() } : {}),
+        ...(questMeta.partner_url ? { partner_url: questMeta.partner_url as string } : {}),
+      })
+    } else if (needsTweetUrl) {
+      onClaim(quest.slug, { tweet_url: tweetUrl.trim() })
+    } else {
+      onClaim(quest.slug)
+    }
   }
 
   const statusBadge = () => {
@@ -92,7 +109,7 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
         </div>
       </div>
 
-      {needsManualInput && !isCompleted && !isPending && (
+      {needsManualInput && !isCompleted && (!isPending || isPartnerContract) && (
         <div className="mb-3 space-y-1.5">
           {isMentionX && (
             <p className="text-[11px] text-provn-muted">
@@ -111,11 +128,41 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
               {(questMeta.required_keyword as string) && <> and include <span className="text-emerald-400 font-mono">&quot;{String(questMeta.required_keyword)}&quot;</span></>}.
             </p>
           )}
-          <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
-          <input type="text" value={inputValue}
-            onChange={e => isFollowX ? setXUsername(e.target.value) : setTweetUrl(e.target.value)}
-            placeholder={inputPlaceholder}
-            className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none" />
+          {isPartnerContract && (
+            <div className="space-y-2">
+              <p className="text-[11px] text-provn-muted">
+                Deploy a contract on{' '}
+                {(questMeta.partner_url as string) ? (
+                  <a href={questMeta.partner_url as string} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">
+                    {(questMeta.partner_name as string) || 'the partner platform'}
+                  </a>
+                ) : (
+                  <span className="text-emerald-400">{(questMeta.partner_name as string) || 'the partner platform'}</span>
+                )}, then paste your IDs below.
+              </p>
+              <div>
+                <label className="text-[11px] font-medium text-provn-muted">Party ID</label>
+                <input type="text" value={partyId} onChange={e => setPartyId(e.target.value)}
+                  placeholder="Your Party ID from the platform"
+                  className="w-full mt-1 px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none font-mono" />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-provn-muted">Contract ID</label>
+                <input type="text" value={contractId} onChange={e => setContractId(e.target.value)}
+                  placeholder="Your Contract ID from the platform"
+                  className="w-full mt-1 px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none font-mono" />
+              </div>
+            </div>
+          )}
+          {!isPartnerContract && (
+            <>
+              <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
+              <input type="text" value={inputValue}
+                onChange={e => isFollowX ? setXUsername(e.target.value) : setTweetUrl(e.target.value)}
+                placeholder={inputPlaceholder}
+                className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none" />
+            </>
+          )}
           {isRejected && (quest.rejectedSubmission?.proof as any)?.reject_reason && (
             <p className="text-[11px] text-red-400">Rejected: {(quest.rejectedSubmission.proof as any).reject_reason}</p>
           )}
@@ -129,13 +176,13 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
             <span className="text-[11px] text-emerald-400">+{quest.totalEarned} Seeds earned</span>
           )}
         </div>
-        {!isCompleted && !isPending && (
+        {!isCompleted && (!isPending || isPartnerContract) && (
           <button onClick={handleClaim} disabled={claiming || (needsManualInput && !inputValid)}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             {claiming ? <><Loader2 className="w-3 h-3 animate-spin" /> Submitting</> : needsManualInput ? <>Submit <ArrowRight className="w-3 h-3" /></> : <>Claim <ArrowRight className="w-3 h-3" /></>}
           </button>
         )}
-        {isPending && <span className="text-xs text-amber-400">Awaiting review</span>}
+        {isPending && !isPartnerContract && <span className="text-xs text-amber-400">Awaiting review</span>}
         {isCompleted && <span className="text-xs text-emerald-400">✓ Completed</span>}
       </div>
     </div>
