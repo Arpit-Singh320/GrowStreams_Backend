@@ -30,6 +30,8 @@ import {
   getCampaignPrizeBoard,
   upsertQuestCampaign,
   assignQuestToCampaign,
+  upsertQuest,
+  listAllQuests,
 } from '../services/quest-campaign-service.mjs';
 
 const router = Router();
@@ -65,7 +67,7 @@ router.post('/verify-invite', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.post('/register', async (req, res, next) => {
   try {
-    const { wallet, evm_address, email, x_username, invite_code } = req.body;
+    const { wallet, evm_address, email, display_name, ref_code } = req.body;
 
     // At least one address type required
     if (!wallet && !evm_address) {
@@ -77,16 +79,15 @@ router.post('/register', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid evm_address format — expected 0x followed by 40 hex chars' });
     }
 
+    if (!display_name || !display_name.trim()) return res.status(400).json({ error: 'Display name is required' });
     if (!email) return res.status(400).json({ error: 'Email is required' });
-    if (!x_username) return res.status(400).json({ error: 'X (Twitter) username is required' });
-    if (!invite_code) return res.status(400).json({ error: 'Invite code is required' });
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const registration = await registerForQuests(wallet, email, x_username, invite_code, evm_address || null);
+    const registration = await registerForQuests(wallet, email, display_name, evm_address || null, ref_code || null);
     res.status(201).json({
       message: 'Successfully registered for quests',
       registration,
@@ -102,12 +103,32 @@ router.post('/register', async (req, res, next) => {
       }
     });
   } catch (err) {
-    if (err.message.includes('already registered') || err.message.includes('Invalid invite') ||
-        err.message.includes('fully used') || err.message.includes('expired')) {
+    if (err.message.includes('already registered')) {
       return res.status(400).json({ error: err.message });
     }
     next(err);
   }
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/quests/profile  — update display_name for a registered wallet
+// ---------------------------------------------------------------------------
+router.patch('/profile', async (req, res, next) => {
+  try {
+    const { wallet, display_name } = req.body;
+    if (!wallet) return res.status(400).json({ error: 'wallet is required' });
+    if (!display_name || !display_name.trim()) return res.status(400).json({ error: 'display_name is required' });
+
+    const registration = await getRegistration(wallet);
+    if (!registration) return res.status(404).json({ error: 'Wallet not registered for quests' });
+
+    const { queryOne } = await import('../services/db.mjs');
+    const updated = await queryOne(
+      `UPDATE quest_registrations SET display_name = $1 WHERE wallet = $2 OR evm_address = $2 RETURNING *`,
+      [display_name.trim(), wallet]
+    );
+    res.json({ message: 'Profile updated', registration: updated });
+  } catch (err) { next(err); }
 });
 
 // ---------------------------------------------------------------------------
@@ -538,6 +559,35 @@ router.get('/admin/stats', requireAdmin, async (req, res, next) => {
   try {
     const stats = await getQuestStats();
     res.json(stats);
+  } catch (err) { next(err); }
+});
+
+// GET /api/quests/admin/quests — list all quests with campaign info
+router.get('/admin/quests', requireAdmin, async (req, res, next) => {
+  try {
+    const quests = await listAllQuests();
+    res.json({ quests, total: quests.length });
+  } catch (err) { next(err); }
+});
+
+// POST /api/quests/admin/quests — create or update a quest
+router.post('/admin/quests', requireAdmin, async (req, res, next) => {
+  try {
+    const quest = await upsertQuest(req.body);
+    res.status(201).json({ message: 'Quest upserted', quest });
+  } catch (err) {
+    if (err.status === 400 || err.status === 404) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    next(err);
+  }
+});
+
+// GET /api/quests/admin/campaigns — list all campaigns (for dropdowns)
+router.get('/admin/campaigns', requireAdmin, async (req, res, next) => {
+  try {
+    const campaigns = await listQuestCampaigns();
+    res.json({ campaigns, total: campaigns.length });
   } catch (err) { next(err); }
 });
 

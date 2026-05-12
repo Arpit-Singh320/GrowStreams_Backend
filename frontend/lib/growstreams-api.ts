@@ -35,6 +35,13 @@ function put<T>(path: string, body: Record<string, unknown>) {
   });
 }
 
+function patch<T>(path: string, body: Record<string, unknown>) {
+  return request<T>(path, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
 function del<T>(path: string) {
   return request<T>(path, { method: 'DELETE' });
 }
@@ -383,6 +390,7 @@ export interface QuestData {
     proof: Record<string, unknown> | null;
     created_at: string;
   } | null;
+  meta?: Record<string, unknown> | null;
 }
 
 export interface QuestSubmission {
@@ -693,11 +701,9 @@ export const api = {
       post<TxResult | PayloadResult>('/api/identity/update-score', params as unknown as Record<string, unknown>),
   },
 
-  // ─── Quests (M1-beta: ported from Launch branch) ───────────────────────────
+  // ─── Quests (M1-beta) ──────────────────────────────────────────────────────
   quests: {
-    verifyInvite: (code: string) =>
-      post<{ valid: boolean; message?: string }>('/api/quests/verify-invite', { code } as Record<string, unknown>),
-    register: (params: { wallet: string; email: string; x_username: string; github_username: string; invite_code: string }) =>
+    register: (params: { wallet?: string; evm_address?: string; email: string; display_name: string; ref_code?: string }) =>
       post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
     list: () =>
       get<{ quests: QuestData[] }>('/api/quests'),
@@ -710,13 +716,15 @@ export const api = {
         `/api/quests/${slug}/claim`,
         { wallet, ...(payload || {}) } as Record<string, unknown>
       ),
+    updateProfile: (wallet: string, display_name: string) =>
+      patch<{ message: string; registration: Record<string, unknown> }>('/api/quests/profile', { wallet, display_name } as Record<string, unknown>),
     stats: () =>
       get<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>('/api/quests/stats'),
     leaderboard: () =>
       get<{
         leaderboard: Array<{
           wallet: string;
-          x_username: string;
+          display_name: string;
           github_username: string;
           registered_at: string;
           total_xp: number;
@@ -725,6 +733,20 @@ export const api = {
         }>;
         total: number;
       }>('/api/quests/leaderboard'),
+
+    referral: (wallet: string) =>
+      get<{ referral_code: string; referral_link: string; referred_count: number; seeds_earned: number }>(`/api/quests/referral/${wallet}`),
+
+    questCampaigns: () =>
+      get<{ campaigns: Array<Record<string, unknown>> }>('/api/quests/campaigns'),
+    questCampaign: (slug: string) =>
+      get<Record<string, unknown>>(`/api/quests/campaigns/${slug}`),
+    campaignProgress: (slug: string, wallet: string) =>
+      get<Record<string, unknown>>(`/api/quests/campaigns/${slug}/progress?wallet=${wallet}`),
+    campaignLeaderboard: (slug: string, limit = 50) =>
+      get<{ campaign_slug: string; leaderboard: Array<Record<string, unknown>>; total: number }>(`/api/quests/campaigns/${slug}/leaderboard?limit=${limit}`),
+    campaignPrizeBoard: (slug: string, limit = 10) =>
+      get<{ campaign_slug: string; prize_pool: Record<string, unknown>; end_date: string; prize_board: Array<Record<string, unknown>> }>(`/api/quests/campaigns/${slug}/prize-board?limit=${limit}`),
 
     // Admin (requires Bearer token)
     adminListSubmissions: (token: string) =>
@@ -740,5 +762,25 @@ export const api = {
       }),
     adminStats: (token: string) =>
       authedRequest<{ totalRegistered: number; totalCompletions: number; totalSeedsMinted: number }>(token, '/api/quests/admin/stats'),
+
+    adminListQuests: (token: string) =>
+      authedRequest<{ quests: Array<Record<string, unknown>>; total: number }>(token, '/api/quests/admin/quests'),
+    adminUpsertQuest: (token: string, data: Record<string, unknown>) =>
+      authedRequest<{ message: string; quest: Record<string, unknown> }>(token, '/api/quests/admin/quests', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    adminListCampaigns: (token: string) =>
+      authedRequest<{ campaigns: Array<Record<string, unknown>>; total: number }>(token, '/api/quests/admin/campaigns'),
+    adminUpsertCampaign: (token: string, data: Record<string, unknown>) =>
+      authedRequest<{ message: string; campaign: Record<string, unknown> }>(token, '/api/quests/admin/campaigns', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    adminAwardXP: (token: string, wallet: string, quest_slug: string, proof?: Record<string, unknown>) =>
+      authedRequest<{ message: string; completion: Record<string, unknown> }>(token, '/api/quests/admin/award', {
+        method: 'POST',
+        body: JSON.stringify({ wallet, quest_slug, proof: proof || {} }),
+      }),
   },
 };

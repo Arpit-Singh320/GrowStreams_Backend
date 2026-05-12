@@ -1,0 +1,11 @@
+api/
+contracts/
+scripts/
+sdk/
+docs/
+artifacts/
+node_modules/
+.git/
+*.sh
+*.toml
+*.lock

@@ -245,14 +245,36 @@ export async function migrate() {
 
     CREATE TABLE IF NOT EXISTS quest_registrations (
       id              SERIAL PRIMARY KEY,
-      wallet          TEXT UNIQUE NOT NULL,
+      wallet          TEXT UNIQUE,
+      evm_address     TEXT UNIQUE,
+      wallet_type     TEXT NOT NULL DEFAULT 'substrate',
+      display_name    TEXT NOT NULL DEFAULT '',
       email           TEXT UNIQUE NOT NULL,
-      x_username      TEXT NOT NULL,
-      github_username TEXT NOT NULL,
+      x_username      TEXT,
+      github_username TEXT,
       x_user_id       TEXT,
-      invite_code     TEXT NOT NULL,
+      invite_code     TEXT,
       verified        BOOLEAN NOT NULL DEFAULT FALSE,
       registered_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS quest_campaigns (
+      id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      slug           TEXT UNIQUE NOT NULL,
+      title          TEXT NOT NULL,
+      description    TEXT NOT NULL DEFAULT '',
+      partner        TEXT,
+      banner_url     TEXT,
+      badge_label    TEXT,
+      difficulty     TEXT NOT NULL DEFAULT 'EASY',
+      status         TEXT NOT NULL DEFAULT 'ACTIVE',
+      reward_summary TEXT,
+      bonus_xp       INTEGER NOT NULL DEFAULT 0,
+      start_date     TIMESTAMPTZ,
+      end_date       TIMESTAMPTZ,
+      sort_order     INTEGER NOT NULL DEFAULT 0,
+      meta           JSONB NOT NULL DEFAULT '{}',
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS quests (
@@ -266,6 +288,8 @@ export async function migrate() {
       repeatable    BOOLEAN NOT NULL DEFAULT FALSE,
       active        BOOLEAN NOT NULL DEFAULT TRUE,
       sort_order    INTEGER NOT NULL DEFAULT 0,
+      campaign_id   UUID REFERENCES quest_campaigns(id),
+      meta          JSONB NOT NULL DEFAULT '{}',
       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -649,6 +673,58 @@ export async function migrate() {
         ON CONFLICT (campaign_id, wallet) DO NOTHING;
 
         RAISE NOTICE '[db] Backfilled legacy campaign % with status %', legacy_id, c_status;
+      END IF;
+    END $$;
+  `);
+
+  // Add evm_address + wallet_type to existing quest_registrations rows (idempotent)
+  const { addEvmAddress } = await import('../migrations/add-evm-address.mjs');
+  await addEvmAddress();
+
+  // Add display_name column and relax x_username / invite_code constraints (idempotent)
+  await p.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'quest_registrations' AND column_name = 'display_name'
+      ) THEN
+        ALTER TABLE quest_registrations ADD COLUMN display_name TEXT NOT NULL DEFAULT '';
+      END IF;
+
+      -- Make x_username nullable for existing installs (was NOT NULL before)
+      BEGIN
+        ALTER TABLE quest_registrations ALTER COLUMN x_username DROP NOT NULL;
+      EXCEPTION WHEN others THEN NULL;
+      END;
+
+      -- Make invite_code nullable for existing installs (was NOT NULL before)
+      BEGIN
+        ALTER TABLE quest_registrations ALTER COLUMN invite_code DROP NOT NULL;
+      EXCEPTION WHEN others THEN NULL;
+      END;
+    END $$;
+  `);
+
+  // Add referral columns, meta to quests, seed new quest types, create quest_campaigns infra
+  const { addReferralAndQuestTypes } = await import('../migrations/add-referral-and-quest-types.mjs');
+  await addReferralAndQuestTypes();
+
+  // Add campaign_id + meta columns to quests table for existing installs (idempotent)
+  await p.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'quests' AND column_name = 'campaign_id'
+      ) THEN
+        ALTER TABLE quests ADD COLUMN campaign_id UUID REFERENCES quest_campaigns(id);
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'quests' AND column_name = 'meta'
+      ) THEN
+        ALTER TABLE quests ADD COLUMN meta JSONB NOT NULL DEFAULT '{}';
       END IF;
     END $$;
   `);

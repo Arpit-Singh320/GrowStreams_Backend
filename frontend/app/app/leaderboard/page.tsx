@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
 import { api } from '@/lib/growstreams-api';
 import {
-  Crown, Medal, Trophy, Sprout, Loader2, Search, Twitter, Github,
+  Crown, Medal, Trophy, Sprout, Loader2, Search, Github,
   Flame, Sparkles, RefreshCw,
 } from 'lucide-react';
 
 interface LbRow {
   wallet: string;
-  x_username: string;
+  display_name: string;
   github_username: string;
   registered_at: string;
   total_xp: number;
@@ -92,11 +92,11 @@ function Podium({ rows }: { rows: LbRow[] }) {
                 className="w-14 h-14 sm:w-16 sm:h-16 rounded-full ring-2 ring-provn-bg shadow-md flex items-center justify-center text-white font-bold text-lg"
                 style={{ background: avatarGradient(row.wallet) }}
               >
-                {(row.x_username || row.github_username || row.wallet).slice(0, 2).toUpperCase()}
+                {(row.display_name || row.github_username || row.wallet).slice(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0 w-full">
                 <p className="font-bold text-sm truncate">
-                  {row.x_username ? `@${row.x_username}` : shortWallet(row.wallet)}
+                  {row.display_name || row.github_username || shortWallet(row.wallet)}
                 </p>
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 mt-1 rounded text-[9px] font-bold ${color.bg} ${color.text} border ${color.border}`}>
                   Lv {lvl} · {levelTitle(lvl)}
@@ -158,14 +158,14 @@ function Row({
         className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
         style={{ background: avatarGradient(row.wallet) }}
       >
-        {(row.x_username || row.github_username || row.wallet).slice(0, 2).toUpperCase()}
+        {(row.display_name || row.github_username || row.wallet).slice(0, 2).toUpperCase()}
       </div>
 
       {/* Identity */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-medium text-sm truncate">
-            {row.x_username ? `@${row.x_username}` : shortWallet(row.wallet)}
+            {row.display_name || row.github_username || shortWallet(row.wallet)}
           </p>
           <span className={`text-[9px] font-bold uppercase tracking-wider ${color.text}`}>
             {levelTitle(lvl)}
@@ -173,11 +173,6 @@ function Row({
           {isMe && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">YOU</span>}
         </div>
         <div className="flex items-center gap-2 mt-0.5 text-[10px] text-provn-muted">
-          {row.x_username && (
-            <span className="inline-flex items-center gap-1">
-              <Twitter className="w-3 h-3" /> @{row.x_username}
-            </span>
-          )}
           {row.github_username && (
             <span className="inline-flex items-center gap-1">
               <Github className="w-3 h-3" /> {row.github_username}
@@ -260,7 +255,7 @@ export default function LeaderboardPage() {
     const q = search.toLowerCase();
     return rows.filter(r =>
       r.wallet.toLowerCase().includes(q) ||
-      r.x_username?.toLowerCase().includes(q) ||
+      r.display_name?.toLowerCase().includes(q) ||
       r.github_username?.toLowerCase().includes(q)
     );
   }, [rows, search]);

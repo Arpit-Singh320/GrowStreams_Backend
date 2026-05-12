@@ -3,10 +3,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
 import { api, QuestData, QuestProgress } from '@/lib/growstreams-api';
+import { useSearchParams } from 'next/navigation';
 import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
-  Twitter, Github, Ticket, Waves, Star, GitPullRequest,
-  Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift,
+  Twitter, Users, Waves, Star, GitPullRequest,
+  Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift, Pencil, Check, X as XIcon,
+  Eye, Heart,
 } from 'lucide-react';
 
 const QUEST_ICONS: Record<string, React.ElementType> = {
@@ -60,72 +62,19 @@ function XpBadge({ amount }: { amount: number }) {
   );
 }
 
-// ─── Invite Gate ─────────────────────────────────────────────────────────────
-function InviteGate({ onVerified }: { onVerified: (code: string) => void }) {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleVerify = async () => {
-    if (!code.trim()) return;
-    setLoading(true);
-    setError('');
-    try {
-      await api.quests.verifyInvite(code.trim());
-      onVerified(code.trim().toUpperCase());
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Invalid invite code');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="max-w-md mx-auto mt-20 text-center space-y-6">
-      <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
-        <Ticket className="w-8 h-8 text-emerald-400" />
-      </div>
-      <div>
-        <h1 className="text-2xl font-bold">GrowStreams Quests</h1>
-        <p className="text-provn-muted text-sm mt-2">
-          This is an invite-only quest program. Enter your invite code to get started.
-        </p>
-      </div>
-      <div className="space-y-3">
-        <input
-          type="text"
-          value={code}
-          onChange={e => setCode(e.target.value.toUpperCase())}
-          onKeyDown={e => e.key === 'Enter' && handleVerify()}
-          placeholder="GS-XXXX-XXXX"
-          className="w-full bg-provn-surface border border-provn-border rounded-lg px-4 py-3 text-center text-lg font-mono tracking-widest focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
-          maxLength={12}
-        />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        <button
-          onClick={handleVerify}
-          disabled={loading || !code.trim()}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-          Verify Invite Code
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Registration Form ───────────────────────────────────────────────────────
-function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string; inviteCode: string; onRegistered: () => void }) {
+function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegistered: () => void }) {
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get('ref') || undefined;
+
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
-  const [xUsername, setXUsername] = useState('');
-  const [githubUsername, setGithubUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async () => {
-    if (!email || !xUsername || !githubUsername) {
-      setError('All fields are required');
+    if (!displayName.trim() || !email) {
+      setError('Display name and email are required');
       return;
     }
     setLoading(true);
@@ -134,9 +83,8 @@ function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string
       await api.quests.register({
         wallet,
         email: email.trim(),
-        x_username: xUsername.trim().replace(/^@/, ''),
-        github_username: githubUsername.trim(),
-        invite_code: inviteCode,
+        display_name: displayName.trim(),
+        ref_code: refCode,
       });
       onRegistered();
     } catch (err: unknown) {
@@ -148,17 +96,29 @@ function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string
 
   return (
     <div className="max-w-md mx-auto mt-12 space-y-6">
-      <div className="text-center space-y-2">
+        <div className="text-center space-y-2">
         <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
           <Sparkles className="w-6 h-6 text-emerald-400" />
         </div>
-        <h2 className="text-xl font-bold">Complete Registration</h2>
+        <h2 className="text-xl font-bold">Join GrowStreams Earn</h2>
         <p className="text-provn-muted text-sm">
-          Link your accounts to start earning XP
+          Fill in your details to start earning XP
         </p>
       </div>
 
       <div className="bg-provn-surface border border-provn-border rounded-xl p-5 space-y-4">
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
+            <Sprout className="w-3.5 h-3.5" /> Display Name
+          </label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={e => setDisplayName(e.target.value)}
+            placeholder="Your name on the leaderboard"
+            className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
+          />
+        </div>
         <div>
           <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
             <Mail className="w-3.5 h-3.5" /> Email
@@ -171,30 +131,12 @@ function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string
             className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
           />
         </div>
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
-            <Twitter className="w-3.5 h-3.5" /> X (Twitter) Handle
-          </label>
-          <input
-            type="text"
-            value={xUsername}
-            onChange={e => setXUsername(e.target.value)}
-            placeholder="@yourhandle"
-            className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
-          />
-        </div>
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
-            <Github className="w-3.5 h-3.5" /> GitHub Username
-          </label>
-          <input
-            type="text"
-            value={githubUsername}
-            onChange={e => setGithubUsername(e.target.value)}
-            placeholder="yourusername"
-            className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40"
-          />
-        </div>
+        {refCode && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+            <Users className="w-3.5 h-3.5" />
+            Referral code applied: <span className="font-mono font-bold">{refCode}</span>
+          </div>
+        )}
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
@@ -204,7 +146,7 @@ function RegistrationForm({ wallet, inviteCode, onRegistered }: { wallet: string
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sprout className="w-4 h-4" />}
-          Register & Start Questing
+          Register & Start Earning
         </button>
       </div>
 
@@ -233,10 +175,16 @@ function QuestCard({
   const isWelcome = quest.quest_type === 'WELCOME';
   const isFollowX = quest.quest_type === 'X_FOLLOW';
   const isMentionX = quest.quest_type === 'X_MENTION';
-  const needsManualInput = isFollowX || isMentionX;
+  const isRetweet = quest.quest_type === 'X_RETWEET';
+  const isTweetKeyword = quest.quest_type === 'X_TWEET_KEYWORD';
+  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword;
+  const needsTweetUrl = isMentionX || isRetweet || isTweetKeyword;
   const xRef = X_HANDLE_BY_SLUG[quest.slug];
   const [xUsername, setXUsername] = useState('');
   const [tweetUrl, setTweetUrl] = useState('');
+  const questMeta = (quest.meta || {}) as Record<string, unknown>;
+  const inputLabel = (questMeta.input_label as string) || (isFollowX ? 'Your X username' : 'Tweet URL');
+  const inputPlaceholder = (questMeta.input_placeholder as string) || (isFollowX ? '@yourhandle' : 'https://x.com/yourhandle/status/123...');
   const link = QUEST_LINKS[quest.slug];
 
   const inputValue = isFollowX ? xUsername : tweetUrl;
@@ -248,7 +196,7 @@ function QuestCard({
     if (isFollowX) {
       if (!xUsername.trim()) return;
       onClaim(quest.slug, { x_username: xUsername.trim().replace(/^@/, '') });
-    } else if (isMentionX) {
+    } else if (needsTweetUrl) {
       if (!tweetUrl.trim()) return;
       onClaim(quest.slug, { tweet_url: tweetUrl.trim() });
     } else {
@@ -338,15 +286,33 @@ function QuestCard({
         <div className="mb-3 space-y-2">
           {isMentionX && (
             <div className="text-[11px] text-provn-muted">
-              Tweet must mention <span className="text-emerald-400">{xRef?.handle ?? '@growwstreams'}</span> + include your wallet:{' '}
+              Tweet must mention{' '}
+              <span className="text-emerald-400">{(questMeta.required_mention as string) || xRef?.handle || '@GrowStreams'}</span>
+              {' '}+ include your wallet:{' '}
               <code className="text-emerald-400 text-[10px]">{wallet.slice(0, 10)}…{wallet.slice(-6)}</code>
             </div>
           )}
+          {isRetweet && (
+            <div className="text-[11px] text-provn-muted">
+              {(questMeta.original_tweet_url as string)
+                ? <> Retweet <a href={questMeta.original_tweet_url as string} target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline">this post</a>, then paste the URL of your retweet below. </>
+                : <>Retweet the campaign post, then paste the URL of <span className="text-emerald-400">your retweet</span> below.</>}
+            </div>
+          )}
+          {isTweetKeyword && (
+            <div className="text-[11px] text-provn-muted">
+              Tweet must mention{' '}
+              <span className="text-emerald-400">{(questMeta.required_mention as string) || '@GrowStreams'}</span>
+              {(questMeta.required_keyword as string) && <> and include the word{' '}<span className="text-emerald-400 font-mono">&quot;{questMeta.required_keyword as string}&quot;</span></>}.
+              {' '}Paste your tweet URL below.
+            </div>
+          )}
+          <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
           <input
             type="text"
             value={inputValue}
             onChange={(e) => isFollowX ? setXUsername(e.target.value) : setTweetUrl(e.target.value)}
-            placeholder={isFollowX ? '@yourhandle' : 'https://x.com/yourhandle/status/123...'}
+            placeholder={inputPlaceholder}
             className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none"
           />
           {isRejected && quest.rejectedSubmission?.proof && (quest.rejectedSubmission.proof as { reject_reason?: string }).reject_reason && (
@@ -427,17 +393,90 @@ function QuestCard({
   );
 }
 
+// ─── Edit Name Widget ───────────────────────────────────────────────────────
+function EditNameWidget({ wallet, currentName, onSaved }: { wallet: string; currentName: string; onSaved: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(currentName);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSave = async () => {
+    if (!value.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      await api.quests.updateProfile(wallet, value.trim());
+      onSaved(value.trim());
+      setEditing(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium">{currentName || 'Set your display name'}</span>
+        <button
+          onClick={() => { setValue(currentName); setEditing(true); }}
+          className="p-1 rounded hover:bg-provn-border/40 text-provn-muted hover:text-white transition-colors"
+          title="Edit display name"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+          autoFocus
+          className="bg-provn-bg border border-emerald-500/40 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500/70 w-48"
+          placeholder="Your display name"
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving || !value.trim()}
+          className="p-1.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 disabled:opacity-40 transition-colors"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          className="p-1.5 rounded hover:bg-provn-border/40 text-provn-muted transition-colors"
+        >
+          <XIcon className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {error && <p className="text-red-400 text-xs">{error}</p>}
+    </div>
+  );
+}
+
 // ─── Quest Dashboard ─────────────────────────────────────────────────────────
 function QuestDashboard({ wallet }: { wallet: string }) {
   const [progress, setProgress] = useState<QuestProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState('');
+  const [campaigns, setCampaigns] = useState<Array<any>>([]);
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.quests.me(wallet);
+      const [data, camps] = await Promise.all([api.quests.me(wallet), api.quests.questCampaigns()]);
       setProgress(data);
+      setCampaigns((camps && camps.campaigns) || []);
+      const reg = data.registration as Record<string, unknown> | undefined;
+      setDisplayName((reg?.display_name as string) || '');
     } catch (err) {
       console.error('Failed to load quest progress:', err);
     } finally {
@@ -484,7 +523,16 @@ function QuestDashboard({ wallet }: { wallet: string }) {
     : 0;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 px-4 md:px-0">
+      {/* Profile header */}
+      <div className="flex items-center justify-between">
+        <EditNameWidget
+          wallet={wallet}
+          currentName={displayName}
+          onSaved={(name) => setDisplayName(name)}
+        />
+      </div>
+
       {/* Header Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">
@@ -528,21 +576,62 @@ function QuestDashboard({ wallet }: { wallet: string }) {
         </p>
       </div>
 
-      {/* Quest Cards */}
+      {/* Projects / Campaigns */}
       <div>
         <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
-          <Sprout className="w-5 h-5 text-emerald-400" /> Quests
+          <Sprout className="w-5 h-5 text-emerald-400" /> Projects
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(progress.quests || []).map(quest => (
-            <QuestCard
-              key={quest.slug}
-              quest={quest}
-              wallet={wallet}
-              onClaim={handleClaim}
-              claiming={claiming === quest.slug}
-            />
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {campaigns.map((camp: any) => {
+            const rewardText = camp.reward_summary || (camp.total_seeds_pool ? `${camp.total_seeds_pool} Seeds` : null);
+            return (
+              <div key={camp.slug} className="relative bg-slate-900/60 backdrop-blur-md border border-slate-800 rounded-2xl p-5 hover:shadow-2xl transition-shadow">
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  {camp.status === 'ACTIVE' && <span className="text-[10px] px-2 py-1 rounded-md bg-slate-800 text-slate-200">ACTIVE</span>}
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-lg overflow-hidden bg-black/20 flex items-center justify-center flex-shrink-0 border border-slate-800">
+                    {camp.banner_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={camp.banner_url} alt={camp.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="text-provn-muted font-bold text-lg">{camp.title?.[0] || 'P'}</div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-200">CAMPAIGN</span>
+                      <span className="text-[11px] px-2 py-1 rounded bg-slate-800 text-slate-200">{(camp.difficulty || 'EASY').toUpperCase()}</span>
+                    </div>
+                    <h3 className="font-semibold text-white text-lg truncate">{camp.title}</h3>
+
+                    {rewardText && (
+                      <div className="mt-3 p-2.5 rounded-md border border-emerald-700 bg-emerald-900/30 text-emerald-100 w-full">
+                        <div className="text-[10px] text-emerald-200 uppercase tracking-wider font-semibold">REWARD</div>
+                        <div className="text-sm font-mono font-semibold mt-1">{rewardText}</div>
+                      </div>
+                    )}
+
+                    <p className="text-sm text-provn-muted mt-3 line-clamp-3">{camp.description}</p>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4 text-provn-muted text-sm">
+                        <div className="flex items-center gap-1.5"><Eye className="w-4 h-4" /> <span>{(camp.views || 0).toLocaleString()}</span></div>
+                        <div className="flex items-center gap-1.5"><Heart className="w-4 h-4 text-rose-400" /> <span className="text-rose-200">{(camp.likes || 0).toLocaleString()}</span></div>
+                        <div className="flex items-center gap-1.5"><Sprout className="w-3.5 h-3.5 text-emerald-400" /> <span>{camp.quest_count || 0}</span></div>
+                      </div>
+                      <a href={`/app/campaign/${camp.slug}`}
+                        className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-yellow-300 text-black font-semibold shadow-md hover:bg-yellow-200 transition-colors">
+                        JOIN <ArrowRight className="w-4 h-4" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -598,8 +687,7 @@ export default function QuestsPage() {
   const { account } = useAccount();
   const wallet = account?.decodedAddress || '';
 
-  const [step, setStep] = useState<'invite' | 'register' | 'dashboard'>('invite');
-  const [inviteCode, setInviteCode] = useState('');
+  const [step, setStep] = useState<'register' | 'dashboard'>('register');
   const [loading, setLoading] = useState(true);
 
   // Check if user is already registered
@@ -615,7 +703,7 @@ export default function QuestsPage() {
           setStep('dashboard');
         }
       } catch {
-        // Not registered
+        // Not registered — stay on register step
       } finally {
         setLoading(false);
       }
@@ -642,22 +730,10 @@ export default function QuestsPage() {
     );
   }
 
-  if (step === 'invite') {
-    return (
-      <InviteGate
-        onVerified={(verifiedCode: string) => {
-          setInviteCode(verifiedCode);
-          setStep('register');
-        }}
-      />
-    );
-  }
-
   if (step === 'register') {
     return (
       <RegistrationForm
         wallet={wallet}
-        inviteCode={inviteCode}
         onRegistered={() => setStep('dashboard')}
       />
     );

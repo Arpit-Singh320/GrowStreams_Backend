@@ -1,8 +1,1 @@
-{
-  "experimentalServices": {
-    "api": {
-      "entrypoint": "api",
-      "routePrefix": "/"
-    }
-  }
-}
+{}

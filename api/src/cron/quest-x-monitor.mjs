@@ -15,6 +15,8 @@ function getReadClient() {
 // GrowStreams X account username (without @)
 const GROWSTREAMS_X_HANDLE = process.env.GROWSTREAMS_X_HANDLE || 'GrowStreams';
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 // ---------------------------------------------------------------------------
 // Resolve X user ID from username (with caching in quest_registrations)
 // ---------------------------------------------------------------------------
@@ -103,11 +105,12 @@ export async function runFollowCheck() {
 
       // Resolve user's X ID
       const userId = await resolveXUserId(user.x_username);
-      if (!userId) continue;
+      if (!userId) { await sleep(300); continue; }
 
-      // Check if this user follows GrowStreams
-      // GET /2/users/:id/followers (GrowStreams' followers) and check if userId is in the list
-      // This works with Bearer Token (App-Only Auth)
+      // Check if this user is following GrowStreams — correct direction:
+      // iterate the USER's following list and look for gsId.
+      // A user follows far fewer accounts than GrowStreams has followers,
+      // so this is O(user_following_count) not O(gs_follower_count).
       let isFollowing = false;
       let paginationToken = undefined;
 
@@ -115,16 +118,15 @@ export async function runFollowCheck() {
         const params = { max_results: 1000 };
         if (paginationToken) params.pagination_token = paginationToken;
 
-        // Get GrowStreams' followers and check if userId is in the list
-        const followers = await client.v2.followers(gsId, params);
-        const data = followers?.data || [];
+        const following = await client.v2.following(userId, params);
+        const data = following?.data || [];
 
-        if (data.some(f => f.id === userId)) {
+        if (data.some(f => f.id === gsId)) {
           isFollowing = true;
           break;
         }
 
-        paginationToken = followers?.meta?.next_token;
+        paginationToken = following?.meta?.next_token;
       } while (paginationToken && !isFollowing);
 
       checked++;
@@ -136,13 +138,15 @@ export async function runFollowCheck() {
           console.log(`[quest-x] Q1 Follow verified for @${user.x_username} (${user.wallet})`);
         }
       }
+
+      await sleep(300);
     } catch (err) {
-      // Rate limit handling
       if (err.code === 429 || err.rateLimit) {
         console.warn(`[quest-x] Rate limited during follow check, stopping. Checked ${checked} users.`);
         break;
       }
       console.warn(`[quest-x] Follow check failed for @${user.x_username}: ${err.message}`);
+      await sleep(300);
     }
   }
 
@@ -268,12 +272,14 @@ export async function runMentionCheck() {
             console.log(`[quest-x] Q2 Mention (timeline) verified for @${user.x_username} tweet=${tweet.id}`);
           }
         }
+        await sleep(300);
       } catch (err) {
         if (err.code === 429) {
           console.warn(`[quest-x] Rate limited during timeline check, stopping`);
           break;
         }
         console.warn(`[quest-x] Timeline check failed for @${user.x_username}: ${err.message}`);
+        await sleep(300);
       }
     }
   }

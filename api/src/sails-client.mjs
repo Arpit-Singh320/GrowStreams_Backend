@@ -40,6 +40,12 @@ let gearApi = null;
 let keyring = null;
 let parser = null;
 
+let _mintQueue = Promise.resolve();
+function serialCommand(fn) {
+  _mintQueue = _mintQueue.then(() => fn()).catch(() => fn());
+  return _mintQueue;
+}
+
 const contracts = {
   streamCore: null,
   tokenVault: null,
@@ -203,29 +209,31 @@ export async function query(contractName, fnName, ...args) {
   return result;
 }
 
-export async function command(contractName, fnName, ...args) {
-  const sails = contracts[contractName];
-  if (!sails) throw new Error(`Contract ${contractName} not loaded`);
-  if (!keyring) throw new Error('No keyring configured for signing');
+export function command(contractName, fnName, ...args) {
+  return serialCommand(async () => {
+    const sails = contracts[contractName];
+    if (!sails) throw new Error(`Contract ${contractName} not loaded`);
+    if (!keyring) throw new Error('No keyring configured for signing');
 
-  const serviceName = SERVICE_NAMES[contractName];
-  const service = sails.services[serviceName];
-  if (!service) throw new Error(`Service ${serviceName} not found in ${contractName}`);
+    const serviceName = SERVICE_NAMES[contractName];
+    const service = sails.services[serviceName];
+    if (!service) throw new Error(`Service ${serviceName} not found in ${contractName}`);
 
-  const fn = service.functions[fnName];
-  if (!fn) throw new Error(`Function ${fnName} not found in ${serviceName}`);
+    const fn = service.functions[fnName];
+    if (!fn) throw new Error(`Function ${fnName} not found in ${serviceName}`);
 
-  const tx = fn(...args);
-  tx.withAccount(keyring);
-  await tx.calculateGas();
-  const { response, blockHash } = await tx.signAndSend();
-  let result = null;
-  try {
-    result = await response();
-  } catch (decodeErr) {
-    console.warn(`[sails] Response decode warning for ${contractName}.${fnName}: ${decodeErr.message.slice(0, 80)}`);
-  }
-  return { result, blockHash };
+    const tx = fn(...args);
+    tx.withAccount(keyring);
+    await tx.calculateGas();
+    const { response, blockHash } = await tx.signAndSend();
+    let result = null;
+    try {
+      result = await response();
+    } catch (decodeErr) {
+      console.warn(`[sails] Response decode warning for ${contractName}.${fnName}: ${decodeErr.message.slice(0, 80)}`);
+    }
+    return { result, blockHash };
+  });
 }
 
 export function encodePayload(contractName, fnName, ...args) {

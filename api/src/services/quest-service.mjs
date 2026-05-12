@@ -15,7 +15,6 @@ function generateReferralCode() {
 
 /**
  * Generate a unique personal referral code for a wallet and persist it.
- * Also inserts it into quest_invites so it works as a real invite code.
  * @returns {Promise<string>} The generated referral code
  */
 async function createReferralCodeForWallet(wallet) {
@@ -23,16 +22,13 @@ async function createReferralCodeForWallet(wallet) {
   let attempts = 0;
   do {
     code = generateReferralCode();
-    const existing = await queryOne(`SELECT id FROM quest_invites WHERE code = $1`, [code]);
+    const existing = await queryOne(
+      `SELECT id FROM quest_registrations WHERE referral_code = $1`,
+      [code]
+    );
     if (!existing) break;
     attempts++;
   } while (attempts < 10);
-
-  await queryOne(
-    `INSERT INTO quest_invites (code, created_by, max_uses, expires_at)
-     VALUES ($1, $2, 100, NULL) RETURNING code`,
-    [code, wallet]
-  );
 
   await query(
     `UPDATE quest_registrations SET referral_code = $1 WHERE wallet = $2 OR evm_address = $2`,
@@ -121,17 +117,12 @@ export async function listInvites(status = null) {
 // ---------------------------------------------------------------------------
 
 /**
- * Register a user for quests with invite code, email, and X handle.
- * Accepts either a Substrate SS58 wallet or an EVM 0x address.
- * githubUsername is optional — pass null if not provided.
+ * Register a user for quests.
+ * Requires: display_name, email, and at least one of wallet (SS58) or evm_address (0x).
+ * Pass refCode (from ?ref=GSR-XXXXXX in the referral link) to link referrals.
  */
-export async function registerForQuests(wallet, email, xUsername, inviteCode, evmAddress = null, githubUsername = null) {
-  // Validate invite
-  const { valid, error, invite } = await validateInvite(inviteCode);
-  if (!valid) throw new Error(error);
-
+export async function registerForQuests(wallet, email, displayName, evmAddress = null, refCode = null) {
   // Determine wallet type and normalise addresses
-  const isEvmOnly = !wallet && evmAddress;
   const normalizedWallet = wallet ? wallet.trim() : null;
   const normalizedEvm = evmAddress ? evmAddress.toLowerCase().trim() : null;
   const walletType = normalizedEvm ? (normalizedWallet ? 'both' : 'evm') : 'substrate';
@@ -141,9 +132,7 @@ export async function registerForQuests(wallet, email, xUsername, inviteCode, ev
   }
 
   const normalizedEmail = email.toLowerCase().trim();
-  const normalizedX = xUsername.replace(/^@/, '').toLowerCase().trim();
-  const normalizedGithub = githubUsername ? githubUsername.toLowerCase().trim() : null;
-  const normalizedCode = inviteCode.toUpperCase().trim();
+  const normalizedName = displayName.trim();
 
   // Duplicate checks
   if (normalizedWallet) {
@@ -161,51 +150,44 @@ export async function registerForQuests(wallet, email, xUsername, inviteCode, ev
   const primaryIdentifier = normalizedWallet || normalizedEvm;
 
   const reg = await queryOne(
-    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, email, x_username, github_username, invite_code)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [normalizedWallet, normalizedEvm, walletType, normalizedEmail, normalizedX, normalizedGithub || null, normalizedCode]
-  );
-
-  await query(
-    `UPDATE quest_invites SET current_uses = current_uses + 1, used_by_wallet = $1 WHERE code = $2`,
-    [primaryIdentifier, normalizedCode]
+    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, display_name, email)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [normalizedWallet, normalizedEvm, walletType, normalizedName, normalizedEmail]
   );
 
   // Generate and store the new user's personal referral code
   const referralCode = await createReferralCodeForWallet(primaryIdentifier);
 
-  // Check if the invite was created by another registered user (i.e., it's a referral)
-  const inviteRow = await queryOne(
-    `SELECT created_by FROM quest_invites WHERE code = $1`,
-    [normalizedCode]
-  );
-  const referrerWallet = inviteRow?.created_by;
-  const isReferral = referrerWallet &&
-    referrerWallet !== 'ADMIN' &&
-    referrerWallet !== 'SYSTEM' &&
-    referrerWallet !== primaryIdentifier;
-
-  if (isReferral) {
-    // Link the new user back to the referrer
-    await query(
-      `UPDATE quest_registrations SET referred_by_wallet = $1 WHERE wallet = $2 OR evm_address = $2`,
-      [referrerWallet, primaryIdentifier]
+  // Handle referral: look up referrer by their referral_code in quest_registrations
+  if (refCode) {
+    const normalizedRefCode = refCode.toUpperCase().trim();
+    const referrerRow = await queryOne(
+      `SELECT wallet, evm_address FROM quest_registrations WHERE referral_code = $1`,
+      [normalizedRefCode]
     );
-    // Award the referrer asynchronously so registration still returns fast
-    setImmediate(async () => {
-      try {
-        await awardSeeds(referrerWallet, 'refer-a-friend', {
-          referred_wallet: primaryIdentifier,
-          source: 'referral-registration',
-        });
-        console.log(`[quest] Referral bonus awarded to ${referrerWallet} for bringing in ${primaryIdentifier}`);
-      } catch (refErr) {
-        console.warn(`[quest] Referral bonus failed for ${referrerWallet}: ${refErr.message}`);
-      }
-    });
+    const referrerWallet = referrerRow?.wallet || referrerRow?.evm_address;
+    const isValidReferral = referrerWallet && referrerWallet !== primaryIdentifier;
+
+    if (isValidReferral) {
+      await query(
+        `UPDATE quest_registrations SET referred_by_wallet = $1 WHERE wallet = $2 OR evm_address = $2`,
+        [referrerWallet, primaryIdentifier]
+      );
+      setImmediate(async () => {
+        try {
+          await awardSeeds(referrerWallet, 'refer-a-friend', {
+            referred_wallet: primaryIdentifier,
+            source: 'referral-registration',
+          });
+          console.log(`[quest] Referral bonus awarded to ${referrerWallet} for bringing in ${primaryIdentifier}`);
+        } catch (refErr) {
+          console.warn(`[quest] Referral bonus failed for ${referrerWallet}: ${refErr.message}`);
+        }
+      });
+    }
   }
 
-  console.log(`[quest] Registered ${primaryIdentifier} type=${walletType} (email=${normalizedEmail}, x=@${normalizedX}, gh=${normalizedGithub})`);
+  console.log(`[quest] Registered ${primaryIdentifier} type=${walletType} (email=${normalizedEmail}, name=${normalizedName})`);
   return { ...reg, referral_code: referralCode };
 }
 
@@ -702,8 +684,11 @@ export async function syncOnchainMints() {
         );
         await query(
           `UPDATE seeds_ledger SET tx_hash = $1
-           WHERE quest_id = $2 AND wallet = $3 AND tx_hash IS NULL
-           ORDER BY created_at ASC LIMIT 1`,
+           WHERE id = (
+             SELECT id FROM seeds_ledger
+             WHERE quest_id = $2 AND wallet = $3 AND tx_hash IS NULL
+             ORDER BY created_at ASC LIMIT 1
+           )`,
           [txHash, row.quest_id, row.wallet]
         );
         succeeded++;
@@ -771,7 +756,7 @@ export async function getQuestLeaderboard() {
   return queryAll(`
     SELECT
       r.wallet,
-      r.x_username,
+      r.display_name,
       r.github_username,
       r.registered_at,
       COALESCE(s.total_xp, 0)::int       AS total_xp,
