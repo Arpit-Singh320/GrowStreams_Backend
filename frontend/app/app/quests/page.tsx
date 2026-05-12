@@ -388,7 +388,7 @@ function QuestCard({
       </div>
 
       {/* Manual review submission input */}
-      {needsManualInput && !isCompleted && !isPending && (
+      {needsManualInput && !isCompleted && (!isPending || isPartnerContract) && (
         <div className="mb-3 space-y-2">
           {isMentionX && (
             <div className="text-[11px] text-provn-muted">
@@ -516,7 +516,7 @@ function QuestCard({
           )}
         </div>
 
-        {!isCompleted && !isPending && !isWelcome && (
+        {!isCompleted && (!isPending || isPartnerContract) && !isWelcome && (
           <button
             onClick={handleClaimClick}
             disabled={claiming || (needsManualInput && !inputValid)}
@@ -536,7 +536,7 @@ function QuestCard({
           <span className="text-xs text-provn-muted">Auto-awarded on join</span>
         )}
 
-        {isPending && (
+        {isPending && !isPartnerContract && (
           <span className="text-xs text-amber-400">Awaiting review</span>
         )}
 
