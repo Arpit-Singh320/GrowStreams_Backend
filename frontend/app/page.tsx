@@ -82,7 +82,13 @@ const protocolStatus = [
 ]
 
 const protocolFeatures = [
-  { icon: Layers, title: "Token Agnostic", description: "Stream USDC, VARA, or any token. One protocol, all tokens." },
+  {
+    icon: Layers,
+    title: "Premium",
+    description: "Premium features and pilots running on Canton Network.",
+    badge: "Canton Network",
+    highlights: ["Grow Token - soon", "Payment Streams - soon"],
+  },
   { icon: Shield, title: "Buffer & Solvency", description: "Deposit-based model ensures streams never go negative. Transparent liquidation rules." },
   { icon: Code2, title: "Composable", description: "Plug into any app. StreamCore + Vault + SplitsRouter — modular by design." },
   { icon: Zap, title: "Per-Second Settlement", description: "Powered by Vara's low-cost execution. Real-time payments at scale." },
@@ -430,11 +436,11 @@ export default function HomeV2() {
             </p>
           </motion.div>
 
-          {/* Bento Grid Layout: 1 large feature + 3 smaller — with SpotlightCard */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {/* Bento Grid Layout: 2x2 equal cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {protocolFeatures.map((feature, i) => {
               const Icon = feature.icon
-              const isLarge = i === 0
+              const isPremium = feature.title === "Premium"
               return (
                 <motion.div
                   key={feature.title}
@@ -443,32 +449,66 @@ export default function HomeV2() {
                   whileInView="visible"
                   viewport={{ once: true }}
                   variants={fadeUp}
-                  className={isLarge ? "md:col-span-2 lg:col-span-2 lg:row-span-2" : ""}
                 >
                   <SpotlightCard
-                    className={`${isLarge ? "p-8 lg:p-10" : "p-6"} rounded-2xl bg-provn-surface/50 border border-provn-border/30 hover:border-emerald-500/20 transition-all duration-300 h-full`}
-                    spotlightColor="rgba(16, 185, 129, 0.08)"
+                    className={`p-6 lg:p-8 rounded-2xl bg-provn-surface/60 border border-provn-border/30 hover:border-emerald-500/20 transition-all duration-300 h-full ${isPremium ? "border-amber-500/30 bg-gradient-to-br from-[#1a1410] via-[#0e0f12] to-[#0a0b0f]" : ""}`}
+                    spotlightColor={isPremium ? "rgba(245, 158, 11, 0.12)" : "rgba(16, 185, 129, 0.06)"}
                   >
-                    {/* Mesh gradient for large card */}
-                    {isLarge && (
+                    {/* subtle background for premium vs default */}
+                    {isPremium ? (
                       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
-                        <div className="absolute top-[20%] left-[10%] w-[200px] h-[200px] rounded-full bg-emerald-500/[0.06] blur-[80px] animate-pulse" style={{ animationDuration: "6s" }} />
-                        <div className="absolute bottom-[15%] right-[15%] w-[180px] h-[180px] rounded-full bg-cyan-500/[0.05] blur-[70px] animate-pulse" style={{ animationDuration: "8s", animationDelay: "2s" }} />
-                        <div className="absolute top-[50%] right-[30%] w-[150px] h-[150px] rounded-full bg-purple-500/[0.04] blur-[60px] animate-pulse" style={{ animationDuration: "7s", animationDelay: "4s" }} />
+                        <div className="absolute -top-10 -left-10 w-[240px] h-[240px] rounded-full bg-amber-500/10 blur-[70px]" />
+                        <div className="absolute bottom-6 right-6 w-[160px] h-[160px] rounded-full bg-amber-900/12 blur-[60px]" />
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.08),transparent_45%)]" />
                       </div>
-                    )}
-                    <div className={`${isLarge ? "w-14 h-14" : "w-12 h-12"} rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4`}>
-                      <Icon className={`${isLarge ? "w-7 h-7" : "w-6 h-6"} text-emerald-400`} />
+                    ) : null}
+
+                    <div className="mb-3">
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isPremium ? "bg-gradient-to-br from-amber-500/20 to-amber-700/10 border border-amber-500/30" : "bg-gradient-to-br from-emerald-700/10 to-emerald-500/6"}`}>
+                        <Icon className={`w-6 h-6 ${isPremium ? "text-amber-200" : "text-emerald-300"}`} />
+                      </div>
                     </div>
-                    <h3 className={`${isLarge ? "text-2xl" : "text-lg"} font-semibold mb-2`}>{feature.title}</h3>
-                    <p className={`${isLarge ? "text-base" : "text-sm"} text-gray-400 leading-relaxed`}>
-                      {feature.description}
-                    </p>
-                    {isLarge && (
-                      <div className="mt-6 flex items-center gap-4 text-sm text-provn-muted">
-                        <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" /> USDC</div>
-                        <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500" /> VARA</div>
-                        <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-purple-500" /> Any ERC-20</div>
+
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1">
+                        {!isPremium && (
+                          <>
+                            <h3 className="text-xl font-semibold mb-1 flex items-center gap-2">
+                              <span>{feature.title}</span>
+                              {feature.badge && (
+                                <span className={`text-[11px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5 ${isPremium ? "text-amber-100 bg-amber-700/20 border border-amber-500/30" : "text-amber-900 bg-amber-300/10 border border-amber-500/20"}`}>
+                                  {feature.badge}
+                                </span>
+                              )}
+                            </h3>
+                            <p className={`text-sm leading-relaxed ${isPremium ? "text-amber-100/80" : "text-gray-300/90"}`}>{feature.description}</p>
+                          </>
+                        )}
+                        {isPremium && feature.badge && (
+                          <span className="text-[11px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5 text-amber-100 bg-amber-700/20 border border-amber-500/30">
+                            {feature.badge}
+                          </span>
+                        )}
+                        {isPremium && (
+                          <div className="mt-2 text-xs text-amber-200/80">
+                            Launching soon on Canton Network
+                          </div>
+                        )}
+                      </div>
+                      {isPremium && (
+                        <span className="text-[10px] font-semibold text-amber-50 bg-amber-600/90 px-2.5 py-1 rounded-full border border-amber-400/40 shadow-[0_0_10px_rgba(245,158,11,0.25)]">
+                          COMING SOON
+                        </span>
+                      )}
+                    </div>
+
+                    {feature.highlights && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {feature.highlights.map((h) => (
+                          <span key={h} className={`text-sm font-medium rounded-full px-3 py-1 ${isPremium ? "text-amber-100/90 bg-amber-700/20 border border-amber-500/30" : "text-provn-muted bg-provn-surface/20 border border-provn-border/20"}`}>
+                            {h}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </SpotlightCard>

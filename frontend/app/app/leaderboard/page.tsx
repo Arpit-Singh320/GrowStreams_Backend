@@ -328,11 +328,7 @@ export default function LeaderboardPage() {
             <Sprout className="w-4 h-4" />
             {totals.totalXP.toLocaleString()}
           </p>
-          {onchainTotal !== null && (
-            <p className="text-[10px] text-provn-muted mt-0.5">
-              {onchainTotal.toLocaleString()} on-chain
-            </p>
-          )}
+          
         </div>
         <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
           <p className="text-xs text-provn-muted">Completions</p>
