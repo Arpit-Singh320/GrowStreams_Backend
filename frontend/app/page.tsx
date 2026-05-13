@@ -238,7 +238,7 @@ export default function HomeV2() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                   </span>
-                  <TextScramble text="Live on Vara Testnet" speed={25} scrambleDuration={1200} />
+                  <TextScramble text="Live on Vara Mainnet" speed={25} scrambleDuration={1200} />
                 </div>
               </motion.div>
 
