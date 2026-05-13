@@ -224,7 +224,7 @@ export function command(contractName, fnName, ...args) {
 
     const tx = fn(...args);
     tx.withAccount(keyring);
-    await tx.calculateGas();
+    tx.withGas(50_000_000_000n); // fixed gas — avoids calculateGas WebSocket hangs on mainnet
     const { response, blockHash } = await tx.signAndSend();
     let result = null;
     try {

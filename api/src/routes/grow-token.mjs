@@ -87,16 +87,25 @@ router.get('/meta', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+async function toActorId(addr) {
+  if (!addr) return addr;
+  if (addr.startsWith('0x') && addr.length === 66) return addr;
+  const { decodeAddress } = await import('@polkadot/util-crypto');
+  return '0x' + Buffer.from(decodeAddress(addr)).toString('hex');
+}
+
 router.get('/balance/:account', async (req, res, next) => {
   try {
-    const result = await query(C, 'BalanceOf', req.params.account);
+    const actorId = await toActorId(req.params.account);
+    const result = await query(C, 'BalanceOf', actorId);
     res.json({ account: req.params.account, balance: toBigIntStr(result) });
   } catch (err) { next(err); }
 });
 
 router.get('/allowance/:owner/:spender', async (req, res, next) => {
   try {
-    const result = await query(C, 'Allowance', req.params.owner, req.params.spender);
+    const [owner, spender] = await Promise.all([toActorId(req.params.owner), toActorId(req.params.spender)]);
+    const result = await query(C, 'Allowance', owner, spender);
     res.json({ owner: req.params.owner, spender: req.params.spender, allowance: toBigIntStr(result) });
   } catch (err) { next(err); }
 });
@@ -189,8 +198,15 @@ router.post('/faucet', async (req, res, next) => {
       return res.status(429).json({ error: `Rate limited. Try again in ${waitSec}s.` });
     }
 
+    // Convert SS58 → hex ActorId if needed
+    let recipient = to;
+    if (!to.startsWith('0x') || to.length !== 66) {
+      const { decodeAddress } = await import('@polkadot/util-crypto');
+      recipient = '0x' + Buffer.from(decodeAddress(to)).toString('hex');
+    }
+
     // Mint using server-side admin keyring
-    const { result, blockHash } = await command(C, 'Mint', to, FAUCET_AMOUNT);
+    const { result, blockHash } = await command(C, 'Mint', recipient, FAUCET_AMOUNT);
     faucetState.lastMint.set(addrLower, Date.now());
 
     res.json({
