@@ -194,6 +194,7 @@ impl<'a> VaultService<'a> {
 impl<'a> VaultService<'a> {
     // ---- Commands ----
 
+    #[export]
     pub async fn deposit_tokens(&mut self, token: ActorId, amount: u128) -> Result<(), VaultError> {
         {
             let state = self.state.borrow();
@@ -230,6 +231,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub fn deposit_native(&mut self) -> Result<(), VaultError> {
         let mut state = self.state.borrow_mut();
         if state.paused { return Err(VaultError::Paused); }
@@ -245,6 +247,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub async fn withdraw_tokens(&mut self, token: ActorId, amount: u128) -> Result<(), VaultError> {
         if token == ActorId::zero() { return Err(VaultError::UseWithdrawNative); }
         let caller = msg::source();
@@ -281,6 +284,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub fn withdraw_native(&mut self, amount: u128) -> Result<(), VaultError> {
         let mut state = self.state.borrow_mut();
         if state.paused { return Err(VaultError::Paused); }
@@ -295,6 +299,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub fn allocate_to_stream(
         &mut self,
         owner: ActorId,
@@ -317,6 +322,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub fn release_from_stream(
         &mut self,
         owner: ActorId,
@@ -341,6 +347,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub async fn transfer_to_receiver(
         &mut self,
         token: ActorId,
@@ -384,6 +391,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub fn emergency_pause(&mut self) -> Result<(), VaultError> {
         let mut state = self.state.borrow_mut();
         let caller = msg::source();
@@ -392,6 +400,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub fn emergency_unpause(&mut self) -> Result<(), VaultError> {
         let mut state = self.state.borrow_mut();
         let caller = msg::source();
@@ -400,6 +409,7 @@ impl<'a> VaultService<'a> {
         Ok(())
     }
 
+    #[export]
     pub fn set_stream_core(&mut self, stream_core: ActorId) -> Result<(), VaultError> {
         let mut state = self.state.borrow_mut();
         let caller = msg::source();
@@ -410,6 +420,7 @@ impl<'a> VaultService<'a> {
 
     // ---- Queries ----
 
+    #[export]
     pub fn get_balance(&self, owner: ActorId, token: ActorId) -> VaultBalance {
         let state = self.state.borrow();
         state
@@ -425,6 +436,7 @@ impl<'a> VaultService<'a> {
             })
     }
 
+    #[export]
     pub fn get_stream_allocation(&self, stream_id: u64) -> u128 {
         let state = self.state.borrow();
         state
@@ -434,11 +446,13 @@ impl<'a> VaultService<'a> {
             .unwrap_or(0)
     }
 
+    #[export]
     pub fn is_paused(&self) -> bool {
         let state = self.state.borrow();
         state.paused
     }
 
+    #[export]
     pub fn get_config(&self) -> VaultConfig {
         let state = self.state.borrow();
         // Compute total_tokens_held by summing all available + allocated balances

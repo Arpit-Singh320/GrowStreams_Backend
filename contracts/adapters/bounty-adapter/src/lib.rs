@@ -114,6 +114,7 @@ impl BountyService {
 impl BountyService {
     // --- Mutations ---
 
+    #[export]
     pub fn create_bounty(
         &mut self,
         title: String,
@@ -154,6 +155,7 @@ impl BountyService {
         id
     }
 
+    #[export]
     pub fn claim_bounty(&mut self, bounty_id: BountyId) {
         let claimer = msg::source();
         let s = state_mut();
@@ -167,6 +169,7 @@ impl BountyService {
         s.claimer_bounties.entry(claimer).or_insert_with(Vec::new).push(bounty_id);
     }
 
+    #[export]
     pub fn verify_and_start_stream(
         &mut self,
         bounty_id: BountyId,
@@ -201,6 +204,7 @@ impl BountyService {
         pseudo_stream_id
     }
 
+    #[export]
     pub fn adjust_stream(&mut self, bounty_id: BountyId, new_flow_rate: u128) {
         let caller = msg::source();
         let s = state_mut();
@@ -217,6 +221,7 @@ impl BountyService {
         let _ = new_flow_rate;
     }
 
+    #[export]
     pub fn complete_bounty(&mut self, bounty_id: BountyId) {
         let caller = msg::source();
         let s = state_mut();
@@ -235,6 +240,7 @@ impl BountyService {
         bounty.active_stream = None;
     }
 
+    #[export]
     pub fn cancel_bounty(&mut self, bounty_id: BountyId) {
         let caller = msg::source();
         let s = state_mut();
@@ -253,12 +259,14 @@ impl BountyService {
         bounty.active_stream = None;
     }
 
+    #[export]
     pub fn set_stream_core(&mut self, stream_core: ActorId) {
         let s = state_mut();
         assert!(msg::source() == s.admin, "Only admin");
         s.stream_core = stream_core;
     }
 
+    #[export]
     pub fn set_identity_registry(&mut self, identity_registry: ActorId) {
         let s = state_mut();
         assert!(msg::source() == s.admin, "Only admin");
@@ -267,26 +275,32 @@ impl BountyService {
 
     // --- Queries ---
 
+    #[export]
     pub fn get_bounty(&self, bounty_id: BountyId) -> Option<Bounty> {
         state().bounties.get(&bounty_id).cloned()
     }
 
+    #[export]
     pub fn get_open_bounties(&self) -> Vec<BountyId> {
         state().open_bounties.clone()
     }
 
+    #[export]
     pub fn get_creator_bounties(&self, creator: ActorId) -> Vec<BountyId> {
         state().creator_bounties.get(&creator).cloned().unwrap_or_default()
     }
 
+    #[export]
     pub fn get_claimer_bounties(&self, claimer: ActorId) -> Vec<BountyId> {
         state().claimer_bounties.get(&claimer).cloned().unwrap_or_default()
     }
 
+    #[export]
     pub fn total_bounties(&self) -> u64 {
         state().bounties.len() as u64
     }
 
+    #[export]
     pub fn get_config(&self) -> (ActorId, ActorId, ActorId) {
         let s = state();
         (s.admin, s.stream_core, s.identity_registry)

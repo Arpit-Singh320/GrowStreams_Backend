@@ -105,6 +105,7 @@ impl SeedsService {
     // ---- Commands ----
 
     /// Mint Seeds to a user (admin only). Called by backend on quest completion.
+    #[export]
     pub fn mint(&mut self, to: ActorId, amount: u128, reason: String) -> MintEvent {
         let state = QuestSeedsState::get();
         let caller = msg::source();
@@ -119,6 +120,7 @@ impl SeedsService {
     }
 
     /// Batch mint Seeds to multiple users (admin only).
+    #[export]
     pub fn batch_mint(&mut self, recipients: Vec<(ActorId, u128, String)>) -> Vec<MintEvent> {
         let state = QuestSeedsState::get();
         let caller = msg::source();
@@ -138,6 +140,7 @@ impl SeedsService {
     }
 
     /// Transfer Seeds between users.
+    #[export]
     pub fn transfer(&mut self, to: ActorId, amount: u128) -> bool {
         let state = QuestSeedsState::get();
         let from = msg::source();
@@ -155,6 +158,7 @@ impl SeedsService {
     }
 
     /// Burn Seeds (caller burns their own).
+    #[export]
     pub fn burn(&mut self, amount: u128) {
         let state = QuestSeedsState::get();
         let caller = msg::source();
@@ -169,31 +173,37 @@ impl SeedsService {
 
     // ---- Queries ----
 
+    #[export]
     pub fn balance_of(&self, account: ActorId) -> u128 {
         let state = QuestSeedsState::get();
         state.balance_of(&account)
     }
 
+    #[export]
     pub fn total_supply(&self) -> u128 {
         let state = QuestSeedsState::get();
         state.total_supply
     }
 
+    #[export]
     pub fn name(&self) -> String {
         let state = QuestSeedsState::get();
         state.name.clone()
     }
 
+    #[export]
     pub fn symbol(&self) -> String {
         let state = QuestSeedsState::get();
         state.symbol.clone()
     }
 
+    #[export]
     pub fn decimals(&self) -> u8 {
         let state = QuestSeedsState::get();
         state.decimals
     }
 
+    #[export]
     pub fn get_meta(&self) -> SeedsMeta {
         let state = QuestSeedsState::get();
         SeedsMeta {

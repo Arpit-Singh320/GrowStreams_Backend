@@ -101,6 +101,7 @@ impl IdentityService {
 impl IdentityService {
     // --- Mutations ---
 
+    #[export]
     pub fn create_binding(
         &mut self,
         actor: ActorId,
@@ -141,6 +142,7 @@ impl IdentityService {
         s.total_bindings += 1;
     }
 
+    #[export]
     pub fn revoke_binding(&mut self, actor: ActorId) {
         let caller = msg::source();
         let s = state_mut();
@@ -151,6 +153,7 @@ impl IdentityService {
         s.total_bindings = s.total_bindings.saturating_sub(1);
     }
 
+    #[export]
     pub fn update_score(&mut self, actor: ActorId, new_score: u32) {
         let caller = msg::source();
         let s = state_mut();
@@ -162,6 +165,7 @@ impl IdentityService {
         binding.updated_at = exec::block_timestamp();
     }
 
+    #[export]
     pub fn set_oracle(&mut self, new_oracle: ActorId) {
         let s = state_mut();
         assert!(msg::source() == s.oracle, "Only oracle can transfer ownership");
@@ -170,23 +174,28 @@ impl IdentityService {
 
     // --- Queries ---
 
+    #[export]
     pub fn get_actor_by_github(&self, github_username: String) -> Option<ActorId> {
         let gh_hash = hash_username(&github_username);
         state().github_to_actor.get(&gh_hash).copied()
     }
 
+    #[export]
     pub fn get_binding(&self, actor: ActorId) -> Option<Binding> {
         state().bindings.get(&actor).cloned()
     }
 
+    #[export]
     pub fn oracle_address(&self) -> ActorId {
         state().oracle
     }
 
+    #[export]
     pub fn total_bindings(&self) -> u32 {
         state().total_bindings
     }
 
+    #[export]
     pub fn get_config(&self) -> (ActorId, u32) {
         let s = state();
         (s.oracle, s.total_bindings)

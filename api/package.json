@@ -15,8 +15,8 @@
     "test:api": "node tests/integration/api-v3.test.mjs"
   },
   "dependencies": {
-    "@gear-js/api": "0.38.3",
-    "@polkadot/api": "13.2.1",
+    "@gear-js/api": "^0.45.0",
+    "@polkadot/api": "^16.4.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
@@ -26,8 +26,8 @@
     "openai": "^4.70.0",
     "pg": "^8.13.0",
     "resend": "^6.12.3",
-    "sails-js": "0.3.1",
-    "sails-js-parser": "0.3.1",
+    "sails-js": "^0.5.1",
+    "sails-js-parser": "^0.5.1",
     "twitter-api-v2": "^1.17.0",
     "viem": "^2.21.0"
   },

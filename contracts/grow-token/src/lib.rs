@@ -103,6 +103,7 @@ impl VftService {
 impl VftService {
     // ---- Commands ----
 
+    #[export]
     pub fn transfer(&mut self, to: ActorId, amount: u128) -> bool {
         let state = GrowTokenState::get();
         let from = msg::source();
@@ -119,6 +120,7 @@ impl VftService {
         true
     }
 
+    #[export]
     pub fn approve(&mut self, spender: ActorId, amount: u128) -> bool {
         let state = GrowTokenState::get();
         let owner = msg::source();
@@ -126,6 +128,7 @@ impl VftService {
         true
     }
 
+    #[export]
     pub fn transfer_from(&mut self, from: ActorId, to: ActorId, amount: u128) -> bool {
         let state = GrowTokenState::get();
         let spender = msg::source();
@@ -150,6 +153,7 @@ impl VftService {
         true
     }
 
+    #[export]
     pub fn mint(&mut self, to: ActorId, amount: u128) {
         let state = GrowTokenState::get();
         let caller = msg::source();
@@ -161,6 +165,7 @@ impl VftService {
         state.total_supply = state.total_supply.saturating_add(amount);
     }
 
+    #[export]
     pub fn burn(&mut self, amount: u128) {
         let state = GrowTokenState::get();
         let caller = msg::source();
@@ -175,36 +180,43 @@ impl VftService {
 
     // ---- Queries ----
 
+    #[export]
     pub fn balance_of(&self, account: ActorId) -> u128 {
         let state = GrowTokenState::get();
         state.balance_of(&account)
     }
 
+    #[export]
     pub fn allowance(&self, owner: ActorId, spender: ActorId) -> u128 {
         let state = GrowTokenState::get();
         state.allowance_of(&owner, &spender)
     }
 
+    #[export]
     pub fn total_supply(&self) -> u128 {
         let state = GrowTokenState::get();
         state.total_supply
     }
 
+    #[export]
     pub fn name(&self) -> String {
         let state = GrowTokenState::get();
         state.name.clone()
     }
 
+    #[export]
     pub fn symbol(&self) -> String {
         let state = GrowTokenState::get();
         state.symbol.clone()
     }
 
+    #[export]
     pub fn decimals(&self) -> u8 {
         let state = GrowTokenState::get();
         state.decimals
     }
 
+    #[export]
     pub fn get_meta(&self) -> TokenMeta {
         let state = GrowTokenState::get();
         TokenMeta {

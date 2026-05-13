@@ -40,7 +40,7 @@ router.post('/test-mint', async (req, res, next) => {
       reason: 'test:api-verification',
       blockHash: mintResult.blockHash,
       message: 'Test mint successful! Check VARA Idea portal to verify on-chain.',
-      varaIdeaLink: `https://idea.gear-tech.io/programs/0xf12f4e2c2e6f4f38a958d693caebb4ed77012d729fde0496dc432fa3e66a8241?node=wss://testnet.vara.network`
+      varaIdeaLink: `https://idea.gear-tech.io/programs/${process.env.QUEST_SEEDS_ID || '0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d'}?node=wss://rpc.vara.network`
     });
 
   } catch (err) {

@@ -105,6 +105,7 @@ impl PermissionService {
 impl PermissionService {
     // --- Mutations ---
 
+    #[export]
     pub fn grant_permission(
         &mut self,
         grantee: ActorId,
@@ -139,6 +140,7 @@ impl PermissionService {
         s.permissions.insert(key, perm);
     }
 
+    #[export]
     pub fn revoke_permission(&mut self, grantee: ActorId, scope: PermissionScope) {
         let granter = msg::source();
         let s = state_mut();
@@ -149,6 +151,7 @@ impl PermissionService {
         perm.active = false;
     }
 
+    #[export]
     pub fn revoke_all(&mut self, grantee: ActorId) {
         let granter = msg::source();
         let s = state_mut();
@@ -167,6 +170,7 @@ impl PermissionService {
         }
     }
 
+    #[export]
     pub fn set_stream_core(&mut self, stream_core: ActorId) {
         let s = state_mut();
         assert!(msg::source() == s.admin, "Only admin can set stream_core");
@@ -175,6 +179,7 @@ impl PermissionService {
 
     // --- Queries ---
 
+    #[export]
     pub fn has_permission(
         &self,
         granter: ActorId,
@@ -209,6 +214,7 @@ impl PermissionService {
         false
     }
 
+    #[export]
     pub fn get_permissions(&self, granter: ActorId) -> Vec<Permission> {
         let s = state();
         s.by_granter
@@ -223,6 +229,7 @@ impl PermissionService {
             .unwrap_or_default()
     }
 
+    #[export]
     pub fn get_granted_permissions(&self, grantee: ActorId) -> Vec<Permission> {
         let s = state();
         s.by_grantee
@@ -237,11 +244,13 @@ impl PermissionService {
             .unwrap_or_default()
     }
 
+    #[export]
     pub fn get_config(&self) -> (ActorId, ActorId) {
         let s = state();
         (s.admin, s.stream_core)
     }
 
+    #[export]
     pub fn total_permissions(&self) -> u64 {
         state().permissions.values().filter(|p| p.active).count() as u64
     }

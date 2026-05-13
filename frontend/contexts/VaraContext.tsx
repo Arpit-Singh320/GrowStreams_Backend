@@ -8,7 +8,7 @@ import {
 import type { AlertTemplateProps } from '@gear-js/react-hooks';
 import { ReactNode } from 'react';
 
-const VARA_NODE_ENDPOINT = process.env.NEXT_PUBLIC_VARA_NODE_ADDRESS || 'wss://testnet.vara.network';
+const VARA_NODE_ENDPOINT = process.env.NEXT_PUBLIC_VARA_NODE_ADDRESS || 'wss://rpc.vara.network';
 const APP_NAME = 'GrowStreams';
 
 function SimpleAlert({ alert, close }: AlertTemplateProps) {

@@ -8,13 +8,14 @@ import { decodeAddress } from '@gear-js/api';
 import { api as gsApi, type PayloadResult, type TxResult } from '@/lib/growstreams-api';
 
 export const PROGRAM_IDS: Record<string, string> = {
-  streamCore: '0x0998ba27a7b2a0d8a383dc23054164bac1fc2e4b64694f0d7ec4db3bd6265957',
-  tokenVault: '0xc7647e6e6b47ab9390f081dff1373e58733c698ef0b9ce582dca8ebe9af66588',
-  growToken: '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf',
-  splitsRouter: '0x8f9fcabb24ae57404b6c3a9fde57331a32e457326652fc535e773389d90b4395',
-  permissionManager: '0x467b350648690279e9bbf16fbc7c0525d8e5628d967382a36253c1c095fa4a0f',
-  bountyAdapter: '0xc34b86ada8fcbb18c2b6efcd4f9299592e4d909bc7b803ed047ba5cfaf76eb32',
-  identityRegistry: '0xd07d3da386ad769e8ef37923666cb22efef479d2d5b32c1bbbd01e37c3cdeff7',
+  streamCore: '0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d',
+  tokenVault: '0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef',
+  growToken: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
+  splitsRouter: '0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45',
+  permissionManager: '0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581',
+  bountyAdapter: '0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f',
+  identityRegistry: '0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29',
+  questSeeds: '0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d',
 };
 
 interface SendResult {

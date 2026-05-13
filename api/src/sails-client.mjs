@@ -107,7 +107,7 @@ async function initSailsInstance(name, idlPath, programId) {
 }
 
 export async function connect() {
-  const nodeUrl = process.env.VARA_NODE || 'wss://testnet.vara.network';
+  const nodeUrl = process.env.VARA_NODE || 'wss://rpc.vara.network';
   const seed = process.env.VARA_SEED;
 
   console.log(`[sails] Connecting to ${nodeUrl}...`);

@@ -6,6 +6,7 @@ import { runCampaignLifecycle } from './campaign-lifecycle.mjs';
 import { runStreamCheck } from './quest-stream-monitor.mjs';
 import { runFollowCheck, runMentionCheck } from './quest-x-monitor.mjs';
 import { syncOnchainMints } from '../services/quest-service.mjs';
+import { revokeExpiredVouchers } from '../services/voucher-service.mjs';
 
 export function initCrons() {
   // Daily XP accumulation — midnight UTC
@@ -101,6 +102,18 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
+  // Voucher reclaim — every 6 hours, revoke expired vouchers on-chain to reclaim VARA
+  cron.schedule('30 */6 * * *', async () => {
+    try {
+      const result = await revokeExpiredVouchers();
+      if (result.marked > 0) {
+        console.log(`[cron] voucher-reclaim: ${result.revoked} revoked on-chain, ${result.marked} total expired`);
+      }
+    } catch (err) {
+      console.error(`[cron] voucher-reclaim failed: ${err.message}`);
+    }
+  }, { timezone: 'UTC' });
+
   console.log('[cron] All cron jobs scheduled:');
   console.log('[cron]   daily-xp:         0 0 * * *      (midnight UTC)');
   console.log('[cron]   snapshot:         5 0 * * *      (00:05 UTC)');
@@ -110,4 +123,5 @@ export function initCrons() {
   console.log('[cron]   sync-onchain:     0 * * * *      (every 1h)');
   console.log('[cron]   quest-x-follow:   0 */6 * * *    (every 6h)');
   console.log('[cron]   quest-x-mention:  0 1,7,13,19 * * * (every 6h offset)');
+  console.log('[cron]   voucher-reclaim:  30 */6 * * *   (every 6h, reclaims VARA)');
 }

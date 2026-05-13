@@ -1,1 +1,1 @@
-../target/wasm32-unknown-unknown/debug/identity_registry
+..\target\wasm32-unknown-unknown\wasm32-gear\release\identity_registry

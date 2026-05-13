@@ -1,58 +1,58 @@
 {
   "stream-core": {
-    "programId": "0x0998ba27a7b2a0d8a383dc23054164bac1fc2e4b64694f0d7ec4db3bd6265957",
-    "codeId": "0x5aa57ab23866112cac282f0820492aed40832d9d171d60dffcb7bdb9f07e78ce",
-    "deployedAt": "2026-04-21T11:30:48.628Z",
-    "network": "vara-testnet",
-    "node": "wss://testnet.vara.network"
+    "programId": "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+    "codeId": "0x6779c341d19ba154f9b4aa4dae619c9bebae9ed141fa67d8972fdc0073e4f3fd",
+    "deployedAt": "2026-05-13T10:49:18.569Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   },
   "token-vault": {
-    "programId": "0xc7647e6e6b47ab9390f081dff1373e58733c698ef0b9ce582dca8ebe9af66588",
-    "codeId": "0xa90a85211f786cd63fc823ec834f12f12bd94f742afb35b0ecbf645dccbe35e5",
-    "deployedAt": "2026-04-21T10:12:29.485Z",
-    "network": "vara-testnet",
-    "node": "wss://testnet.vara.network"
+    "programId": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+    "codeId": "0xc567b7ba58c39c509e3740e3f10c825e077f2c937ccf5b81ccf52f56ace46fe5",
+    "deployedAt": "2026-05-13T10:48:57.832Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   },
   "splits-router": {
-    "programId": "0x8f9fcabb24ae57404b6c3a9fde57331a32e457326652fc535e773389d90b4395",
-    "codeId": "0xa1e757b2410e97e00569170918854483dca32b9eb27b44fe3bec84f45d4a639c",
-    "deployedAt": "2026-04-09T19:22:41.077Z",
-    "network": "vara-testnet",
-    "node": "wss://testnet.vara.network"
+    "programId": "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+    "codeId": "0x70586afffd9690fd6bc2b455cd9fcb134f78d3455798e270a556d7566f0c081b",
+    "deployedAt": "2026-05-13T10:49:39.184Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   },
   "permission-manager": {
-    "programId": "0x467b350648690279e9bbf16fbc7c0525d8e5628d967382a36253c1c095fa4a0f",
-    "codeId": "0xb9b9124165deff45660b957ad2349b0d1e8e0add405c7dfa3998860185521f33",
-    "deployedAt": "2026-04-09T19:23:17.162Z",
-    "network": "vara-testnet",
-    "node": "wss://testnet.vara.network"
+    "programId": "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+    "codeId": "0xe074b9110b51275300df06364b8fac7408bcaa909b2b4b7f1419e8a6ca24f6d7",
+    "deployedAt": "2026-05-13T10:47:27.112Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   },
   "bounty-adapter": {
-    "programId": "0xc34b86ada8fcbb18c2b6efcd4f9299592e4d909bc7b803ed047ba5cfaf76eb32",
-    "codeId": "0x53a7217befd671660d7cb927bda2836b864ffe305fc30bc9d98b80c90945158b",
-    "deployedAt": "2026-04-09T19:23:48.056Z",
-    "network": "vara-testnet",
-    "node": "wss://testnet.vara.network"
+    "programId": "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+    "codeId": "0x11927b706338c1e1835e8230ecc5908d7ecac66fb3fe21a67017b9b1b99b0ff9",
+    "deployedAt": "2026-05-13T10:49:59.735Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   },
   "identity-registry": {
-    "programId": "0xd07d3da386ad769e8ef37923666cb22efef479d2d5b32c1bbbd01e37c3cdeff7",
-    "codeId": "0x00f9a3700b358fbb86e2ba05cd2c82f3302ddf660a5e64fbee36e16ba01e6093",
-    "deployedAt": "2026-04-09T19:24:53.259Z",
-    "network": "vara-testnet",
-    "node": "wss://testnet.vara.network"
+    "programId": "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+    "codeId": "0xcd985b37155e0ee97d1c9abdbce7353fc284ae261b6093ca9e6c92f29e3cccf2",
+    "deployedAt": "2026-05-13T10:47:47.697Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   },
   "grow-token": {
-    "programId": "0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf",
-    "codeId": "0xa3739c5709c67d78e1ec4bd859ce7de2508c913c8a7a0ab03f5e6047a8b27e48",
-    "deployedAt": "2026-04-09T19:25:32.969Z",
-    "network": "vara-testnet",
-    "node": "wss://testnet.vara.network"
+    "programId": "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+    "codeId": "0x495cd023086989ad90cf23704dc699bf92001ba5251f4ee0af36326ca1d3c585",
+    "deployedAt": "2026-05-13T10:48:12.386Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   },
   "quest-seeds": {
-    "programId": "0xf12f4e2c2e6f4f38a958d693caebb4ed77012d729fde0496dc432fa3e66a8241",
-    "codeId": "0x2557fa7eae16da7076b37c770ad7a4cb287ab35bae988dcbb12407dd9cc1e3a1",
-    "deployedAt": "2026-04-17T17:16:07.061Z",
-    "network": "vara-testnet",
-    "node": "wss://testnet.vara.network"
+    "programId": "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+    "codeId": "0x1bccba35384bc0dea0f23f618911da6b94f42078fc8f9eb090744c8f92e49b86",
+    "deployedAt": "2026-05-13T10:48:33.117Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   }
 }

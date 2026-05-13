@@ -203,6 +203,7 @@ impl StreamService {
 impl StreamService {
     // ---- Commands ----
 
+    #[export]
     pub async fn create_stream(
         &mut self,
         receiver: ActorId,
@@ -265,6 +266,7 @@ impl StreamService {
         id
     }
 
+    #[export]
     pub fn update_stream(&mut self, stream_id: u64, new_flow_rate: u128) {
         let state = StreamCoreState::get();
         let caller = msg::source();
@@ -283,6 +285,7 @@ impl StreamService {
         stream.flow_rate = new_flow_rate;
     }
 
+    #[export]
     pub async fn stop_stream(&mut self, stream_id: u64) {
         let state = StreamCoreState::get();
         let caller = msg::source();
@@ -325,6 +328,7 @@ impl StreamService {
         state.active_count = state.active_count.saturating_sub(1);
     }
 
+    #[export]
     pub fn pause_stream(&mut self, stream_id: u64) {
         let state = StreamCoreState::get();
         let caller = msg::source();
@@ -340,6 +344,7 @@ impl StreamService {
         state.active_count = state.active_count.saturating_sub(1);
     }
 
+    #[export]
     pub fn resume_stream(&mut self, stream_id: u64) {
         let state = StreamCoreState::get();
         let caller = msg::source();
@@ -358,6 +363,7 @@ impl StreamService {
         state.active_count += 1;
     }
 
+    #[export]
     pub async fn deposit(&mut self, stream_id: u64, amount: u128) {
         let state = StreamCoreState::get();
         let caller = msg::source();
@@ -392,6 +398,7 @@ impl StreamService {
         stream.deposited = stream.deposited.saturating_add(amount);
     }
 
+    #[export]
     pub async fn withdraw(&mut self, stream_id: u64) -> u128 {
         let state = StreamCoreState::get();
         let caller = msg::source();
@@ -433,6 +440,7 @@ impl StreamService {
         withdrawable
     }
 
+    #[export]
     pub fn liquidate(&mut self, stream_id: u64) {
         let state = StreamCoreState::get();
         let now = exec::block_timestamp() / 1000;
@@ -452,11 +460,13 @@ impl StreamService {
 
     // ---- Queries ----
 
+    #[export]
     pub fn get_stream(&self, stream_id: u64) -> Option<Stream> {
         let state = StreamCoreState::get();
         state.streams.get(&stream_id).cloned()
     }
 
+    #[export]
     pub fn get_withdrawable_balance(&self, stream_id: u64) -> u128 {
         let state = StreamCoreState::get();
         let now = exec::block_timestamp() / 1000;
@@ -467,6 +477,7 @@ impl StreamService {
             .unwrap_or(0)
     }
 
+    #[export]
     pub fn get_remaining_buffer(&self, stream_id: u64) -> u128 {
         let state = StreamCoreState::get();
         let now = exec::block_timestamp() / 1000;
@@ -477,6 +488,7 @@ impl StreamService {
             .unwrap_or(0)
     }
 
+    #[export]
     pub fn get_sender_streams(&self, sender: ActorId) -> Vec<u64> {
         let state = StreamCoreState::get();
         state
@@ -486,6 +498,7 @@ impl StreamService {
             .unwrap_or_default()
     }
 
+    #[export]
     pub fn get_receiver_streams(&self, receiver: ActorId) -> Vec<u64> {
         let state = StreamCoreState::get();
         state
@@ -495,21 +508,25 @@ impl StreamService {
             .unwrap_or_default()
     }
 
+    #[export]
     pub fn total_streams(&self) -> u64 {
         let state = StreamCoreState::get();
         state.streams.len() as u64
     }
 
+    #[export]
     pub fn active_streams(&self) -> u64 {
         let state = StreamCoreState::get();
         state.active_count
     }
 
+    #[export]
     pub fn get_config(&self) -> Config {
         let state = StreamCoreState::get();
         state.config.clone()
     }
 
+    #[export]
     pub fn set_token_vault(&mut self, vault: ActorId) {
         let state = StreamCoreState::get();
         assert!(msg::source() == state.config.admin, "Only admin can set token_vault");

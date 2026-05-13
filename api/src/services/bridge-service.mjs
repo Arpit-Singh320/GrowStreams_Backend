@@ -11,10 +11,10 @@ const BRIDGE_CONFIG = {
   // Vara <-> ETH bridge contract (Gear VaraBridge / gear-bridges)
   vara: {
     bridgeContract: '0x0000000000000000000000000000000000000000000000000000000000000000', // Placeholder — replace with actual bridge program ID
-    gateway: 'wss://testnet.vara.network',
+    gateway: process.env.VARA_NODE || 'wss://rpc.vara.network',
     explorer: 'https://idea.gear-tech.io/explorer',
-    chainId: 'vara-testnet',
-    chainName: 'Vara Testnet',
+    chainId: 'vara-mainnet',
+    chainName: 'Vara Mainnet',
     blockTime: 3, // seconds
   },
   ethereum: {
@@ -183,7 +183,7 @@ export function getBridgeInfo() {
       maxConfirmations: BRIDGE_CONFIG.defaults.maxConfirmations,
     },
     faucets: {
-      vara: 'https://idea.gear-tech.io/programs?node=wss%3A%2F%2Ftestnet.vara.network',
+      vara: 'https://idea.gear-tech.io/programs?node=wss%3A%2F%2Frpc.vara.network',
       hoodi: 'https://faucet.hoodi.ethpandaops.io/',
     },
     guides: {

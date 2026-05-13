@@ -106,6 +106,7 @@ impl SplitsService {
 impl SplitsService {
     // --- Mutations ---
 
+    #[export]
     pub fn create_split_group(&mut self, recipients: Vec<SplitRecipient>) -> GroupId {
         assert!(!recipients.is_empty(), "Recipients list cannot be empty");
         assert!(recipients.len() <= 100, "Too many recipients (max 100)");
@@ -135,6 +136,7 @@ impl SplitsService {
         id
     }
 
+    #[export]
     pub fn update_split_group(&mut self, group_id: GroupId, recipients: Vec<SplitRecipient>) {
         assert!(!recipients.is_empty(), "Recipients list cannot be empty");
         assert!(recipients.len() <= 100, "Too many recipients (max 100)");
@@ -151,6 +153,7 @@ impl SplitsService {
         group.updated_at = exec::block_timestamp();
     }
 
+    #[export]
     pub fn delete_split_group(&mut self, group_id: GroupId) {
         let s = state_mut();
         let group = s.groups.get(&group_id).expect("Group not found");
@@ -164,6 +167,7 @@ impl SplitsService {
         }
     }
 
+    #[export]
     pub fn distribute(&mut self, group_id: GroupId, token: ActorId, amount: u128) {
         assert!(amount > 0, "Amount must be greater than zero");
 
@@ -183,14 +187,17 @@ impl SplitsService {
 
     // --- Queries ---
 
+    #[export]
     pub fn get_split_group(&self, group_id: GroupId) -> Option<SplitGroup> {
         state().groups.get(&group_id).cloned()
     }
 
+    #[export]
     pub fn get_owner_groups(&self, owner: ActorId) -> Vec<GroupId> {
         state().owner_groups.get(&owner).cloned().unwrap_or_default()
     }
 
+    #[export]
     pub fn preview_distribution(&self, group_id: GroupId, amount: u128) -> Vec<DistributionPreview> {
         let group = state().groups.get(&group_id).expect("Group not found");
         group
@@ -206,15 +213,18 @@ impl SplitsService {
             .collect()
     }
 
+    #[export]
     pub fn total_groups(&self) -> u64 {
         state().groups.len() as u64
     }
 
+    #[export]
     pub fn get_config(&self) -> (ActorId, u64) {
         let s = state();
         (s.admin, s.next_group_id - 1)
     }
 
+    #[export]
     pub fn get_total_distributed(&self, group_id: GroupId) -> u128 {
         state().distributed.get(&group_id).copied().unwrap_or(0)
     }

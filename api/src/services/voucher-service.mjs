@@ -1,10 +1,10 @@
 import { getApi, getKeyring } from '../sails-client.mjs';
 import { queryOne, queryAll, query } from './db.mjs';
 
-const VOUCHER_AMOUNT = process.env.VOUCHER_AMOUNT || '50000000000'; // 50 VARA (12 decimals)
-const VOUCHER_DURATION_BLOCKS = parseInt(process.env.VOUCHER_DURATION_BLOCKS || '14400', 10); // ~12 hours at 3s/block
-const MAX_VOUCHERS_PER_USER = parseInt(process.env.MAX_VOUCHERS_PER_USER || '3', 10);
-const VOUCHER_COOLDOWN_MS = parseInt(process.env.VOUCHER_COOLDOWN_MS || '300000', 10); // 5 min between requests
+const VOUCHER_AMOUNT = process.env.VOUCHER_AMOUNT || '20000000000000'; // 20 VARA (12 decimals) — refundable on expiry
+const VOUCHER_DURATION_BLOCKS = parseInt(process.env.VOUCHER_DURATION_BLOCKS || '201600', 10); // ~7 days at 3s/block
+const MAX_VOUCHERS_PER_USER = parseInt(process.env.MAX_VOUCHERS_PER_USER || '5', 10);
+const VOUCHER_COOLDOWN_MS = parseInt(process.env.VOUCHER_COOLDOWN_MS || '60000', 10); // 1 min between requests
 
 // Program IDs that users can interact with (gasless)
 function getAllowedPrograms() {
@@ -16,6 +16,7 @@ function getAllowedPrograms() {
     process.env.BOUNTY_ADAPTER_ID,
     process.env.IDENTITY_REGISTRY_ID,
     process.env.GROW_TOKEN_ID,
+    process.env.QUEST_SEEDS_ID,
   ].filter(Boolean);
 }
 
@@ -37,6 +38,9 @@ export async function ensureVoucherTable() {
   await query(`CREATE INDEX IF NOT EXISTS idx_vouchers_status ON vouchers(status)`);
 }
 
+// Maximum VARA that can be in-flight across all active vouchers (30,000 VARA in base units)
+const MAX_INFLIGHT_BUDGET = BigInt(process.env.VOUCHER_MAX_BUDGET || '30000000000000000'); // 30,000 VARA
+
 export async function issueVoucher(userWallet) {
   const api = getApi();
   const keyring = getKeyring();
@@ -53,13 +57,21 @@ export async function issueVoucher(userWallet) {
     throw Object.assign(new Error('Please wait before requesting another voucher.'), { status: 429 });
   }
 
-  // Check max active vouchers
+  // Check max active vouchers per user
   const activeCount = await queryOne(
     `SELECT COUNT(*)::int AS cnt FROM vouchers WHERE wallet = $1 AND status = 'ACTIVE'`,
     [userWallet]
   );
   if (activeCount && activeCount.cnt >= MAX_VOUCHERS_PER_USER) {
     throw Object.assign(new Error(`Maximum active vouchers (${MAX_VOUCHERS_PER_USER}) reached. Use existing vouchers first.`), { status: 429 });
+  }
+
+  // Global budget guard: prevent exceeding 30,000 VARA in-flight
+  const totalActive = await queryOne(
+    `SELECT COALESCE(SUM(amount::bigint), 0)::text AS total FROM vouchers WHERE status = 'ACTIVE' AND expires_at > NOW()`
+  );
+  if (totalActive && BigInt(totalActive.total) + BigInt(VOUCHER_AMOUNT) > MAX_INFLIGHT_BUDGET) {
+    throw Object.assign(new Error('Voucher budget limit reached. Please try again later as expired vouchers are reclaimed.'), { status: 503 });
   }
 
   const programs = getAllowedPrograms();
@@ -151,20 +163,41 @@ export async function listVouchersForUser(userWallet) {
 }
 
 export async function revokeExpiredVouchers() {
+  const api = getApi();
+  const keyring = getKeyring();
+
   const expired = await queryAll(
     `SELECT id, voucher_id, wallet FROM vouchers WHERE status = 'ACTIVE' AND expires_at < NOW()`
   );
 
-  let count = 0;
+  let revokedCount = 0;
+  let markedCount = 0;
+
   for (const v of expired) {
+    // Try to revoke on-chain to reclaim VARA back to project wallet
+    if (api && keyring) {
+      try {
+        const revokeTx = api.voucher.revoke(v.wallet, v.voucher_id);
+        await new Promise((resolve, reject) => {
+          revokeTx.signAndSend(keyring, ({ status }) => {
+            if (status.isInBlock || status.isFinalized) resolve();
+            else if (status.isInvalid) reject(new Error('revoke tx invalid'));
+          }).catch(reject);
+        });
+        revokedCount++;
+      } catch (err) {
+        // Voucher may already be expired/revoked on-chain — just mark in DB
+        console.warn(`[voucher] On-chain revoke failed for ${v.voucher_id}: ${err.message}`);
+      }
+    }
     await query(`UPDATE vouchers SET status = 'EXPIRED' WHERE id = $1`, [v.id]);
-    count++;
+    markedCount++;
   }
 
-  if (count > 0) {
-    console.log(`[voucher] Marked ${count} vouchers as expired`);
+  if (markedCount > 0) {
+    console.log(`[voucher] Expired: ${markedCount} marked, ${revokedCount} revoked on-chain (VARA reclaimed)`);
   }
-  return count;
+  return { marked: markedCount, revoked: revokedCount };
 }
 
 export async function getVoucherStats() {
