@@ -749,12 +749,18 @@ function QuestDashboard({ wallet }: { wallet: string }) {
 
       {/* Header Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Sprout className="w-5 h-5 text-emerald-400" />
+        <div className="col-span-1 sm:col-span-1 bg-gradient-to-r from-emerald-900/40 to-emerald-900/20 border border-emerald-700 rounded-xl p-4 text-center flex flex-col justify-center items-center">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-6 h-6 text-emerald-300" />
+            <div className="text-left">
+              <p className="text-sm font-semibold text-emerald-200">Total reward pool</p>
+              <p className="text-lg font-bold text-white">100,000 VARA</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-emerald-400">{(progress.totalSeeds || 0).toLocaleString()}</p>
-          <p className="text-[10px] text-provn-muted uppercase tracking-wider mt-0.5">Total XP</p>
+          <p className="text-[11px] text-provn-muted mt-2">Stay updated with the leaderboard</p>
+          <a href="/app/dashboard" className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-300 text-black font-semibold hover:bg-yellow-200 transition-colors">
+            View Leaderboard <ArrowRight className="w-4 h-4" />
+          </a>
         </div>
         <div className="bg-provn-surface border border-provn-border rounded-xl p-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">

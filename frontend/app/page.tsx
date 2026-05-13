@@ -75,7 +75,7 @@ const demoScenarios: Record<string, { sender: string; receiver: string; rate: st
 }
 
 const protocolStatus = [
-  { icon: Radio, label: "Status", value: "Vara Testnet (Live)", color: "text-emerald-400", borderColor: "border-emerald-500/20", bgColor: "bg-emerald-500/5" },
+  { icon: Radio, label: "Status", value: "Vara Mainnet (Live)", color: "text-emerald-400", borderColor: "border-emerald-500/20", bgColor: "bg-emerald-500/5" },
   { icon: FileCode, label: "Contracts", value: "StreamCore + TokenVault", color: "text-cyan-400", borderColor: "border-cyan-500/20", bgColor: "bg-cyan-500/5" },
   { icon: Shield, label: "Security", value: "Tests + threat model (audit planned)", color: "text-purple-400", borderColor: "border-purple-500/20", bgColor: "bg-purple-500/5" },
   { icon: Users, label: "Pilots", value: "3 integration slots open", color: "text-amber-400", borderColor: "border-amber-500/20", bgColor: "bg-amber-500/5" },
