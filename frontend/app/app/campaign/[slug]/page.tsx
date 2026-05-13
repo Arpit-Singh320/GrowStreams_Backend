@@ -86,7 +86,7 @@ function GinieInviteReveal({ wallet, quests }: { wallet: string; quests: any[] }
       {code && (
         <div className="space-y-3">
           <p className="text-xs text-provn-muted">
-            Use this code to get early access to <a href="https://ginie.xyz" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">ginie.xyz</a> — the AI-powered smart contract IDE for Canton.
+            Use this code to get early access to <a href="https://canton.ginie.xyz" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">canton.ginie.xyz</a> — the AI-powered smart contract IDE for Canton.
           </p>
           <div className="flex items-center gap-2">
             <div className="flex-1 bg-provn-bg border border-emerald-500/30 rounded-lg px-4 py-3 font-mono text-lg font-bold text-emerald-400 tracking-widest text-center select-all">
@@ -97,9 +97,9 @@ function GinieInviteReveal({ wallet, quests }: { wallet: string; quests: any[] }
               {copied ? <><Check className="w-4 h-4" /> Copied!</> : <><Copy className="w-4 h-4" /> Copy</>}
             </button>
           </div>
-          <a href="https://ginie.xyz" target="_blank" rel="noopener noreferrer"
+          <a href="https://canton.ginie.xyz" target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors">
-            <ExternalLink className="w-3 h-3" /> Redeem at ginie.xyz
+            <ExternalLink className="w-3 h-3" /> Redeem at canton.ginie.xyz
           </a>
         </div>
       )}
