@@ -973,43 +973,64 @@ export async function getQuestStats() {
 export async function claimGinieInviteCode(wallet) {
   if (!wallet) throw Object.assign(new Error('Wallet required'), { status: 400 });
 
-  // Check if already claimed
+  // Normalise: strip whitespace, keep original case (SS58 is case-sensitive)
+  const w = wallet.trim();
+
+  // Check if already claimed (also check via quest_registrations evm_address linkage)
   const existing = await queryOne(
     `SELECT code FROM ginie_invite_codes WHERE claimed_by = $1`,
-    [wallet]
+    [w]
   );
   if (existing) return { eligible: true, alreadyClaimed: true, code: existing.code };
 
-  // Both quests must be VERIFIED
+  // Both quests must be VERIFIED — check both the SS58 wallet AND any linked EVM address
+  const walletVariants = [w];
+  try {
+    const reg = await queryOne(
+      `SELECT wallet, evm_address FROM quest_registrations WHERE wallet = $1 OR evm_address = $1`,
+      [w]
+    );
+    if (reg) {
+      if (reg.wallet && !walletVariants.includes(reg.wallet)) walletVariants.push(reg.wallet);
+      if (reg.evm_address && !walletVariants.includes(reg.evm_address)) walletVariants.push(reg.evm_address);
+    }
+  } catch (_) {}
+
+  const walletList = walletVariants.map((_, i) => `$${i + 1}`).join(', ');
+
   const welcomeDone = await queryOne(
     `SELECT qc.id FROM quest_completions qc
      JOIN quests q ON q.id = qc.quest_id
-     WHERE qc.wallet = $1 AND q.slug = 'ginie-welcome' AND qc.status = 'VERIFIED'`,
-    [wallet]
+     WHERE qc.wallet IN (${walletList}) AND q.slug = 'ginie-welcome' AND qc.status = 'VERIFIED'`,
+    walletVariants
   );
   const telegramDone = await queryOne(
     `SELECT qc.id FROM quest_completions qc
      JOIN quests q ON q.id = qc.quest_id
-     WHERE qc.wallet = $1 AND q.slug = 'ginie-join-telegram' AND qc.status = 'VERIFIED'`,
-    [wallet]
+     WHERE qc.wallet IN (${walletList}) AND q.slug = 'ginie-join-telegram' AND qc.status = 'VERIFIED'`,
+    walletVariants
   );
+
+  console.log(`[ginie] claim check wallet=${w} variants=${walletVariants.length} welcome=${!!welcomeDone} telegram=${!!telegramDone}`);
 
   if (!welcomeDone || !telegramDone) {
     return { eligible: false, alreadyClaimed: false, code: null };
   }
 
-  // Claim an available code (atomic update with RETURNING)
+  // Claim an available code atomically using a CTE with FOR UPDATE SKIP LOCKED
   const row = await queryOne(
-    `UPDATE ginie_invite_codes
-     SET claimed_by = $1, claimed_at = NOW()
-     WHERE id = (
+    `WITH next_code AS (
        SELECT id FROM ginie_invite_codes
        WHERE claimed_by IS NULL
        ORDER BY id ASC
        LIMIT 1
        FOR UPDATE SKIP LOCKED
      )
-     RETURNING code`,
+     UPDATE ginie_invite_codes
+     SET claimed_by = $1, claimed_at = NOW()
+     FROM next_code
+     WHERE ginie_invite_codes.id = next_code.id
+     RETURNING ginie_invite_codes.code`,
     [wallet]
   );
 

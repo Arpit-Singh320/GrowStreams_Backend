@@ -54,9 +54,9 @@ export default function WalletConnect() {
 
         {/* Substrate / Vara native */}
         {mode === 'substrate' && (
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-4">
             {isApiReady ? (
-              <div className="gear-wallet-override">
+              <div className="gear-wallet-override w-full">
                 <Wallet theme="vara" displayBalance />
               </div>
             ) : (
@@ -64,6 +64,18 @@ export default function WalletConnect() {
                 Connecting to Vara network...
               </p>
             )}
+            <p className="text-xs text-provn-muted text-center">
+              Don&apos;t have a wallet?{' '}
+              <a
+                href="https://www.subwallet.app/download.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400 hover:text-emerald-300 underline font-medium"
+              >
+                Install SubWallet
+              </a>
+              {' '}— the recommended Polkadot wallet for Vara Network.
+            </p>
           </div>
         )}
 
