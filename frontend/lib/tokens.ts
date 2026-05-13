@@ -14,6 +14,7 @@ export interface TokenConfig {
   minBuffer: number;
   color: string;         // Tailwind color class for UI
   colorAccent: string;   // For backgrounds/rings
+  comingSoon?: boolean;
 }
 
 export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
@@ -77,8 +78,8 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     key: 'GROW',
     symbol: 'GROW',
     name: 'GrowStreams Token',
-    decimals: 18,
-    vara: '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf',
+    decimals: 12,
+    vara: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
     eth: null,
     icon: '/tokens/grow.svg',
     category: 'utility',
@@ -100,6 +101,7 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     minBuffer: 3600,
     color: 'text-emerald-400',
     colorAccent: 'emerald',
+    comingSoon: true,
   },
   VARA: {
     key: 'VARA',
@@ -147,7 +149,7 @@ export function listStablecoins(): TokenConfig[] {
 }
 
 export function listStreamableTokens(): TokenConfig[] {
-  return listTokens().filter(t => t.vara !== 'native');
+  return listTokens().filter(t => t.vara !== 'native' || t.comingSoon);
 }
 
 // ─── Decimal conversion ──────────────────────────────────────

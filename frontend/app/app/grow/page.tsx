@@ -12,8 +12,8 @@ import {
   TrendingUp, Lock, ChevronRight, Settings, UserPlus, Trash2,
 } from 'lucide-react';
 
-const GROW_TOKEN_ID = '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf';
-const VAULT_ID = '0x97957dc484e56eb80703f63169a5cf0d12d850aae337788a416a22470a12166f';
+const GROW_TOKEN_ID = '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163';
+const VAULT_ID = '0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef';
 const DECIMALS = 12;
 const ONE_GROW = 1_000_000_000_000;
 
@@ -275,7 +275,7 @@ export default function GrowTokenPage() {
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="font-bold text-lg">GROW</span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">VFT</span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">Testnet</span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">Mainnet</span>
               </div>
               <button onClick={copyAddress}
                 className="flex items-center gap-1 text-xs text-provn-muted hover:text-provn-text transition-colors">
@@ -374,9 +374,9 @@ export default function GrowTokenPage() {
           {activeTab === 'faucet' && (
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold mb-1">Testnet Faucet</h3>
+                <h3 className="font-semibold mb-1">GROW Faucet</h3>
                 <p className="text-sm text-provn-muted">
-                  Get free GROW tokens on Vara testnet to try streaming. Each click mints 1,000 GROW.
+                  Get GROW tokens on Vara mainnet to try streaming. Each click mints 1,000 GROW.
                 </p>
               </div>
               <div className="bg-provn-bg/50 rounded-lg p-4 border border-provn-border/50">
@@ -639,7 +639,7 @@ export default function GrowTokenPage() {
           {[
             ['Standard', 'VFT (Vara Fungible Token)'],
             ['Decimals', String(DECIMALS)],
-            ['Network', 'Vara Testnet'],
+            ['Network', 'Vara Mainnet'],
             ['Total Supply', formatGrow(totalSupply)],
           ].map(([k, v]) => (
             <div key={k} className="flex justify-between py-1.5 border-b border-provn-border/20">

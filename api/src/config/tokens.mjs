@@ -50,8 +50,8 @@ export const SUPPORTED_TOKENS = {
   GROW: {
     symbol: 'GROW',
     name: 'GrowStreams Token',
-    decimals: 18,
-    vara: '0x8c3cc925e34285243619fcb07fcd6622a9148426354c144819bf52b93de885bf',
+    decimals: 12,
+    vara: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
     eth: null,
     icon: '/tokens/grow.svg',
     category: 'utility',

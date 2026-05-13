@@ -108,9 +108,11 @@ export default function TokenSelector({
                 <button
                   key={token.key}
                   type="button"
-                  onClick={() => { onSelect(token); setOpen(false); setSearch(''); }}
+                  onClick={() => { if (!token.comingSoon) { onSelect(token); setOpen(false); setSearch(''); } }}
+                  disabled={token.comingSoon}
                   className={cn(
-                    'flex items-center gap-3 w-full px-3 py-2.5 hover:bg-provn-bg/60 transition-colors text-left',
+                    'flex items-center gap-3 w-full px-3 py-2.5 transition-colors text-left',
+                    token.comingSoon ? 'opacity-50 cursor-not-allowed' : 'hover:bg-provn-bg/60',
                     selected.key === token.key && 'bg-provn-bg/40',
                   )}
                 >
@@ -122,8 +124,11 @@ export default function TokenSelector({
                       {token.isStablecoin && (
                         <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full">Stable</span>
                       )}
+                      {token.comingSoon && (
+                        <span className="text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full">Soon</span>
+                      )}
                     </div>
-                    {showBalance && walletBalances[token.key] && (
+                    {showBalance && walletBalances[token.key] && !token.comingSoon && (
                       <p className="text-[10px] text-provn-muted mt-0.5">
                         {walletBalances[token.key]}
                         {vaultBalances[token.key] && ` · Vault: ${vaultBalances[token.key]}`}
