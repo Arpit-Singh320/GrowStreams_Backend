@@ -55,7 +55,13 @@ function isAdmin(address) {
 
 function toBigIntStr(v) {
   if (v == null) return '0';
-  return typeof v === 'bigint' ? v.toString() : String(v);
+  if (typeof v === 'bigint') return v.toString();
+  if (typeof v === 'object' && v !== null) {
+    if (typeof v.toBigInt === 'function') return v.toBigInt().toString();
+    if (typeof v.toJSON === 'function') return String(v.toJSON());
+    if (typeof v.toString === 'function') return v.toString();
+  }
+  return String(v);
 }
 
 function serializeDeep(obj, seen = new WeakSet()) {
