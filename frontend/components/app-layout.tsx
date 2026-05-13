@@ -22,7 +22,7 @@ const comingSoonRoutes = ['/app/splits', '/app/bounties', '/app/identity', '/app
 const navItems = [
   { href: '/app', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/app/streams', label: 'Streams', icon: Waves },
-  { href: '/app/grow', label: 'GROW Token', icon: Coins },
+  { href: '/app/grow', label: 'GROW Token', icon: Coins, soon: true },
   { href: '/app/vault', label: 'Vault', icon: Vault },
   { href: '/app/bridge', label: 'Bridge', icon: ArrowLeftRight },
   { href: '/app/campaign', label: 'Campaign', icon: Zap },

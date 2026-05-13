@@ -87,13 +87,14 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     minBuffer: 3600,
     color: 'text-cyan-400',
     colorAccent: 'cyan',
+    comingSoon: true,
   },
   WTVARA: {
     key: 'WTVARA',
     symbol: 'WTVARA',
     name: 'Tokenized VARA',
     decimals: 12,
-    vara: 'native',           // native VARA is locked on Vara side
+    vara: 'native',           // native VARA — streamed via native transfer
     eth: '0xE1ab85A8B4d5d5B6af0bbD0203EB322DF33d0464',
     icon: '/tokens/vara.svg',
     category: 'native',
@@ -101,7 +102,6 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     minBuffer: 3600,
     color: 'text-emerald-400',
     colorAccent: 'emerald',
-    comingSoon: true,
   },
   VARA: {
     key: 'VARA',
@@ -149,7 +149,7 @@ export function listStablecoins(): TokenConfig[] {
 }
 
 export function listStreamableTokens(): TokenConfig[] {
-  return listTokens().filter(t => t.vara !== 'native' || t.comingSoon);
+  return listTokens().filter(t => !t.comingSoon && t.key !== 'VARA');
 }
 
 // ─── Decimal conversion ──────────────────────────────────────
