@@ -757,6 +757,10 @@ export const api = {
       get<{ campaign_slug: string; leaderboard: Array<Record<string, unknown>>; total: number }>(`/api/quests/campaigns/${slug}/leaderboard?limit=${limit}`),
     campaignPrizeBoard: (slug: string, limit = 10) =>
       get<{ campaign_slug: string; prize_pool: Record<string, unknown>; end_date: string; prize_board: Array<Record<string, unknown>> }>(`/api/quests/campaigns/${slug}/prize-board?limit=${limit}`),
+    ginieInvite: (wallet: string) =>
+      get<{ eligible: boolean; alreadyClaimed: boolean; code: string | null }>(`/api/quests/ginie-invite?wallet=${wallet}`),
+    campaignJoin: (slug: string, wallet: string) =>
+      post<{ message: string; awarded: boolean }>(`/api/quests/campaigns/${slug}/join`, { wallet } as Record<string, unknown>),
 
     // Admin (requires Bearer token)
     adminListSubmissions: (token: string) =>

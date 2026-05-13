@@ -21,6 +21,8 @@ import {
   getQuestLeaderboard,
   getReferralStats,
   syncOnchainMints,
+  claimGinieInviteCode,
+  awardWelcomeBonusBySlug,
 } from '../services/quest-service.mjs';
 import { runStreamCheck } from '../cron/quest-stream-monitor.mjs';
 import {
@@ -417,6 +419,21 @@ router.get('/leaderboard', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/quests/ginie-invite
+// Returns the Ginie invite code for the wallet if both ginie quests are done.
+// ---------------------------------------------------------------------------
+router.get('/ginie-invite', async (req, res, next) => {
+  try {
+    const wallet = req.query.wallet;
+    if (!wallet) return res.status(400).json({ error: 'wallet query param required' });
+    const result = await claimGinieInviteCode(wallet);
+    res.json(result);
+  } catch (err) {
+    const status = err.status || 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
 // GET /api/quests/stats (public stats)
 // ---------------------------------------------------------------------------
 router.get('/stats', async (req, res, next) => {
@@ -498,6 +515,35 @@ router.get('/campaigns/:slug/prize-board', async (req, res, next) => {
     const board = await getCampaignPrizeBoard(slug, limit);
     if (!board) return res.status(404).json({ error: 'Campaign not found' });
     res.json(board);
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/quests/campaigns/:slug/join
+// Auto-awards the WELCOME quest for that campaign (idempotent).
+// ---------------------------------------------------------------------------
+router.post('/campaigns/:slug/join', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const { wallet } = req.body;
+    if (!wallet) return res.status(400).json({ error: 'wallet is required' });
+
+    // Look up the WELCOME quest belonging to this campaign
+    const campaign = await getQuestCampaignBySlug(slug);
+    if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+
+    const welcomeQuest = (campaign.quests || []).find(q => q.quest_type === 'WELCOME');
+    if (!welcomeQuest) return res.json({ message: 'No welcome quest for this campaign', awarded: false });
+
+    setImmediate(async () => {
+      try {
+        await awardWelcomeBonusBySlug(wallet, welcomeQuest.slug);
+      } catch (e) {
+        console.warn(`[campaign-join] welcome award failed for ${wallet}: ${e.message}`);
+      }
+    });
+
+    res.json({ message: 'Joined campaign', awarded: true, quest: welcomeQuest.slug });
   } catch (err) { next(err); }
 });
 

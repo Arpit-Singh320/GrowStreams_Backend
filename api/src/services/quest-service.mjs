@@ -629,6 +629,52 @@ export async function awardWelcomeBonus(wallet) {
 }
 
 /**
+ * Award any WELCOME-type quest by slug (idempotent).
+ * Used for campaign-specific welcome quests (e.g. ginie-welcome).
+ */
+export async function awardWelcomeBonusBySlug(wallet, questSlug) {
+  const quest = await getQuestBySlug(questSlug);
+  if (!quest || !quest.active || quest.quest_type !== 'WELCOME') return null;
+
+  const existing = await queryOne(
+    `SELECT id FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'`,
+    [wallet, quest.id]
+  );
+  if (existing) return null;
+
+  let onChainTxHash = null;
+  const seedsContract = getContract('questSeeds');
+  if (seedsContract && quest.seeds_reward > 0) {
+    try {
+      let walletHex = wallet;
+      if (!wallet.startsWith('0x')) {
+        const { decodeAddress } = await import('@polkadot/util-crypto');
+        walletHex = '0x' + Buffer.from(decodeAddress(wallet)).toString('hex');
+      }
+      const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, quest.seeds_reward, `quest:${questSlug}`);
+      onChainTxHash = mintResult.blockHash || null;
+    } catch (mintErr) {
+      console.warn(`[quest] ${questSlug} on-chain mint failed for ${wallet}: ${mintErr.message}. DB-only.`);
+    }
+  }
+
+  const completion = await queryOne(
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at)
+     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW()) RETURNING *`,
+    [wallet, quest.id, JSON.stringify({ source: 'campaign-join' }), quest.seeds_reward, onChainTxHash]
+  );
+  if (quest.seeds_reward > 0) {
+    await queryOne(
+      `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
+       VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4)`,
+      [wallet, quest.seeds_reward, quest.id, onChainTxHash]
+    );
+  }
+  console.log(`[quest] Awarded ${questSlug} (${quest.seeds_reward} Seeds) to ${wallet}`);
+  return completion;
+}
+
+/**
  * Get total Seeds for a wallet (SS58 or 0x EVM address).
  */
 export async function getSeedsBalance(address) {
@@ -914,4 +960,61 @@ export async function getQuestStats() {
     completionsByDay: completionsByDay.map(r => ({ day: r.day, count: parseInt(r.count, 10) })),
     xpByDay: xpByDay.map(r => ({ day: r.day, xp: parseInt(r.xp, 10) })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Ginie Invite Code Giveaway
+// ---------------------------------------------------------------------------
+
+/**
+ * Check if a wallet has completed both Ginie giveaway quests.
+ * Returns { eligible, alreadyClaimed, code }
+ */
+export async function claimGinieInviteCode(wallet) {
+  if (!wallet) throw Object.assign(new Error('Wallet required'), { status: 400 });
+
+  // Check if already claimed
+  const existing = await queryOne(
+    `SELECT code FROM ginie_invite_codes WHERE claimed_by = $1`,
+    [wallet]
+  );
+  if (existing) return { eligible: true, alreadyClaimed: true, code: existing.code };
+
+  // Both quests must be VERIFIED
+  const welcomeDone = await queryOne(
+    `SELECT qc.id FROM quest_completions qc
+     JOIN quests q ON q.id = qc.quest_id
+     WHERE qc.wallet = $1 AND q.slug = 'ginie-welcome' AND qc.status = 'VERIFIED'`,
+    [wallet]
+  );
+  const telegramDone = await queryOne(
+    `SELECT qc.id FROM quest_completions qc
+     JOIN quests q ON q.id = qc.quest_id
+     WHERE qc.wallet = $1 AND q.slug = 'ginie-join-telegram' AND qc.status = 'VERIFIED'`,
+    [wallet]
+  );
+
+  if (!welcomeDone || !telegramDone) {
+    return { eligible: false, alreadyClaimed: false, code: null };
+  }
+
+  // Claim an available code (atomic update with RETURNING)
+  const row = await queryOne(
+    `UPDATE ginie_invite_codes
+     SET claimed_by = $1, claimed_at = NOW()
+     WHERE id = (
+       SELECT id FROM ginie_invite_codes
+       WHERE claimed_by IS NULL
+       ORDER BY id ASC
+       LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     RETURNING code`,
+    [wallet]
+  );
+
+  if (!row) throw Object.assign(new Error('No Ginie invite codes remaining'), { status: 503 });
+
+  console.log(`[ginie] Invite code ${row.code} claimed by ${wallet}`);
+  return { eligible: true, alreadyClaimed: false, code: row.code };
 }

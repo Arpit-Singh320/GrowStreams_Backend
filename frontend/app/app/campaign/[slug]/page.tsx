@@ -7,16 +7,111 @@ import { useAccount } from '@gear-js/react-hooks'
 import {
   Sprout, CheckCircle2, Loader2, ArrowRight, Clock,
   ExternalLink, Twitter, Star, GitPullRequest, Waves, Gift, Megaphone,
+  Send, Copy, Check, Key, Lock,
 } from 'lucide-react'
 
 // ─── Icon map (mirrors quests page) ─────────────────────────────────────────
 const QUEST_ICONS: Record<string, React.ElementType> = {
   twitter: Twitter, megaphone: Megaphone, star: Star,
-  'git-pull-request': GitPullRequest, waves: Waves, gift: Gift,
+  'git-pull-request': GitPullRequest, waves: Waves, gift: Gift, send: Send,
 }
 function QuestIcon({ icon }: { icon: string }) {
   const Icon = QUEST_ICONS[icon] || Sprout
   return <Icon className="w-5 h-5" />
+}
+
+// ─── Ginie Invite Code Reveal ─────────────────────────────────────────────────
+function GinieInviteReveal({ wallet, quests }: { wallet: string; quests: any[] }) {
+  const [loading, setLoading]   = useState(false)
+  const [code, setCode]         = useState<string | null>(null)
+  const [copied, setCopied]     = useState(false)
+  const [error, setError]       = useState('')
+
+  const allDone = quests.length >= 2 && quests.every((q: any) => q.completed)
+
+  const handleClaim = useCallback(async () => {
+    if (!wallet || !allDone) return
+    setLoading(true); setError('')
+    try {
+      const res = await api.quests.ginieInvite(wallet)
+      if (res.eligible && res.code) setCode(res.code)
+      else if (!res.eligible) setError('Complete both quests above first.')
+      else setError('No codes remaining.')
+    } catch (e: any) {
+      setError(e?.message || 'Failed to claim code')
+    } finally { setLoading(false) }
+  }, [wallet, allDone])
+
+  // Auto-claim when all quests complete
+  useEffect(() => {
+    if (allDone && wallet && !code) handleClaim()
+  }, [allDone, wallet, code, handleClaim])
+
+  const handleCopy = () => {
+    if (!code) return
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (!wallet) return null
+
+  return (
+    <div className={`rounded-xl border p-5 space-y-3 transition-all ${
+      allDone ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-provn-border bg-provn-surface opacity-60'
+    }`}>
+      <div className="flex items-center gap-2">
+        {allDone ? <Key className="w-5 h-5 text-emerald-400" /> : <Lock className="w-5 h-5 text-provn-muted" />}
+        <h3 className="font-semibold text-sm">
+          {allDone ? 'Your Ginie Invite Code' : 'Complete both quests to unlock your invite code'}
+        </h3>
+      </div>
+
+      {!allDone && (
+        <p className="text-xs text-provn-muted">
+          Finish <span className="text-provn-text font-medium">Join the Giveaway</span> and{' '}
+          <span className="text-provn-text font-medium">Join the Telegram Group</span> to reveal your exclusive Ginie invite code.
+        </p>
+      )}
+
+      {allDone && !code && !error && (
+        <div className="flex items-center gap-2 text-xs text-provn-muted">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+          Generating your code…
+        </div>
+      )}
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {code && (
+        <div className="space-y-3">
+          <p className="text-xs text-provn-muted">
+            Use this code to get early access to <a href="https://ginie.xyz" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 underline">ginie.xyz</a> — the AI-powered smart contract IDE for Canton.
+          </p>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 bg-provn-bg border border-emerald-500/30 rounded-lg px-4 py-3 font-mono text-lg font-bold text-emerald-400 tracking-widest text-center select-all">
+              {code}
+            </div>
+            <button onClick={handleCopy}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors text-xs font-medium">
+              {copied ? <><Check className="w-4 h-4" /> Copied!</> : <><Copy className="w-4 h-4" /> Copy</>}
+            </button>
+          </div>
+          <a href="https://ginie.xyz" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 transition-colors">
+            <ExternalLink className="w-3 h-3" /> Redeem at ginie.xyz
+          </a>
+        </div>
+      )}
+
+      {allDone && !code && !loading && !error && (
+        <button onClick={handleClaim} disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 transition-colors">
+          <Key className="w-3.5 h-3.5" /> Reveal Invite Code
+        </button>
+      )}
+    </div>
+  )
 }
 
 function XpBadge({ amount }: { amount: number }) {
@@ -220,6 +315,11 @@ export default function CampaignDetailPage() {
           const meMap: Record<string, any> = {}
           ;(me?.quests || []).forEach((q: any) => { meMap[q.slug] = q })
           userQuests = userQuests.map((q: any) => ({ ...q, ...(meMap[q.slug] || {}) }))
+
+          // Auto-award WELCOME quest for ginie campaign on every page load (idempotent)
+          if (campaignData?.slug === 'ginie-invite-giveaway' && me?.registered) {
+            api.quests.campaignJoin('ginie-invite-giveaway', wallet).catch(() => {})
+          }
         } catch { setRegistered(false) }
       } else {
         setRegistered(null)
@@ -362,6 +462,16 @@ export default function CampaignDetailPage() {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Ginie Invite Code reveal — only shown on the ginie-invite-giveaway campaign */}
+      {campaign?.slug === 'ginie-invite-giveaway' && wallet && (
+        <div className="space-y-2">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <Key className="w-5 h-5 text-emerald-400" /> Your Reward
+          </h2>
+          <GinieInviteReveal wallet={wallet} quests={quests} />
         </div>
       )}
     </div>
