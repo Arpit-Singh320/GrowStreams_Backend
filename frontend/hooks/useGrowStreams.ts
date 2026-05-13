@@ -48,6 +48,21 @@ export function useGearSign() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getOrIssueVoucher = async (wallet: string): Promise<string | null> => {
+    try {
+      const res = await gsApi.voucher.active(wallet) as { hasVoucher: boolean; voucher: { voucherId: string } | null };
+      if (res.hasVoucher && res.voucher?.voucherId) {
+        return res.voucher.voucherId;
+      }
+      // No active voucher — request one from the backend relayer
+      const issued = await gsApi.voucher.issue(wallet) as { voucherId: string };
+      return issued.voucherId || null;
+    } catch (err) {
+      console.warn('[gasless] Could not obtain voucher, falling back to user gas:', err);
+      return null;
+    }
+  };
+
   const signAndSend = useCallback(
     async (contractOrProgramId: keyof typeof PROGRAM_IDS | string, payloadHex: string, value = 0): Promise<SendResult> => {
       if (!api) throw new Error('Gear API not connected. Please wait for the network connection.');
@@ -85,18 +100,34 @@ export function useGearSign() {
         const minGas = BigInt(gas.min_limit.toString());
         const gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
 
+        // Try to get a gasless voucher so the user doesn't pay fees
+        const voucherId = await getOrIssueVoucher(account.decodedAddress);
+
         return new Promise((resolve, reject) => {
-          const tx = api.message.send({
-            destination: programId,
-            payload: payloadHex as `0x${string}`,
-            gasLimit,
-            value,
-          });
+          let tx;
+          if (voucherId) {
+            // Gasless path: wrap the message in a voucher call
+            const messageTx = api.message.send({
+              destination: programId,
+              payload: payloadHex as `0x${string}`,
+              gasLimit,
+              value,
+            });
+            tx = api.voucher.call(voucherId as `0x${string}`, { SendMessage: messageTx });
+          } else {
+            // Fallback: user pays gas normally
+            tx = api.message.send({
+              destination: programId,
+              payload: payloadHex as `0x${string}`,
+              gasLimit,
+              value,
+            });
+          }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          tx.signAndSend(account.address, { signer: injector.signer as any }, ({ status, events }) => {
+          tx.signAndSend(account.address, { signer: injector.signer as any }, ({ status, events }: any) => {
             if (status.isInBlock) {
-              const failed = events?.some((e) =>
+              const failed = events?.some((e: any) =>
                 api.events.system.ExtrinsicFailed.is(e.event)
               );
               if (failed) {
@@ -109,7 +140,7 @@ export function useGearSign() {
             } else if (status.isInvalid) {
               reject(new Error('Transaction invalid — it may have been dropped by the network.'));
             }
-          }).catch((err) => {
+          }).catch((err: any) => {
             if (err?.message?.includes('Cancelled') || err?.message?.includes('Rejected')) {
               reject(new Error('Transaction was cancelled by the user.'));
             } else {

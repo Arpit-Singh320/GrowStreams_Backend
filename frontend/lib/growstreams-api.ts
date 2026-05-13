@@ -799,4 +799,25 @@ export const api = {
         method: 'DELETE',
       }),
   },
+
+  // ─── Gasless Vouchers ───────────────────────────────────────────────────────
+  voucher: {
+    issue: (wallet: string) =>
+      post<{ message: string; voucherId: string; amount: string; durationBlocks: number; expiresAt: string; programs: string[] }>(
+        '/api/voucher/issue',
+        { wallet } as Record<string, unknown>
+      ),
+    active: (wallet: string) =>
+      get<{ hasVoucher: boolean; voucher: { voucherId: string; amount: string; expiresAt: string; programs: string[]; issuedAt: string } | null }>(
+        `/api/voucher/active?wallet=${wallet}`
+      ),
+    list: (wallet: string) =>
+      get<{ vouchers: Array<Record<string, unknown>>; total: number }>(
+        `/api/voucher/list?wallet=${wallet}`
+      ),
+    stats: () =>
+      get<{ total: number; active: number; expired: number; uniqueUsers: number }>(
+        '/api/voucher/stats'
+      ),
+  },
 };
