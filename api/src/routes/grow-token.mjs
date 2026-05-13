@@ -58,14 +58,21 @@ function toBigIntStr(v) {
   return typeof v === 'bigint' ? v.toString() : String(v);
 }
 
-function serializeDeep(obj) {
+function serializeDeep(obj, seen = new WeakSet()) {
   if (obj == null) return obj;
   if (typeof obj === 'bigint') return obj.toString();
-  if (Array.isArray(obj)) return obj.map(serializeDeep);
   if (typeof obj === 'object') {
+    if (seen.has(obj)) return '[Circular]';
+    seen.add(obj);
+    // Polkadot codec types — use toJSON() or toString()
+    if (typeof obj.toJSON === 'function') {
+      const json = obj.toJSON();
+      if (json !== obj) return serializeDeep(json, seen);
+    }
+    if (Array.isArray(obj)) return obj.map(v => serializeDeep(v, seen));
     const out = {};
     for (const [k, v] of Object.entries(obj)) {
-      out[k] = serializeDeep(v);
+      out[k] = serializeDeep(v, seen);
     }
     return out;
   }
