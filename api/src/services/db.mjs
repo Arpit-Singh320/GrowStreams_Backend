@@ -381,7 +381,7 @@ export async function migrate() {
       ('mention-x-ginie',        'Post about Ginie',                                  'Post a tweet mentioning @giniedev with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.',                                                    'X_MENTION',        200, 'megaphone',        TRUE,   4, '{}'),
       ('star-repo',              'Star the GrowStreams repo',                          'Star the GrowStreams repository on GitHub. Refreshes weekly.',                                                                                                                 'GITHUB_STAR',      100, 'star',             TRUE,   5, '{}'),
       ('raise-pr',               'Raise a PR on GrowStreams repo',                    'Open a pull request on the GrowStreams GitHub repository. Refreshes weekly.',                                                                                                  'GITHUB_PR',        200, 'git-pull-request', TRUE,   6, '{}'),
-      ('create-stream',          'Create a stream on testnet',                        'Create a token stream on the GrowStreams testnet application. Refreshes weekly.',                                                                                              'ONCHAIN_STREAM',   100, 'waves',            TRUE,   7, '{}'),
+      ('create-stream',          'Create a stream on GrowStreams',                    'Create a token stream on the GrowStreams mainnet application. Refreshes weekly.',                                                                                              'ONCHAIN_STREAM',   100, 'waves',            TRUE,   7, '{}'),
       ('retweet-campaign',       'Retweet + Like the GrowStreams campaign post',       'Retweet and like the official GrowStreams campaign announcement. Paste the URL of your retweet to verify.',                                                                   'X_RETWEET',        150, 'repeat',           FALSE,  8, '{}'),
       ('tweet-build-growstreams','Tweet what you want to build with GrowStreams',      'Write an original public tweet (min 30 chars) mentioning @GrowStreams with the word "build". Paste your tweet URL to submit.',                                               'X_TWEET_KEYWORD',  300, 'edit',             FALSE,  9, '{"required_mention": "@GrowStreams", "required_keyword": "build", "min_length": 30}'),
       ('visit-platform',         'Visit GrowStreams and explore the platform',        'Head over to growstreams.xyz, explore the dashboard and streams. Click Claim once done.',                                                                                      'VISIT_URL',         15, 'globe',            FALSE, 10, '{"url": "https://growstreams.xyz"}'),
@@ -411,7 +411,7 @@ export async function migrate() {
       (
         'growstreams',
         'GrowStreams Launch Campaign',
-        'Earn Seeds by contributing to the GrowStreams ecosystem — follow us, build on testnet, star the repo, create streams, and refer friends. Seeds convert to GROW tokens at mainnet launch.',
+        'Earn Seeds by contributing to the GrowStreams ecosystem — follow us, build on mainnet, star the repo, create streams, and refer friends. Seeds convert to GROW tokens at launch.',
         'GrowStreams',
         'Pioneer',
         'EASY',
