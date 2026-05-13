@@ -23,6 +23,18 @@ const pool = new pg.Pool({
 async function seed() {
   const client = await pool.connect();
   try {
+    // Ensure table exists (idempotent)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ginie_invite_codes (
+        id          SERIAL PRIMARY KEY,
+        code        TEXT UNIQUE NOT NULL,
+        claimed_by  TEXT,
+        claimed_at  TIMESTAMPTZ,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_ginie_invite_codes_claimed ON ginie_invite_codes(claimed_by);
+    `);
+
     let inserted = 0;
     let skipped = 0;
     for (const code of codes) {
