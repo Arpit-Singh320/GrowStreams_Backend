@@ -8,7 +8,7 @@ import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
   Twitter, Users, Waves, Star, GitPullRequest,
   Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift, Pencil, Check, X as XIcon,
-  Eye, Heart, ChevronDown,
+  Eye, Heart, ChevronDown, Ticket,
 } from 'lucide-react';
 
 const QUEST_ICONS: Record<string, React.ElementType> = {
@@ -62,13 +62,14 @@ function XpBadge({ amount }: { amount: number }) {
   );
 }
 
-// ─── Registration Form (3-step: email → OTP → name) ─────────────────────────
+// ─── Registration Form (4-step: invite → email → OTP → name) ────────────────
 function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegistered: () => void }) {
   const searchParams = useSearchParams();
   const refCode = searchParams.get('ref') || undefined;
 
-  // step: 'email' | 'otp' | 'name'
-  const [step, setStep]             = useState<'email' | 'otp' | 'name'>('email');
+  // step: 'invite' | 'email' | 'otp' | 'name'
+  const [step, setStep]             = useState<'invite' | 'email' | 'otp' | 'name'>('invite');
+  const [inviteCode, setInviteCode] = useState('');
   const [email, setEmail]           = useState('');
   const [otp, setOtp]               = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -82,6 +83,17 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
     const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
     return () => clearTimeout(t);
   }, [resendCooldown]);
+
+  const handleVerifyInvite = async () => {
+    if (!inviteCode.trim()) { setError('Invite code is required'); return; }
+    setLoading(true); setError('');
+    try {
+      await api.quests.verifyInvite(inviteCode.trim().toUpperCase());
+      setStep('email');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid invite code');
+    } finally { setLoading(false); }
+  };
 
   const handleSendOtp = async () => {
     if (!email.trim()) { setError('Email is required'); return; }
@@ -115,12 +127,16 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
         email: email.trim(),
         display_name: displayName.trim(),
         ref_code: refCode,
+        invite_code: inviteCode.trim().toUpperCase(),
       });
       onRegistered();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally { setLoading(false); }
   };
+
+  const STEPS = ['invite', 'email', 'otp', 'name'] as const;
+  const stepIdx = STEPS.indexOf(step);
 
   return (
     <div className="max-w-md mx-auto mt-12 space-y-6">
@@ -130,23 +146,53 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
         </div>
         <h2 className="text-xl font-bold">Join GrowStreams Earn</h2>
         <p className="text-provn-muted text-sm">
-          {step === 'email' && 'Enter your email to receive a verification code'}
-          {step === 'otp'   && `Enter the 6-digit code sent to ${email}`}
-          {step === 'name'  && 'Almost there — choose your display name'}
+          {step === 'invite' && 'Enter your invite code to get started'}
+          {step === 'email'  && 'Enter your email to receive a verification code'}
+          {step === 'otp'    && `Enter the 6-digit code sent to ${email}`}
+          {step === 'name'   && 'Almost there — choose your display name'}
         </p>
       </div>
 
       {/* Step indicators */}
       <div className="flex items-center justify-center gap-2">
-        {(['email','otp','name'] as const).map((s, i) => (
-          <div key={s} className={`w-2 h-2 rounded-full transition-colors ${step === s ? 'bg-emerald-400' : i < ['email','otp','name'].indexOf(step) ? 'bg-emerald-700' : 'bg-provn-border'}`} />
+        {STEPS.map((s, i) => (
+          <div key={s} className={`w-2 h-2 rounded-full transition-colors ${step === s ? 'bg-emerald-400' : i < stepIdx ? 'bg-emerald-700' : 'bg-provn-border'}`} />
         ))}
       </div>
 
       <div className="bg-provn-surface border border-provn-border rounded-xl p-5 space-y-4">
-        {/* Step 1 — Email */}
+        {/* Step 1 — Invite Code */}
+        {step === 'invite' && (
+          <>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
+                <Ticket className="w-3.5 h-3.5" /> Invite Code
+              </label>
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={e => setInviteCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, ''))}
+                onKeyDown={e => e.key === 'Enter' && handleVerifyInvite()}
+                placeholder="GS-XXXXXXXX"
+                className="w-full bg-provn-bg border border-provn-border rounded-lg px-3 py-2.5 text-sm font-mono tracking-widest uppercase focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/40 placeholder:tracking-normal"
+              />
+              <p className="text-[10px] text-provn-muted mt-1.5">GrowStreams is invite-only. Get a code from an existing member.</p>
+            </div>
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button onClick={handleVerifyInvite} disabled={loading || !inviteCode.trim()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Verify Invite Code
+            </button>
+          </>
+        )}
+
+        {/* Step 2 — Email */}
         {step === 'email' && (
           <>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+              <Check className="w-3.5 h-3.5" /> Invite code accepted: <span className="font-mono font-bold">{inviteCode}</span>
+            </div>
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-provn-muted mb-1.5">
                 <Mail className="w-3.5 h-3.5" /> Email
@@ -166,10 +212,14 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
               Send Verification Code
             </button>
+            <button onClick={() => { setStep('invite'); setError(''); }}
+              className="w-full text-xs text-provn-muted hover:text-provn-text transition-colors py-1">
+              ← Change invite code
+            </button>
           </>
         )}
 
-        {/* Step 2 — OTP */}
+        {/* Step 3 — OTP */}
         {step === 'otp' && (
           <>
             <div>
@@ -208,7 +258,7 @@ function RegistrationForm({ wallet, onRegistered }: { wallet: string; onRegister
           </>
         )}
 
-        {/* Step 3 — Display Name */}
+        {/* Step 4 — Display Name */}
         {step === 'name' && (
           <>
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">

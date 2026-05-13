@@ -96,7 +96,7 @@ router.post('/verify-invite', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.post('/register', async (req, res, next) => {
   try {
-    const { wallet, evm_address, email, display_name, ref_code } = req.body;
+    const { wallet, evm_address, email, display_name, ref_code, invite_code } = req.body;
 
     // At least one address type required
     if (!wallet && !evm_address) {
@@ -110,13 +110,14 @@ router.post('/register', async (req, res, next) => {
 
     if (!display_name || !display_name.trim()) return res.status(400).json({ error: 'Display name is required' });
     if (!email) return res.status(400).json({ error: 'Email is required' });
+    if (!invite_code || !invite_code.trim()) return res.status(400).json({ error: 'Invite code is required' });
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    const registration = await registerForQuests(wallet, email, display_name, evm_address || null, ref_code || null);
+    const registration = await registerForQuests(wallet, email, display_name, evm_address || null, ref_code || null, invite_code);
     res.status(201).json({
       message: 'Successfully registered for quests',
       registration,
@@ -543,8 +544,8 @@ router.post('/admin/generate-invites', requireAdmin, async (req, res, next) => {
   try {
     const { count = 10, max_uses = 1, expires_at = null, created_by = 'ADMIN' } = req.body;
 
-    if (count < 1 || count > 100) {
-      return res.status(400).json({ error: 'Count must be between 1 and 100' });
+    if (count < 1 || count > 5000) {
+      return res.status(400).json({ error: 'Count must be between 1 and 5000' });
     }
 
     const codes = await generateInvites(count, created_by, max_uses, expires_at);

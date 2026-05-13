@@ -276,9 +276,10 @@ export default function LeaderboardPage() {
   }, [rows, search]);
 
   const totals = useMemo(() => {
-    const totalXP = rows.reduce((s, r) => s + r.total_xp, 0);
+    const totalXP = rows.reduce((s, r) => s + (r.total_xp || 0), 0);
+    const totalOnchainXP = rows.reduce((s, r) => s + (r.onchain_xp ?? r.total_xp ?? 0), 0);
     const totalCompletions = rows.reduce((s, r) => s + r.quests_completed, 0);
-    return { totalXP, totalCompletions, totalUsers: rows.length };
+    return { totalXP, totalOnchainXP, totalCompletions, totalUsers: rows.length };
   }, [rows]);
 
   const sorted = rows;
@@ -325,9 +326,13 @@ export default function LeaderboardPage() {
           <p className="text-xs text-provn-muted">XP Minted</p>
           <p className="text-2xl font-bold text-emerald-400 mt-0.5 flex items-center justify-center gap-1">
             <Sprout className="w-4 h-4" />
-            {(onchainTotal ?? totals.totalXP).toLocaleString()}
+            {totals.totalXP.toLocaleString()}
           </p>
-          {onchainTotal !== null && <p className="text-[10px] text-provn-muted mt-0.5">on-chain</p>}
+          {onchainTotal !== null && (
+            <p className="text-[10px] text-provn-muted mt-0.5">
+              {onchainTotal.toLocaleString()} on-chain
+            </p>
+          )}
         </div>
         <div className="bg-provn-surface border border-provn-border rounded-xl p-3 text-center">
           <p className="text-xs text-provn-muted">Completions</p>
