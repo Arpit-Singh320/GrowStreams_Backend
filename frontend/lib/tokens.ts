@@ -94,7 +94,7 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     symbol: 'WTVARA',
     name: 'Tokenized VARA',
     decimals: 12,
-    vara: 'native',           // native VARA — streamed via native transfer
+    vara: 'native',           // needs wVARA VFT contract for streaming
     eth: '0xE1ab85A8B4d5d5B6af0bbD0203EB322DF33d0464',
     icon: '/tokens/vara.svg',
     category: 'native',
@@ -102,6 +102,7 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     minBuffer: 3600,
     color: 'text-emerald-400',
     colorAccent: 'emerald',
+    comingSoon: true,
   },
   VARA: {
     key: 'VARA',

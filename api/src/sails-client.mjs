@@ -204,7 +204,14 @@ export async function query(contractName, fnName, ...args) {
   const queryFn = service.queries[fnName];
   if (!queryFn) throw new Error(`Query ${fnName} not found in ${serviceName}`);
 
-  const origin = keyring?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
+  // Origin must be hex ActorId for sails-js createType([u8;32])
+  let origin;
+  if (keyring) {
+    const { decodeAddress } = await import('@polkadot/util-crypto');
+    origin = '0x' + Buffer.from(decodeAddress(keyring.address)).toString('hex');
+  } else {
+    origin = '0x0000000000000000000000000000000000000000000000000000000000000000';
+  }
   const result = await queryFn(origin, null, null, ...args);
   return result;
 }

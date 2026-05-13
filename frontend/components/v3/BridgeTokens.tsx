@@ -469,7 +469,7 @@ export default function BridgeTokens() {
               </div>
 
               <a
-                href="https://bridge.vara.network/"
+                href="https://bridge.vara.network/?network=mainnet"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
