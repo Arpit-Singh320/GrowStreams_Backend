@@ -650,6 +650,18 @@ router.post('/admin/submissions/:id/approve', requireAdmin, async (req, res, nex
   }
 });
 
+// POST /api/quests/admin/sync-mints — backfill tx_hash for all VERIFIED completions missing on-chain mint
+router.post('/admin/sync-mints', requireAdmin, async (req, res) => {
+  // Respond immediately, run sync in background
+  res.json({ message: 'Sync started in background — check Railway logs for progress' });
+  try {
+    const result = await syncOnchainMints();
+    console.log(`[admin] sync-mints complete:`, result);
+  } catch (err) {
+    console.error(`[admin] sync-mints failed:`, err.message);
+  }
+});
+
 // POST /api/quests/admin/submissions/:id/reject
 router.post('/admin/submissions/:id/reject', requireAdmin, async (req, res, next) => {
   try {
