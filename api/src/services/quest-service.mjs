@@ -522,43 +522,54 @@ export async function approvePendingSubmission(completionId) {
   const wallet = row.wallet;
   const seedsReward = row.seeds_reward;
 
-  // On-chain mint is REQUIRED — if it fails the submission stays PENDING and can be retried
-  const seedsContract = getContract('questSeeds');
-  if (!seedsContract) throw Object.assign(new Error('questSeeds contract not loaded — cannot approve'), { status: 503 });
-
-  const reason = `quest:${row.slug}`;
-  console.log(`[quest] Approving submission ${completionId}: minting ${seedsReward} XP to ${wallet}`);
-
-  let walletHex = wallet;
-  if (!wallet.startsWith('0x')) {
-    const { decodeAddress } = await import('@polkadot/util-crypto');
-    const publicKey = decodeAddress(wallet);
-    walletHex = '0x' + Buffer.from(publicKey).toString('hex');
-  }
-
-  const mintResult = await Promise.race([
-    sailsCommand('questSeeds', 'Mint', walletHex, seedsReward, reason),
-    new Promise((_, rej) => setTimeout(() => rej(new Error('on-chain mint timed out after 60s')), 60_000)),
-  ]);
-  const onChainTxHash = mintResult.blockHash || null;
-  console.log(`[quest] On-chain mint SUCCESS for submission ${completionId}, tx=${onChainTxHash}`);
-
-  // Mark as VERIFIED
+  // Mark as VERIFIED immediately so admin UI gets instant response
   const completion = await queryOne(
     `UPDATE quest_completions
-     SET status = 'VERIFIED', seeds_awarded = $1, tx_hash = $2, verified_at = NOW()
-     WHERE id = $3 RETURNING *`,
-    [seedsReward, onChainTxHash, completionId]
+     SET status = 'VERIFIED', seeds_awarded = $1, tx_hash = NULL, verified_at = NOW()
+     WHERE id = $2 RETURNING *`,
+    [seedsReward, completionId]
   );
 
   // Insert seeds ledger entry
   await queryOne(
     `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
-     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4) RETURNING *`,
-    [wallet, seedsReward, row.quest_id, onChainTxHash]
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, NULL)`,
+    [wallet, seedsReward, row.quest_id]
   );
 
-  console.log(`[quest] Approved submission ${completionId}: ${seedsReward} XP to ${wallet}`);
+  console.log(`[quest] Approved submission ${completionId}: ${seedsReward} XP to ${wallet} — minting on-chain async`);
+
+  // Mint on-chain in background — updates tx_hash once confirmed
+  setImmediate(async () => {
+    const seedsContract = getContract('questSeeds');
+    if (!seedsContract) {
+      console.warn(`[quest] questSeeds contract not loaded — submission ${completionId} is DB-only`);
+      return;
+    }
+    try {
+      const reason = `quest:${row.slug}`;
+      let walletHex = wallet;
+      if (!wallet.startsWith('0x')) {
+        const { decodeAddress } = await import('@polkadot/util-crypto');
+        walletHex = '0x' + Buffer.from(decodeAddress(wallet)).toString('hex');
+      }
+      const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, seedsReward, reason);
+      const txHash = mintResult.blockHash || null;
+      // Update tx_hash in both tables once confirmed
+      await query(
+        `UPDATE quest_completions SET tx_hash = $1 WHERE id = $2`,
+        [txHash, completionId]
+      );
+      await query(
+        `UPDATE seeds_ledger SET tx_hash = $1 WHERE quest_id = $2 AND wallet = $3 AND tx_hash IS NULL`,
+        [txHash, row.quest_id, wallet]
+      );
+      console.log(`[quest] On-chain mint SUCCESS for submission ${completionId}, tx=${txHash}`);
+    } catch (mintErr) {
+      console.warn(`[quest] On-chain mint failed for submission ${completionId}: ${mintErr.message}`);
+    }
+  });
+
   return completion;
 }
 
