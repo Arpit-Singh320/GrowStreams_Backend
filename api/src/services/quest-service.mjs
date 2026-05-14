@@ -204,6 +204,15 @@ export async function registerForQuests(wallet, email, displayName, evmAddress =
     }
   }
 
+  // Auto-award 100 XP welcome bonus immediately on registration
+  setImmediate(async () => {
+    try {
+      await awardWelcomeBonus(primaryIdentifier);
+    } catch (err) {
+      console.warn(`[quest] Welcome bonus failed for ${primaryIdentifier}: ${err.message}`);
+    }
+  });
+
   console.log(`[quest] Registered ${primaryIdentifier} type=${walletType} (email=${normalizedEmail}, name=${normalizedName})`);
   return { ...reg, referral_code: referralCode };
 }
