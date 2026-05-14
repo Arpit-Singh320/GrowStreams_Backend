@@ -513,33 +513,26 @@ export async function approvePendingSubmission(completionId) {
   const wallet = row.wallet;
   const seedsReward = row.seeds_reward;
 
-  // Attempt on-chain mint via quest-seeds contract (same logic as awardSeeds)
-  let onChainTxHash = null;
+  // On-chain mint is REQUIRED — if it fails the submission stays PENDING and can be retried
   const seedsContract = getContract('questSeeds');
-  if (seedsContract) {
-    try {
-      const reason = `quest:${row.slug}`;
-      console.log(`[quest] Approving submission ${completionId}: minting ${seedsReward} XP to ${wallet}`);
+  if (!seedsContract) throw Object.assign(new Error('questSeeds contract not loaded — cannot approve'), { status: 503 });
 
-      let walletHex = wallet;
-      if (!wallet.startsWith('0x')) {
-        const { decodeAddress } = await import('@polkadot/util-crypto');
-        const publicKey = decodeAddress(wallet);
-        walletHex = '0x' + Buffer.from(publicKey).toString('hex');
-      }
+  const reason = `quest:${row.slug}`;
+  console.log(`[quest] Approving submission ${completionId}: minting ${seedsReward} XP to ${wallet}`);
 
-      const mintResult = await Promise.race([
-        sailsCommand('questSeeds', 'Mint', walletHex, seedsReward, reason),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('mint timeout')), 30_000)),
-      ]);
-      onChainTxHash = mintResult.blockHash || null;
-      console.log(`[quest] On-chain mint SUCCESS for submission ${completionId}, tx=${onChainTxHash}`);
-    } catch (mintErr) {
-      console.warn(`[quest] On-chain mint failed for submission ${completionId}: ${mintErr.message}. Recording DB-only.`);
-    }
-  } else {
-    console.warn(`[quest] questSeeds contract not loaded — Seeds will be DB-only`);
+  let walletHex = wallet;
+  if (!wallet.startsWith('0x')) {
+    const { decodeAddress } = await import('@polkadot/util-crypto');
+    const publicKey = decodeAddress(wallet);
+    walletHex = '0x' + Buffer.from(publicKey).toString('hex');
   }
+
+  const mintResult = await Promise.race([
+    sailsCommand('questSeeds', 'Mint', walletHex, seedsReward, reason),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('on-chain mint timed out after 60s')), 60_000)),
+  ]);
+  const onChainTxHash = mintResult.blockHash || null;
+  console.log(`[quest] On-chain mint SUCCESS for submission ${completionId}, tx=${onChainTxHash}`);
 
   // Mark as VERIFIED
   const completion = await queryOne(

@@ -645,10 +645,8 @@ router.post('/admin/submissions/:id/approve', requireAdmin, async (req, res, nex
     const completion = await approvePendingSubmission(id);
     res.json({ message: 'Submission approved', completion });
   } catch (err) {
-    if (err.message?.includes('not found') || err.message?.includes('not pending')) {
-      return res.status(400).json({ error: err.message });
-    }
-    next(err);
+    const status = err.status || (err.message?.includes('not found') || err.message?.includes('not pending') ? 400 : 500);
+    return res.status(status).json({ error: err.message });
   }
 });
 
