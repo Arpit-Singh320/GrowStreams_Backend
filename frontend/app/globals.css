@@ -129,6 +129,21 @@
     color: var(--provn-text) !important;
   }
 
+  /* Replace "VARA" label with "WVARA" in the wallet balance widget */
+  .gear-wallet-override [class*="balance"] span:last-child,
+  .gear-wallet-override [class*="unit"],
+  .gear-wallet-override [class*="currency"],
+  .gear-wallet-override [class*="token-name"] {
+    font-size: 0 !important;
+  }
+  .gear-wallet-override [class*="balance"] span:last-child::after,
+  .gear-wallet-override [class*="unit"]::after,
+  .gear-wallet-override [class*="currency"]::after,
+  .gear-wallet-override [class*="token-name"]::after {
+    content: 'WVARA';
+    font-size: 0.75rem;
+  }
+
   .font-body {
     font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, -apple-system, sans-serif;
   }

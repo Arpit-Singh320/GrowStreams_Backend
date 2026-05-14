@@ -182,7 +182,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </button>
             )}
             <div className="flex items-center gap-2 text-xs text-provn-muted">
-              <span className="hidden sm:inline">Vara Testnet</span>
+              <span className="hidden sm:inline">Vara Mainnet</span>
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
           </div>

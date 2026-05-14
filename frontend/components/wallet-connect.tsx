@@ -44,7 +44,7 @@ export default function WalletConnect() {
           </p>
         </div>
 
-        <p className="text-center text-xs text-provn-muted mt-6">Vara Testnet</p>
+        <p className="text-center text-xs text-provn-muted mt-6">Vara Mainnet</p>
       </div>
     </div>
   );
