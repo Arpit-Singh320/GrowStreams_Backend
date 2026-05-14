@@ -42,8 +42,9 @@ let parser = null;
 
 let _mintQueue = Promise.resolve();
 function serialCommand(fn) {
-  _mintQueue = _mintQueue.then(() => fn()).catch(() => fn());
-  return _mintQueue;
+  const result = _mintQueue.then(() => fn());
+  _mintQueue = result.catch(() => {});
+  return result;
 }
 
 const contracts = {

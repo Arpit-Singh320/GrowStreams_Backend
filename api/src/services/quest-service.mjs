@@ -528,7 +528,10 @@ export async function approvePendingSubmission(completionId) {
         walletHex = '0x' + Buffer.from(publicKey).toString('hex');
       }
 
-      const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, seedsReward, reason);
+      const mintResult = await Promise.race([
+        sailsCommand('questSeeds', 'Mint', walletHex, seedsReward, reason),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('mint timeout')), 30_000)),
+      ]);
       onChainTxHash = mintResult.blockHash || null;
       console.log(`[quest] On-chain mint SUCCESS for submission ${completionId}, tx=${onChainTxHash}`);
     } catch (mintErr) {
