@@ -436,17 +436,27 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
     console.warn(`[quest] questSeeds contract not loaded — Seeds will be DB-only`);
   }
 
-  // Insert completion
+  // Insert completion — ON CONFLICT guards against race-condition double-awards
   const completion = await queryOne(
     `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at)
-     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW()) RETURNING *`,
+     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW())
+     ON CONFLICT DO NOTHING
+     RETURNING *`,
     [wallet, quest.id, JSON.stringify(proof), quest.seeds_reward, onChainTxHash]
   );
+
+  // If another concurrent request already inserted, bail out gracefully
+  if (!completion) {
+    console.warn(`[quest] Race-condition duplicate blocked for ${wallet} / ${questSlug}`);
+    return null;
+  }
 
   // Insert seeds ledger entry
   await queryOne(
     `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
-     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4) RETURNING *`,
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4)
+     ON CONFLICT DO NOTHING
+     RETURNING *`,
     [wallet, quest.seeds_reward, quest.id, onChainTxHash]
   );
 
@@ -466,6 +476,11 @@ export async function submitQuestProof(wallet, questSlug, proof = {}) {
   const quest = await getQuestBySlug(questSlug);
   if (!quest) throw new Error(`Quest not found: ${questSlug}`);
   if (!quest.active) throw new Error(`Quest is not active: ${questSlug}`);
+
+  // Auto-approve quest types should NEVER go through manual review
+  if (quest.quest_type === 'TELEGRAM_JOIN' || quest.quest_type === 'VISIT_URL') {
+    throw new Error(`Quest type ${quest.quest_type} is auto-approved and cannot be submitted for review.`);
+  }
 
   // Already verified this week?
   const verified = await queryOne(
@@ -737,6 +752,7 @@ export async function syncOnchainMints() {
      FROM quest_completions qc
      JOIN quests q ON q.id = qc.quest_id
      WHERE qc.status = 'VERIFIED' AND qc.tx_hash IS NULL
+       AND qc.seeds_awarded > 0
      ORDER BY qc.verified_at ASC
      LIMIT 100`
   );

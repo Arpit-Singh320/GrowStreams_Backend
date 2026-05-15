@@ -72,8 +72,8 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
-  // Retry DB-only mints — every hour
-  cron.schedule('0 * * * *', async () => {
+  // Retry DB-only mints — every 30 minutes for fast recovery after node issues
+  cron.schedule('*/30 * * * *', async () => {
     try {
       const result = await syncOnchainMints();
       if (result.attempted > 0) {
@@ -81,24 +81,6 @@ export function initCrons() {
       }
     } catch (err) {
       console.error(`[cron] sync-onchain failed: ${err.message}`);
-    }
-  }, { timezone: 'UTC' });
-
-  // Quest: X follow check — every 6 hours (rate limit safe)
-  cron.schedule('0 */6 * * *', async () => {
-    try {
-      await runFollowCheck();
-    } catch (err) {
-      console.error(`[cron] quest-x-follow failed: ${err.message}`);
-    }
-  }, { timezone: 'UTC' });
-
-  // Quest: X mention check — every 6 hours offset by 1h (avoid same-window collision)
-  cron.schedule('0 1,7,13,19 * * *', async () => {
-    try {
-      await runMentionCheck();
-    } catch (err) {
-      console.error(`[cron] quest-x-mention failed: ${err.message}`);
     }
   }, { timezone: 'UTC' });
 
@@ -120,7 +102,7 @@ export function initCrons() {
   console.log('[cron]   x-reeval:         0 */6 * * *    (every 6h)');
   console.log('[cron]   campaign-lifecycle: */15 * * * * (every 15m)');
   console.log('[cron]   quest-stream:     */10 * * * *   (every 10m)');
-  console.log('[cron]   sync-onchain:     0 * * * *      (every 1h)');
+  console.log('[cron]   sync-onchain:     */30 * * * *   (every 30m)');
   console.log('[cron]   quest-x-follow:   0 */6 * * *    (every 6h)');
   console.log('[cron]   quest-x-mention:  0 1,7,13,19 * * * (every 6h offset)');
   console.log('[cron]   voucher-reclaim:  30 */6 * * *   (every 6h, reclaims VARA)');
