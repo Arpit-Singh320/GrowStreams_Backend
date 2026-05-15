@@ -242,6 +242,43 @@ async function start() {
     }
 
     await connect();
+
+    // Fix stale PENDING rows for auto-approve quest types (TELEGRAM_JOIN, VISIT_URL)
+    // These should never be pending — auto-approve them now
+    try {
+      const { query: dbQuery } = await import('./services/db.mjs');
+      const fixed = await dbQuery(`
+        UPDATE quest_completions qc
+        SET status = 'VERIFIED',
+            seeds_awarded = q.seeds_reward,
+            verified_at   = NOW()
+        FROM quests q
+        WHERE qc.quest_id = q.id
+          AND qc.status = 'PENDING'
+          AND q.quest_type IN ('TELEGRAM_JOIN', 'VISIT_URL')
+        RETURNING qc.id
+      `);
+      if (fixed.rowCount > 0) {
+        console.log(`[startup] Auto-approved ${fixed.rowCount} stale PENDING telegram/visit-url quests`);
+        // Insert seeds_ledger entries for newly approved ones
+        await dbQuery(`
+          INSERT INTO seeds_ledger (wallet, delta, reason, quest_id)
+          SELECT qc.wallet, q.seeds_reward, 'QUEST_COMPLETE', q.id
+          FROM quest_completions qc
+          JOIN quests q ON q.id = qc.quest_id
+          WHERE qc.status = 'VERIFIED'
+            AND qc.verified_at >= NOW() - INTERVAL '10 seconds'
+            AND q.quest_type IN ('TELEGRAM_JOIN', 'VISIT_URL')
+            AND NOT EXISTS (
+              SELECT 1 FROM seeds_ledger sl
+              WHERE sl.wallet = qc.wallet AND sl.quest_id = q.id
+            )
+        `);
+      }
+    } catch (cleanupErr) {
+      console.warn(`[startup] Pending cleanup warning: ${cleanupErr.message}`);
+    }
+
     app.listen(PORT, '0.0.0.0', async () => {
       console.log(`[api] GrowStreams V3 API listening on port ${PORT}`);
       console.log(`[api] http://localhost:${PORT}`);

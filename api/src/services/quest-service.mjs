@@ -309,7 +309,9 @@ export async function getQuestProgress(wallet) {
     const questCompletions = completionMap[q.id] || [];
     const verifiedAll = questCompletions.filter(c => c.status === 'VERIFIED');
     const verifiedThisWeek = verifiedAll.filter(isThisWeek);
-    const pendingThisWeek = questCompletions.find(c => c.status === 'PENDING' && isThisWeek(c)) || null;
+    // Auto-approve quest types (TELEGRAM_JOIN, VISIT_URL) should never show as pending
+    const isAutoApprove = q.quest_type === 'TELEGRAM_JOIN' || q.quest_type === 'VISIT_URL';
+    const pendingThisWeek = (!isAutoApprove && questCompletions.find(c => c.status === 'PENDING' && isThisWeek(c))) || null;
     const rejectedThisWeek = questCompletions.find(c => c.status === 'REJECTED' && isThisWeek(c)) || null;
     const isCompletedThisWeek = verifiedThisWeek.length > 0;
     const isCompleted = !q.repeatable ? verifiedAll.length > 0 : isCompletedThisWeek;
@@ -380,6 +382,15 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
     if (existing) {
       console.log(`[quest] Skipped duplicate completion: ${wallet} already completed ${questSlug} this week`);
       return null;
+    }
+
+    // For auto-approve types (TELEGRAM_JOIN, VISIT_URL): clear any stale PENDING rows
+    // so they don't block the UI or create duplicate entries
+    if (quest.quest_type === 'TELEGRAM_JOIN' || quest.quest_type === 'VISIT_URL') {
+      await query(
+        `DELETE FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'PENDING'`,
+        [wallet, quest.id]
+      );
     }
   }
 
