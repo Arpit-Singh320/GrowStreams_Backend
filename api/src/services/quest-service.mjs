@@ -394,55 +394,13 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
     }
   }
 
-  // Attempt on-chain mint via quest-seeds contract
-  let onChainTxHash = txHash;
-  const seedsContract = getContract('questSeeds');
-  const isEvmAddress = wallet && wallet.startsWith('0x') && wallet.length === 42;
-
-  if (seedsContract && !txHash && !isEvmAddress) {
-    // Vara-native path: convert SS58 → hex ActorId and mint via Sails
-    try {
-      const reason = `quest:${questSlug}`;
-      console.log(`[quest] Attempting on-chain mint (Vara native): ${quest.seeds_reward} Seeds to ${wallet}`);
-
-      let walletHex = wallet;
-      if (!wallet.startsWith('0x')) {
-        const { decodeAddress } = await import('@polkadot/util-crypto');
-        const publicKey = decodeAddress(wallet);
-        walletHex = '0x' + Buffer.from(publicKey).toString('hex');
-        console.log(`[quest] Converted SS58 ${wallet} to hex ${walletHex}`);
-      }
-
-      const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, quest.seeds_reward, reason);
-      console.log(`[quest] Mint result:`, mintResult);
-      onChainTxHash = mintResult.blockHash || null;
-      console.log(`[quest] On-chain mint SUCCESS: ${quest.seeds_reward} Seeds to ${wallet}, tx=${onChainTxHash}`);
-    } catch (mintErr) {
-      console.warn(`[quest] On-chain mint failed for ${wallet}: ${mintErr.message}. Recording DB-only.`);
-    }
-  } else if (seedsContract && !txHash && isEvmAddress) {
-    // Vara.eth path: mint to 0x address via vara-eth-client (Mirror/ABI call)
-    try {
-      const { mintSeedsEvm } = await import('../vara-eth-client.mjs');
-      const reason = `quest:${questSlug}`;
-      console.log(`[quest] Attempting on-chain mint (Vara.eth): ${quest.seeds_reward} Seeds to ${wallet}`);
-      const evmTx = await mintSeedsEvm(wallet, quest.seeds_reward, reason);
-      onChainTxHash = evmTx?.txHash || null;
-      console.log(`[quest] Vara.eth mint SUCCESS: tx=${onChainTxHash}`);
-    } catch (mintErr) {
-      console.warn(`[quest] Vara.eth mint failed for ${wallet}: ${mintErr.message}. Recording DB-only.`);
-    }
-  } else if (!seedsContract) {
-    console.warn(`[quest] questSeeds contract not loaded — Seeds will be DB-only`);
-  }
-
-  // Insert completion — ON CONFLICT guards against race-condition double-awards
+  // Insert completion immediately so the user gets an instant response
   const completion = await queryOne(
     `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at)
      VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW())
      ON CONFLICT DO NOTHING
      RETURNING *`,
-    [wallet, quest.id, JSON.stringify(proof), quest.seeds_reward, onChainTxHash]
+    [wallet, quest.id, JSON.stringify(proof), quest.seeds_reward, txHash]
   );
 
   // If another concurrent request already inserted, bail out gracefully
@@ -457,10 +415,47 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
      VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4)
      ON CONFLICT DO NOTHING
      RETURNING *`,
-    [wallet, quest.seeds_reward, quest.id, onChainTxHash]
+    [wallet, quest.seeds_reward, quest.id, txHash]
   );
 
-  console.log(`[quest] Awarded ${quest.seeds_reward} Seeds to ${wallet} for ${questSlug} (tx=${onChainTxHash || 'db-only'})`);
+  console.log(`[quest] Awarded ${quest.seeds_reward} Seeds to ${wallet} for ${questSlug} (db-instant)`);
+
+  // Mint on-chain in background — updates tx_hash once confirmed
+  if (!txHash) {
+    setImmediate(async () => {
+      const seedsContract = getContract('questSeeds');
+      if (!seedsContract) {
+        console.warn(`[quest] questSeeds contract not loaded — ${questSlug} for ${wallet} is DB-only`);
+        return;
+      }
+      const isEvmAddress = wallet && wallet.startsWith('0x') && wallet.length === 42;
+      try {
+        let onChainTxHash = null;
+        if (!isEvmAddress) {
+          const reason = `quest:${questSlug}`;
+          let walletHex = wallet;
+          if (!wallet.startsWith('0x')) {
+            const { decodeAddress } = await import('@polkadot/util-crypto');
+            walletHex = '0x' + Buffer.from(decodeAddress(wallet)).toString('hex');
+          }
+          const mintResult = await sailsCommand('questSeeds', 'Mint', walletHex, quest.seeds_reward, reason);
+          onChainTxHash = mintResult.blockHash || null;
+        } else {
+          const { mintSeedsEvm } = await import('../vara-eth-client.mjs');
+          const evmTx = await mintSeedsEvm(wallet, quest.seeds_reward, `quest:${questSlug}`);
+          onChainTxHash = evmTx?.txHash || null;
+        }
+        if (onChainTxHash) {
+          await query(`UPDATE quest_completions SET tx_hash = $1 WHERE id = $2`, [onChainTxHash, completion.id]);
+          await query(`UPDATE seeds_ledger SET tx_hash = $1 WHERE quest_id = $2 AND wallet = $3 AND tx_hash IS NULL`, [onChainTxHash, quest.id, wallet]);
+          console.log(`[quest] On-chain mint SUCCESS for ${questSlug} / ${wallet}, tx=${onChainTxHash}`);
+        }
+      } catch (mintErr) {
+        console.warn(`[quest] On-chain mint failed for ${wallet} / ${questSlug}: ${mintErr.message}`);
+      }
+    });
+  }
+
   return completion;
 }
 
