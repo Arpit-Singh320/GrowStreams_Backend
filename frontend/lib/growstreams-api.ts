@@ -761,6 +761,12 @@ export const api = {
       get<{ eligible: boolean; alreadyClaimed: boolean; code: string | null }>(`/api/quests/ginie-invite?wallet=${wallet}`),
     campaignJoin: (slug: string, wallet: string) =>
       post<{ message: string; awarded: boolean }>(`/api/quests/campaigns/${slug}/join`, { wallet } as Record<string, unknown>),
+    campaignView: (slug: string) =>
+      post<{ ok: boolean }>(`/api/quests/campaigns/${slug}/view`, {}),
+    campaignLike: (slug: string, wallet: string) =>
+      post<{ liked: boolean }>(`/api/quests/campaigns/${slug}/like`, { wallet } as Record<string, unknown>),
+    campaignLiked: (slug: string, wallet: string) =>
+      get<{ liked: boolean }>(`/api/quests/campaigns/${slug}/liked?wallet=${wallet}`),
 
     // Admin (requires Bearer token)
     adminListSubmissions: (token: string) =>

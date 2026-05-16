@@ -677,6 +677,8 @@ function QuestDashboard({ wallet }: { wallet: string }) {
   const [campaigns, setCampaigns] = useState<Array<any>>([]);
   const [historyCampaigns, setHistoryCampaigns] = useState<Array<any>>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [likedSlugs, setLikedSlugs] = useState<Set<string>>(new Set());
+  const [likingSlug, setLikingSlug] = useState<string | null>(null);
 
   const loadProgress = useCallback(async () => {
     setLoading(true);
@@ -687,8 +689,18 @@ function QuestDashboard({ wallet }: { wallet: string }) {
         api.quests.questCampaignsHistory(),
       ]);
       setProgress(data);
-      setCampaigns((camps && camps.campaigns) || []);
+      const campaignList = (camps && camps.campaigns) || [];
+      setCampaigns(campaignList);
       setHistoryCampaigns((history && history.campaigns) || []);
+      // Track views and load liked state for all campaigns
+      campaignList.forEach((camp: any) => {
+        api.quests.campaignView(camp.slug).catch(() => {});
+        if (wallet) {
+          api.quests.campaignLiked(camp.slug, wallet)
+            .then(r => { if (r.liked) setLikedSlugs(prev => new Set(prev).add(camp.slug)); })
+            .catch(() => {});
+        }
+      });
       const reg = data.registration as Record<string, unknown> | undefined;
       setDisplayName((reg?.display_name as string) || '');
     } catch (err) {
@@ -843,7 +855,36 @@ function QuestDashboard({ wallet }: { wallet: string }) {
                     <div className="mt-4 flex items-center justify-between">
                       <div className="flex items-center gap-4 text-provn-muted text-sm">
                         <div className="flex items-center gap-1.5"><Eye className="w-4 h-4" /> <span>{(camp.views || 0).toLocaleString()}</span></div>
-                        <div className="flex items-center gap-1.5"><Heart className="w-4 h-4 text-rose-400" /> <span className="text-rose-200">{(camp.likes || 0).toLocaleString()}</span></div>
+                        <button
+                          onClick={async () => {
+                            if (!wallet || likingSlug === camp.slug) return;
+                            setLikingSlug(camp.slug);
+                            try {
+                              const r = await api.quests.campaignLike(camp.slug, wallet);
+                              setLikedSlugs(prev => {
+                                const next = new Set(prev);
+                                r.liked ? next.add(camp.slug) : next.delete(camp.slug);
+                                return next;
+                              });
+                              setCampaigns(prev => prev.map((c: any) =>
+                                c.slug === camp.slug
+                                  ? { ...c, likes: (c.likes || 0) + (r.liked ? 1 : -1) }
+                                  : c
+                              ));
+                            } catch {}
+                            finally { setLikingSlug(null); }
+                          }}
+                          disabled={!wallet || likingSlug === camp.slug}
+                          className={`flex items-center gap-1.5 transition-colors ${
+                            likedSlugs.has(camp.slug)
+                              ? 'text-rose-400 hover:text-rose-300'
+                              : 'text-provn-muted hover:text-rose-400'
+                          } disabled:opacity-50`}
+                          title={likedSlugs.has(camp.slug) ? 'Unlike' : 'Like'}
+                        >
+                          <Heart className={`w-4 h-4 ${likedSlugs.has(camp.slug) ? 'fill-rose-400' : ''}`} />
+                          <span className={likedSlugs.has(camp.slug) ? 'text-rose-200' : ''}>{(camp.likes || 0).toLocaleString()}</span>
+                        </button>
                         <div className="flex items-center gap-1.5"><Sprout className="w-3.5 h-3.5 text-emerald-400" /> <span>{camp.quest_count || 0}</span></div>
                       </div>
                       <a href={`/app/campaign/${camp.slug}`}

@@ -91,7 +91,7 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
   },
   WTVARA: {
     key: 'WTVARA',
-    symbol: 'WTVARA',
+    symbol: 'VARA',
     name: 'Tokenized VARA',
     decimals: 12,
     vara: 'native',           // needs wVARA VFT contract for streaming

@@ -40,6 +40,7 @@ import {
   deleteQuest,
 } from '../services/quest-campaign-service.mjs';
 import { sendOtp, verifyOtp } from '../services/otp-service.mjs';
+import { query, queryOne } from '../services/db.mjs';
 
 const router = Router();
 
@@ -515,6 +516,53 @@ router.get('/campaigns/:slug/prize-board', async (req, res, next) => {
     const board = await getCampaignPrizeBoard(slug, limit);
     if (!board) return res.status(404).json({ error: 'Campaign not found' });
     res.json(board);
+  } catch (err) { next(err); }
+});
+
+// POST /api/quests/campaigns/:slug/view — increment view counter (fire-and-forget)
+router.post('/campaigns/:slug/view', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    await query(`UPDATE quest_campaigns SET views = views + 1 WHERE slug = $1`, [slug]);
+    res.json({ ok: true });
+  } catch { res.json({ ok: true }); }
+});
+
+// POST /api/quests/campaigns/:slug/like — toggle like for a wallet
+router.post('/campaigns/:slug/like', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const { wallet } = req.body;
+    if (!wallet) return res.status(400).json({ error: 'wallet required' });
+
+    const existing = await queryOne(
+      `SELECT 1 FROM campaign_likes WHERE wallet = $1 AND campaign_slug = $2`,
+      [wallet, slug]
+    );
+
+    if (existing) {
+      await query(`DELETE FROM campaign_likes WHERE wallet = $1 AND campaign_slug = $2`, [wallet, slug]);
+      await query(`UPDATE quest_campaigns SET likes = GREATEST(0, likes - 1) WHERE slug = $1`, [slug]);
+      res.json({ liked: false });
+    } else {
+      await query(`INSERT INTO campaign_likes (wallet, campaign_slug) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [wallet, slug]);
+      await query(`UPDATE quest_campaigns SET likes = likes + 1 WHERE slug = $1`, [slug]);
+      res.json({ liked: true });
+    }
+  } catch (err) { next(err); }
+});
+
+// GET /api/quests/campaigns/:slug/liked?wallet=... — check if wallet liked a campaign
+router.get('/campaigns/:slug/liked', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    const { wallet } = req.query;
+    if (!wallet) return res.json({ liked: false });
+    const row = await queryOne(
+      `SELECT 1 FROM campaign_likes WHERE wallet = $1 AND campaign_slug = $2`,
+      [wallet, slug]
+    );
+    res.json({ liked: !!row });
   } catch (err) { next(err); }
 });
 
