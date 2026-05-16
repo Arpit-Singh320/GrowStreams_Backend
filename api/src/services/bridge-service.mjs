@@ -1,5 +1,5 @@
 // Bridge Service — ETH ↔ Vara bridge info, route resolution, fee estimation, and tx tracking
-// Supports bridging ERC-20 tokens from Ethereum testnets to wrapped VFT tokens on Vara
+// Supports bridging ERC-20 tokens from Ethereum mainnet to wrapped VFT tokens on Vara
 
 import { SUPPORTED_TOKENS, getToken, getTokenByEthAddress, getTokenByVaraAddress, listTokens } from '../config/tokens.mjs';
 import { toDisplayUnits, toBaseUnits } from '../utils/decimals.mjs';
@@ -18,13 +18,13 @@ const BRIDGE_CONFIG = {
     blockTime: 3, // seconds
   },
   ethereum: {
-    bridgeContract: '0xAb8F315Cc80cf2368750fE5A33E259d6241b3dEB', // ETH MessageQueue on Hoodi
-    erc20Manager: '0xA17187De490dB5F7160822dA197bcAc39d64baCb',    // ETH ERC20Manager on Hoodi
-    verifier: '0xc3ac0c364452acEE4366CD088F947965ec486e8F',         // ETH Verifier on Hoodi
-    rpcUrl: process.env.ETH_RPC_URL || 'https://rpc.hoodi.ethpandaops.io',
-    explorer: 'https://hoodi.etherscan.io',
-    chainId: 560048,
-    chainName: 'Ethereum Hoodi',
+    bridgeContract: '0xAb8F315Cc80cf2368750fE5A33E259d6241b3dEB', // ETH MessageQueue
+    erc20Manager: '0xA17187De490dB5F7160822dA197bcAc39d64baCb',    // ETH ERC20Manager
+    verifier: '0xc3ac0c364452acEE4366CD088F947965ec486e8F',         // ETH Verifier
+    rpcUrl: process.env.ETH_RPC_URL || 'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+    explorer: 'https://etherscan.io',
+    chainId: 1,
+    chainName: 'Ethereum Mainnet',
     blockTime: 12, // seconds
   },
   // Default bridge parameters
