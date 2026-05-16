@@ -129,7 +129,7 @@
     color: var(--provn-text) !important;
   }
 
-  /* Replace "VARA" label with "WVARA" in the wallet balance widget */
+  /* Replace wallet balance widget token label with VARA */
   .gear-wallet-override [class*="balance"] span:last-child,
   .gear-wallet-override [class*="unit"],
   .gear-wallet-override [class*="currency"],
@@ -140,7 +140,7 @@
   .gear-wallet-override [class*="unit"]::after,
   .gear-wallet-override [class*="currency"]::after,
   .gear-wallet-override [class*="token-name"]::after {
-    content: 'WVARA';
+    content: 'VARA';
     font-size: 0.75rem;
   }
 

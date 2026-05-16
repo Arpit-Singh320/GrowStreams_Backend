@@ -20,7 +20,7 @@ export interface TokenConfig {
 export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
   WUSDC: {
     key: 'WUSDC',
-    symbol: 'USDC',
+    symbol: 'wUSDC',
     name: 'USD Coin',
     decimals: 6,
     vara: '0x9f332e61589e0850dce6d8e6070ea5618de33d9f134a4a35d6d1164dc9002f48',
@@ -34,7 +34,7 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
   },
   WUSDT: {
     key: 'WUSDT',
-    symbol: 'USDT',
+    symbol: 'wUSDT',
     name: 'Tether USD',
     decimals: 6,
     vara: '0x464511231a1afe9108a689ed3dbbb047ca308d6f5dfb86453e4df5612a2d668a',
