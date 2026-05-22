@@ -2,6 +2,7 @@ import { query, queryOne, queryAll } from './db.mjs';
 import { executeVftTransfer } from './token-service.mjs';
 import { toBaseUnits } from '../utils/decimals.mjs';
 import { getToken } from '../config/tokens.mjs';
+import { shouldFreezeReward } from './reward-freeze.mjs';
 
 // ---------------------------------------------------------------------------
 // Campaign CRUD
@@ -303,6 +304,11 @@ export async function getCampaignLeaderboard(campaignId, page = 1, limit = 50) {
  * Updates campaign_participants.campaign_xp for the wallet in that campaign.
  */
 export async function awardCampaignXP(campaignId, wallet, xpDelta, contributionId = null) {
+  if (shouldFreezeReward(xpDelta)) {
+    console.log(`[campaigns] Rewards frozen; skipped ${xpDelta} campaign XP to ${wallet} in ${campaignId}`);
+    return null;
+  }
+
   // Update campaign_participants XP
   const updated = await queryOne(
     `UPDATE campaign_participants

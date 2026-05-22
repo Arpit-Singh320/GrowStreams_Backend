@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { query, queryOne, queryAll } from './db.mjs';
 import { command as sailsCommand, getContract } from '../sails-client.mjs';
+import { REWARDS_FROZEN, shouldFreezeReward } from './reward-freeze.mjs';
 
 // ---------------------------------------------------------------------------
 // Referral code helpers
@@ -354,6 +355,10 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
   const quest = await getQuestBySlug(questSlug);
   if (!quest) throw new Error(`Quest not found: ${questSlug}`);
   if (!quest.active) throw new Error(`Quest is not active: ${questSlug}`);
+  if (shouldFreezeReward(quest.seeds_reward)) {
+    console.log(`[quest] Rewards frozen; skipped ${quest.seeds_reward} Seeds for ${wallet} / ${questSlug}`);
+    return null;
+  }
 
   // Dedup logic: REFERRAL quests use per-referred-wallet check (no weekly cap).
   // All other quests use the standard ISO-week boundary check.
@@ -542,6 +547,9 @@ export async function approvePendingSubmission(completionId) {
 
   const wallet = row.wallet;
   const seedsReward = row.seeds_reward;
+  if (shouldFreezeReward(seedsReward)) {
+    throw Object.assign(new Error('Rewards are frozen; this submission cannot increase Seeds.'), { status: 400 });
+  }
 
   // Mark as VERIFIED immediately so admin UI gets instant response
   const completion = await queryOne(
@@ -622,6 +630,10 @@ export async function rejectPendingSubmission(completionId, reason = '') {
 export async function awardWelcomeBonus(wallet) {
   const quest = await getQuestBySlug('welcome-bonus');
   if (!quest || !quest.active) return null;
+  if (shouldFreezeReward(quest.seeds_reward)) {
+    console.log(`[quest] Rewards frozen; skipped welcome-bonus (${quest.seeds_reward} Seeds) for ${wallet}`);
+    return null;
+  }
 
   const existing = await queryOne(
     `SELECT id FROM quest_completions
@@ -672,6 +684,10 @@ export async function awardWelcomeBonus(wallet) {
 export async function awardWelcomeBonusBySlug(wallet, questSlug) {
   const quest = await getQuestBySlug(questSlug);
   if (!quest || !quest.active || quest.quest_type !== 'WELCOME') return null;
+  if (shouldFreezeReward(quest.seeds_reward)) {
+    console.log(`[quest] Rewards frozen; skipped ${questSlug} (${quest.seeds_reward} Seeds) for ${wallet}`);
+    return null;
+  }
 
   const existing = await queryOne(
     `SELECT id FROM quest_completions WHERE wallet = $1 AND quest_id = $2 AND status = 'VERIFIED'`,
@@ -742,6 +758,11 @@ export async function getSeedsBalance(address) {
  * Returns { attempted, succeeded, failed }
  */
 export async function syncOnchainMints() {
+  if (REWARDS_FROZEN) {
+    console.log('[sync] Rewards frozen; skipped on-chain mint sync');
+    return { attempted: 0, succeeded: 0, failed: 0, frozen: true };
+  }
+
   const pending = await queryAll(
     `SELECT qc.id, qc.wallet, qc.seeds_awarded, qc.quest_id, q.slug, q.quest_type
      FROM quest_completions qc

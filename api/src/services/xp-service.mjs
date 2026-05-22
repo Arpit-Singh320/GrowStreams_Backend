@@ -1,5 +1,6 @@
 import { query, queryOne, queryAll } from './db.mjs';
 import { awardCampaignXP } from './campaign-service.mjs';
+import { shouldFreezeReward } from './reward-freeze.mjs';
 
 const ONE_TIME_REASONS = ['INITIAL_AWARD', 'MERGE_BONUS', 'VIRAL_BONUS', 'RESHARE_BONUS'];
 const REFERRAL_BONUS_PCT = 0.05; // 5% referral bonus
@@ -11,6 +12,11 @@ const REFERRAL_BONUS_PCT = 0.05; // 5% referral bonus
  * Optional campaignId: when present, also awards campaign-scoped XP.
  */
 export async function awardXP(wallet, xpDelta, reason, contributionId = null, campaignId = null) {
+  if (shouldFreezeReward(xpDelta)) {
+    console.log(`[xp] Rewards frozen; skipped ${xpDelta} XP (${reason}) for ${wallet}`);
+    return null;
+  }
+
   if (ONE_TIME_REASONS.includes(reason) && contributionId) {
     const existing = await queryOne(
       `SELECT id FROM xp_events WHERE wallet = $1 AND reason = $2 AND contribution_id = $3 LIMIT 1`,
