@@ -29,6 +29,30 @@ service Vft {
 };
 `;
 
+// wVARA IDL — uses service Vft (matching token-vault), u256 for transfers but u128 for queries
+// Our wVARA contract accepts U256Le for Transfer/Approve/TransferFrom but returns u128 for queries
+const WVARA_IDL = `
+constructor {
+  New : ();
+};
+
+service Vft {
+  Approve : (spender: actor_id, value: u256) -> bool;
+  Transfer : (to: actor_id, value: u256) -> bool;
+  TransferFrom : (from: actor_id, to: actor_id, value: u256) -> bool;
+  Wrap : () -> null;
+  Unwrap : (amount: u128) -> null;
+  Mint : (to: actor_id, amount: u128) -> null;
+  Burn : (amount: u128) -> null;
+  query BalanceOf : (account: actor_id) -> u128;
+  query Allowance : (owner: actor_id, spender: actor_id) -> u128;
+  query TotalSupply : () -> u128;
+  query Name : () -> str;
+  query Symbol : () -> str;
+  query Decimals : () -> u8;
+};
+`;
+
 // GROW token IDL — uses VftService (not Vft) and u128 (not u256)
 // ⚠️  KNOWN INCOMPATIBILITY: The token-vault contract calls "Vft" + u256 for all VFT
 // cross-contract calls, which is correct for bridge-wrapped tokens (WUSDC/WUSDT/WETH/WBTC)
@@ -113,10 +137,12 @@ async function getVftInstance(varaAddress) {
   const api = getApi();
   if (!api) throw new Error('Gear API not connected');
 
-  // Use GROW-specific IDL for the GROW token contract
+  // Use token-specific IDL
   const growTok = getToken('GROW');
+  const wvaraTok = getToken('WTVARA');
   const isGrow = growTok && growTok.vara === varaAddress;
-  const idl = isGrow ? GROW_IDL : VFT_IDL;
+  const isWvara = wvaraTok && wvaraTok.vara === varaAddress;
+  const idl = isGrow ? GROW_IDL : isWvara ? WVARA_IDL : VFT_IDL;
 
   const p = await getParser();
   const sails = new Sails(p);
