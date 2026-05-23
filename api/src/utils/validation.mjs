@@ -16,8 +16,8 @@ export function isValidWallet(address) {
   if (ethRegex.test(address)) return true;
 
   // Substrate / Vara Address (simple check for SS58 format)
-  // Typically starts with 5 (Vara/Polkadot) and is 47-48 chars
-  const substrateRegex = /^[1-9A-HJ-NP-Za-km-z]{47,48}$/;
+  // Polkadot/Kusama = 47-48 chars; Vara mainnet (prefix 137) = 49 chars
+  const substrateRegex = /^[1-9A-HJ-NP-Za-km-z]{47,49}$/;
   if (substrateRegex.test(address)) return true;
 
   // Also support full 32-byte actor_id hex for Gear
