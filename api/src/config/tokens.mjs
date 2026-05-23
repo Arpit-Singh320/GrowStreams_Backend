@@ -59,10 +59,10 @@ export const SUPPORTED_TOKENS = {
     minBuffer: 3600,
   },
   WTVARA: {
-    symbol: 'WTVARA',
-    name: 'Tokenized VARA',
+    symbol: 'wVARA',
+    name: 'Wrapped VARA',
     decimals: 12,
-    vara: 'native',           // native VARA is locked on Vara side
+    vara: '0x3c26e9e77809d9ace956ae01b0d32c815f5b60a37b11be2f6de79d2fee554a28',
     eth: '0xE1ab85A8B4d5d5B6af0bbD0203EB322DF33d0464',
     icon: '/tokens/vara.svg',
     category: 'native',

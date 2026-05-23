@@ -54,5 +54,12 @@
     "deployedAt": "2026-05-13T10:48:33.117Z",
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network"
+  },
+  "wvara": {
+    "programId": "0x3c26e9e77809d9ace956ae01b0d32c815f5b60a37b11be2f6de79d2fee554a28",
+    "codeId": "0x32ca591dbb6017776b7e2176493242294cda0e3d066ad66bddf64866f4440331",
+    "deployedAt": "2026-05-23T18:15:51.692Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network"
   }
 }

@@ -812,6 +812,24 @@ export const api = {
       }),
   },
 
+  // ─── Wrapped VARA (wVARA) ───────────────────────────────────────────────────
+  wvara: {
+    meta: () =>
+      get<{ name: string; symbol: string; decimals: number; totalSupply: string; totalSupplyDisplay: string }>('/api/wvara/meta'),
+    balance: (address: string) =>
+      get<{ address: string; balance: string; balanceDisplay: string }>(`/api/wvara/balance/${address}`),
+    allowance: (owner: string, spender: string) =>
+      get<{ allowance: string }>(`/api/wvara/allowance/${owner}/${spender}`),
+    wrap: (params: { amount?: string; amountRaw?: string; mode?: string }) =>
+      post<TxResult | PayloadResult>('/api/wvara/wrap', params as unknown as Record<string, unknown>),
+    unwrap: (params: { amount?: string; amountRaw?: string; mode?: string }) =>
+      post<TxResult | PayloadResult>('/api/wvara/unwrap', params as unknown as Record<string, unknown>),
+    approve: (params: { spender: string; amount?: string; amountRaw?: string; mode?: string }) =>
+      post<TxResult | PayloadResult>('/api/wvara/approve', params as unknown as Record<string, unknown>),
+    transfer: (params: { to: string; amount?: string; amountRaw?: string; mode?: string }) =>
+      post<TxResult | PayloadResult>('/api/wvara/transfer', params as unknown as Record<string, unknown>),
+  },
+
   // ─── Gasless Vouchers ───────────────────────────────────────────────────────
   voucher: {
     issue: (wallet: string) =>
