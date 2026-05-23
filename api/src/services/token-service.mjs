@@ -179,9 +179,8 @@ export async function getVftBalance(tokenSymbol, walletAddress) {
   const service = getVftService(sails);
   if (!service) throw new Error('VFT service not found in IDL');
 
-  const origin = walletAddress || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
-  // Pad EVM/short hex addresses to 32-bytes for actor_id compatibility
   const actorId = toActorId(walletAddress);
+  const origin = actorId || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
   const raw = await service.queries.BalanceOf(origin, null, null, actorId);
 
   const rawStr = parseU256(raw);
@@ -223,9 +222,9 @@ export async function getVftAllowance(tokenSymbol, ownerAddress, spenderAddress)
 
   const sails = await getVftInstance(tok.vara);
   const service = getVftService(sails);
-  const origin = ownerAddress || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
   const ownerActorId = toActorId(ownerAddress);
   const spenderActorId = toActorId(spenderAddress);
+  const origin = ownerActorId || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
   const raw = await service.queries.Allowance(origin, null, null, ownerActorId, spenderActorId);
 
   const rawStr = parseU256(raw);
