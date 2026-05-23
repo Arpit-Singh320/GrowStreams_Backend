@@ -70,7 +70,7 @@ const SERVICE_NAMES = {
   identityRegistry: 'IdentityService',
   growToken: 'VftService',
   questSeeds: 'SeedsService',
-  wvara: 'VftService',
+  wvara: 'Vft',
 };
 
 function loadDeployState() {

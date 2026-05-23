@@ -13,13 +13,14 @@ constructor {
   New : ();
 };
 
-service VftService {
-  // --- VFT standard ---
-  Transfer : (to: actor_id, amount: u128) -> bool;
-  Approve : (spender: actor_id, amount: u128) -> bool;
-  TransferFrom : (from: actor_id, to: actor_id, amount: u128) -> bool;
+// Service name is "Vft" — MUST match token-vault's encode_call("Vft", ...) calls
+service Vft {
+  // --- VFT standard (amounts are u256/32-byte LE to match token-vault encoding) ---
+  Transfer : (to: actor_id, amount: [u8; 32]) -> bool;
+  Approve : (spender: actor_id, amount: [u8; 32]) -> bool;
+  TransferFrom : (from: actor_id, to: actor_id, amount: [u8; 32]) -> bool;
 
-  // --- Wrap / Unwrap ---
+  // --- Wrap / Unwrap (native VARA <-> wVARA) ---
   Wrap : () -> null;
   Unwrap : (amount: u128) -> null;
 

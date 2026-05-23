@@ -94,7 +94,7 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     symbol: 'wVARA',
     name: 'Wrapped VARA',
     decimals: 12,
-    vara: '0x3c26e9e77809d9ace956ae01b0d32c815f5b60a37b11be2f6de79d2fee554a28',
+    vara: '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d',
     eth: '0xE1ab85A8B4d5d5B6af0bbD0203EB322DF33d0464',
     icon: '/tokens/vara.svg',
     category: 'native',

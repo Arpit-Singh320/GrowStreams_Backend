@@ -16,7 +16,7 @@ export const PROGRAM_IDS: Record<string, string> = {
   bountyAdapter: '0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f',
   identityRegistry: '0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29',
   questSeeds: '0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d',
-  wvara: '0x3c26e9e77809d9ace956ae01b0d32c815f5b60a37b11be2f6de79d2fee554a28',
+  wvara: '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d',
 };
 
 interface SendResult {
