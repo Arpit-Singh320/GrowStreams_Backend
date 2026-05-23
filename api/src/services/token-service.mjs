@@ -87,11 +87,16 @@ function parseU256(val) {
   if (val == null) return '0';
   if (typeof val === 'bigint') return val.toString();
   if (typeof val === 'number') return String(val);
-  const s = val.toString();
+  // Handle objects (e.g. SCALE-decoded u128/u256 wrappers from sails-js)
+  if (typeof val === 'object') {
+    try { return BigInt(val.toString()).toString(); } catch { return '0'; }
+  }
+  const s = String(val);
   if (s.startsWith('0x') || s.startsWith('0X')) {
     try { return BigInt(s).toString(); } catch { return '0'; }
   }
-  return s || '0';
+  // Plain decimal string
+  try { return BigInt(s).toString(); } catch { return s || '0'; }
 }
 
 /**
