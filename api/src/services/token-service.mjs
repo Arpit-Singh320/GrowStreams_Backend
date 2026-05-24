@@ -185,8 +185,11 @@ export async function getVftBalance(tokenSymbol, walletAddress) {
   if (!service) throw new Error('VFT service not found in IDL');
 
   const actorId = toActorId(walletAddress);
-  const origin = actorId || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
-  const raw = await service.queries.BalanceOf(origin, null, null, actorId);
+  const origin = getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
+  // sails-js 0.5.x: queryFn(args) returns QueryBuilder; call .withAddress().call()
+  const qb = service.queries.BalanceOf(actorId);
+  qb.withAddress(origin);
+  const raw = await qb.call();
 
   const rawStr = parseU256(raw);
   return {
@@ -229,8 +232,11 @@ export async function getVftAllowance(tokenSymbol, ownerAddress, spenderAddress)
   const service = getVftService(sails);
   const ownerActorId = toActorId(ownerAddress);
   const spenderActorId = toActorId(spenderAddress);
-  const origin = ownerActorId || getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
-  const raw = await service.queries.Allowance(origin, null, null, ownerActorId, spenderActorId);
+  const origin = getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
+  // sails-js 0.5.x: queryFn(args) returns QueryBuilder; call .withAddress().call()
+  const qb = service.queries.Allowance(ownerActorId, spenderActorId);
+  qb.withAddress(origin);
+  const raw = await qb.call();
 
   const rawStr = parseU256(raw);
   return {
