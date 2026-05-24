@@ -161,7 +161,9 @@ export async function connect() {
       contracts[name] = await initSailsInstance(name, idlPath, programId);
       console.log(`[sails] ${name} loaded${programId ? ` @ ${programId.slice(0, 18)}...` : ' (no program ID)'}`);
     } catch (err) {
-      console.warn(`[sails] Failed to load ${name}: ${err.message}`);
+      console.error(`[sails] Failed to load ${name}: ${err.message}`);
+      console.error(`[sails] IDL path: ${idlPath}, programId: ${programId}`);
+      console.error(err.stack);
     }
   }
 

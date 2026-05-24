@@ -15,10 +15,10 @@ constructor {
 
 // Service name is "Vft" — MUST match token-vault's encode_call("Vft", ...) calls
 service Vft {
-  // --- VFT standard (amounts are u256/32-byte LE to match token-vault encoding) ---
-  Transfer : (to: actor_id, amount: [u8; 32]) -> bool;
-  Approve : (spender: actor_id, amount: [u8; 32]) -> bool;
-  TransferFrom : (from: actor_id, to: actor_id, amount: [u8; 32]) -> bool;
+  // --- VFT standard (amounts are u256 as vec of 32 bytes LE) ---
+  Transfer : (to: actor_id, amount: vec u8) -> bool;
+  Approve : (spender: actor_id, amount: vec u8) -> bool;
+  TransferFrom : (from: actor_id, to: actor_id, amount: vec u8) -> bool;
 
   // --- Wrap / Unwrap (native VARA <-> wVARA) ---
   Wrap : () -> null;
