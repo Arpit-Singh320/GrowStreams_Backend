@@ -320,11 +320,20 @@ export default function LeaderboardPage() {
   }, [rows, search]);
 
   const totals = useMemo(() => {
+    // Use seasonStats if available (accurate totals from API), otherwise calculate from rows
+    if (seasonStats) {
+      return {
+        totalXP: seasonStats.totalSeeds,
+        totalOnchainXP: seasonStats.totalSeeds,
+        totalCompletions: seasonStats.totalCompletions,
+        totalUsers: seasonStats.totalParticipants,
+      };
+    }
     const totalXP = rows.reduce((s, r) => s + (r.total_xp || 0), 0);
     const totalOnchainXP = rows.reduce((s, r) => s + (r.onchain_xp ?? r.total_xp ?? 0), 0);
     const totalCompletions = rows.reduce((s, r) => s + r.quests_completed, 0);
     return { totalXP, totalOnchainXP, totalCompletions, totalUsers: rows.length };
-  }, [rows]);
+  }, [rows, seasonStats]);
 
   const sorted = rows;
 
