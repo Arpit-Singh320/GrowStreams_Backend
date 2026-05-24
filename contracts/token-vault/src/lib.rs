@@ -79,8 +79,9 @@ fn decode_vft_bool_reply(reply_bytes: &[u8]) -> bool {
         return true;
     }
 
-    // Unknown reply format, but the VFT did not panic → assume success.
-    true
+    // Unknown reply format — DO NOT assume success, this could be a false return
+    // that we failed to parse. Safer to fail and let the user retry.
+    false
 }
 
 // ---------------------------------------------------------------------------

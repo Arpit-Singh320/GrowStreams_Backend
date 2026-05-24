@@ -17,6 +17,7 @@ function getAllowedPrograms() {
     process.env.IDENTITY_REGISTRY_ID,
     process.env.GROW_TOKEN_ID,
     process.env.QUEST_SEEDS_ID,
+    process.env.WVARA_TOKEN_ID,
   ].filter(Boolean);
 }
 
