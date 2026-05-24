@@ -5,8 +5,17 @@ import { useAccount } from '@gear-js/react-hooks';
 import { api } from '@/lib/growstreams-api';
 import {
   Crown, Medal, Trophy, Sprout, Loader2, Search, Github,
-  Flame, Sparkles, RefreshCw,
+  Flame, Sparkles, RefreshCw, ChevronDown, Calendar,
 } from 'lucide-react';
+
+interface Season {
+  id: number;
+  name: string;
+  slug: string;
+  status: string;
+  start_at: string;
+  end_at: string | null;
+}
 
 interface LbRow {
   wallet: string;
@@ -242,19 +251,54 @@ export default function LeaderboardPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
+  // Season state
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState<Season | null>(null);
+  const [seasonDropdownOpen, setSeasonDropdownOpen] = useState(false);
+  const [seasonStats, setSeasonStats] = useState<{ totalParticipants: number; totalSeeds: number; totalCompletions: number } | null>(null);
+
+  // Load seasons on mount
+  useEffect(() => {
+    api.seasons.list().then(res => {
+      setSeasons(res.seasons);
+      // Default to active season (Season 2)
+      const active = res.seasons.find(s => s.status === 'ACTIVE') || res.seasons[0];
+      if (active) setSelectedSeason(active);
+    }).catch(console.error);
+  }, []);
+
   const load = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.quests.leaderboard();
-      const lb = [...res.leaderboard].sort((a, b) => {
-        const aXp = (a.onchain_xp ?? a.total_xp) as number;
-        const bXp = (b.onchain_xp ?? b.total_xp) as number;
-        return bXp - aXp;
-      });
-      setRows(lb);
-      if (res.onchain_total_xp !== null && res.onchain_total_xp !== undefined) {
-        setOnchainTotal(res.onchain_total_xp);
+      if (selectedSeason) {
+        // Load season-specific leaderboard
+        const res = await api.seasons.leaderboard(selectedSeason.id, 1, 100);
+        const lb: LbRow[] = res.participants.map(p => ({
+          wallet: p.wallet,
+          display_name: p.displayName,
+          github_username: p.githubUsername || '',
+          registered_at: '',
+          total_xp: p.seasonSeeds,
+          quests_completed: p.questCompletions,
+          last_completed_at: null,
+          onchain_xp: p.seasonSeeds,
+        }));
+        setRows(lb);
+        setSeasonStats(res.stats);
+        setOnchainTotal(res.stats.totalSeeds);
+      } else {
+        // Fallback to legacy leaderboard
+        const res = await api.quests.leaderboard();
+        const lb = [...res.leaderboard].sort((a, b) => {
+          const aXp = (a.onchain_xp ?? a.total_xp) as number;
+          const bXp = (b.onchain_xp ?? b.total_xp) as number;
+          return bXp - aXp;
+        });
+        setRows(lb);
+        if (res.onchain_total_xp !== null && res.onchain_total_xp !== undefined) {
+          setOnchainTotal(res.onchain_total_xp);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
@@ -263,7 +307,7 @@ export default function LeaderboardPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (selectedSeason) load(); }, [selectedSeason]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -306,15 +350,69 @@ export default function LeaderboardPage() {
             All invite-code-registered builders ranked by on-chain XP minted on VARA Network.
           </p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-provn-surface border border-provn-border hover:border-provn-muted/40 transition-colors disabled:opacity-50"
-        >
-          {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Season Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setSeasonDropdownOpen(!seasonDropdownOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-provn-surface border border-provn-border hover:border-provn-muted/40 transition-colors"
+            >
+              <Calendar className="w-3 h-3 text-emerald-400" />
+              {selectedSeason?.name || 'Select Season'}
+              {selectedSeason?.status === 'ENDED' && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-400">Ended</span>
+              )}
+              {selectedSeason?.status === 'ACTIVE' && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400">Live</span>
+              )}
+              <ChevronDown className={`w-3 h-3 transition-transform ${seasonDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {seasonDropdownOpen && (
+              <div className="absolute right-0 mt-1 w-48 bg-provn-surface border border-provn-border rounded-lg shadow-xl z-50 overflow-hidden">
+                {seasons.map(season => (
+                  <button
+                    key={season.id}
+                    onClick={() => {
+                      setSelectedSeason(season);
+                      setSeasonDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-provn-bg/50 flex items-center justify-between ${
+                      selectedSeason?.id === season.id ? 'bg-emerald-500/10 text-emerald-400' : ''
+                    }`}
+                  >
+                    <span className="font-medium">{season.name}</span>
+                    {season.status === 'ENDED' && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-400">Ended</span>
+                    )}
+                    {season.status === 'ACTIVE' && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400">Live</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-provn-surface border border-provn-border hover:border-provn-muted/40 transition-colors disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {/* Season Info Banner */}
+      {selectedSeason?.status === 'ENDED' && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 flex items-center gap-3">
+          <Calendar className="w-5 h-5 text-amber-400 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-400">{selectedSeason.name} has ended</p>
+            <p className="text-xs text-provn-muted">This is a historical leaderboard. Switch to the active season to see current rankings.</p>
+          </div>
+        </div>
+      )}
 
       {/* Stat tiles */}
       <div className="grid grid-cols-3 gap-3">
@@ -400,7 +498,7 @@ export default function LeaderboardPage() {
       </div>
 
       <p className="text-center text-[10px] text-provn-muted">
-        XP is minted on-chain on VARA Network · 200 XP = 1 Level · Updated in real-time
+        {selectedSeason?.name || 'All Time'} · XP is minted on-chain on VARA Network · 200 XP = 1 Level · Updated in real-time
       </p>
     </div>
   );

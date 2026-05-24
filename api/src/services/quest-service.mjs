@@ -2,6 +2,22 @@ import crypto from 'crypto';
 import { query, queryOne, queryAll } from './db.mjs';
 import { command as sailsCommand, getContract } from '../sails-client.mjs';
 import { REWARDS_FROZEN, shouldFreezeReward } from './reward-freeze.mjs';
+import { getActiveSeason } from './season-service.mjs';
+
+// Cache active season ID to avoid repeated DB queries
+let cachedSeasonId = null;
+let cachedSeasonExpiry = 0;
+
+async function getCurrentSeasonId() {
+  const now = Date.now();
+  if (cachedSeasonId && now < cachedSeasonExpiry) {
+    return cachedSeasonId;
+  }
+  const season = await getActiveSeason();
+  cachedSeasonId = season?.id || null;
+  cachedSeasonExpiry = now + 60000; // Cache for 1 minute
+  return cachedSeasonId;
+}
 
 // ---------------------------------------------------------------------------
 // Referral code helpers
@@ -399,13 +415,16 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
     }
   }
 
+  // Get current season ID for tracking
+  const seasonId = await getCurrentSeasonId();
+
   // Insert completion immediately so the user gets an instant response
   const completion = await queryOne(
-    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at)
-     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW())
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at, season_id)
+     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW(), $6)
      ON CONFLICT DO NOTHING
      RETURNING *`,
-    [wallet, quest.id, JSON.stringify(proof), quest.seeds_reward, txHash]
+    [wallet, quest.id, JSON.stringify(proof), quest.seeds_reward, txHash, seasonId]
   );
 
   // If another concurrent request already inserted, bail out gracefully
@@ -416,11 +435,11 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
 
   // Insert seeds ledger entry
   await queryOne(
-    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
-     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4)
+    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash, season_id)
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4, $5)
      ON CONFLICT DO NOTHING
      RETURNING *`,
-    [wallet, quest.seeds_reward, quest.id, txHash]
+    [wallet, quest.seeds_reward, quest.id, txHash, seasonId]
   );
 
   console.log(`[quest] Awarded ${quest.seeds_reward} Seeds to ${wallet} for ${questSlug} (db-instant)`);
@@ -506,10 +525,13 @@ export async function submitQuestProof(wallet, questSlug, proof = {}) {
     return { status: 'UPDATED', completion: updated };
   }
 
+  // Get current season ID for tracking
+  const seasonId = await getCurrentSeasonId();
+
   const completion = await queryOne(
-    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded)
-     VALUES ($1, $2, 'PENDING', $3, 0) RETURNING *`,
-    [wallet, quest.id, JSON.stringify(proof)]
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, season_id)
+     VALUES ($1, $2, 'PENDING', $3, 0, $4) RETURNING *`,
+    [wallet, quest.id, JSON.stringify(proof), seasonId]
   );
   console.log(`[quest] Submitted PENDING ${questSlug} for ${wallet}`);
   return { status: 'SUBMITTED', completion };
@@ -559,11 +581,14 @@ export async function approvePendingSubmission(completionId) {
     [seedsReward, completionId]
   );
 
+  // Use the season_id from the completion row (preserves original season)
+  const seasonId = row.season_id || await getCurrentSeasonId();
+
   // Insert seeds ledger entry
   await queryOne(
-    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
-     VALUES ($1, $2, 'QUEST_COMPLETE', $3, NULL)`,
-    [wallet, seedsReward, row.quest_id]
+    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash, season_id)
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, NULL, $4)`,
+    [wallet, seedsReward, row.quest_id, seasonId]
   );
 
   console.log(`[quest] Approved submission ${completionId}: ${seedsReward} XP to ${wallet} — minting on-chain async`);
@@ -663,15 +688,18 @@ export async function awardWelcomeBonus(wallet) {
     }
   }
 
+  // Get current season ID for tracking
+  const seasonId = await getCurrentSeasonId();
+
   const completion = await queryOne(
-    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at)
-     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW()) RETURNING *`,
-    [wallet, quest.id, JSON.stringify({ source: 'registration' }), quest.seeds_reward, onChainTxHash]
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at, season_id)
+     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW(), $6) RETURNING *`,
+    [wallet, quest.id, JSON.stringify({ source: 'registration' }), quest.seeds_reward, onChainTxHash, seasonId]
   );
   await queryOne(
-    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
-     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4)`,
-    [wallet, quest.seeds_reward, quest.id, onChainTxHash]
+    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash, season_id)
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4, $5)`,
+    [wallet, quest.seeds_reward, quest.id, onChainTxHash, seasonId]
   );
   console.log(`[quest] Awarded welcome-bonus (${quest.seeds_reward} Seeds) to ${wallet}`);
   return completion;
@@ -711,16 +739,19 @@ export async function awardWelcomeBonusBySlug(wallet, questSlug) {
     }
   }
 
+  // Get current season ID for tracking
+  const seasonId = await getCurrentSeasonId();
+
   const completion = await queryOne(
-    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at)
-     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW()) RETURNING *`,
-    [wallet, quest.id, JSON.stringify({ source: 'campaign-join' }), quest.seeds_reward, onChainTxHash]
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at, season_id)
+     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW(), $6) RETURNING *`,
+    [wallet, quest.id, JSON.stringify({ source: 'campaign-join' }), quest.seeds_reward, onChainTxHash, seasonId]
   );
   if (quest.seeds_reward > 0) {
     await queryOne(
-      `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash)
-       VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4)`,
-      [wallet, quest.seeds_reward, quest.id, onChainTxHash]
+      `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash, season_id)
+       VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4, $5)`,
+      [wallet, quest.seeds_reward, quest.id, onChainTxHash, seasonId]
     );
   }
   console.log(`[quest] Awarded ${questSlug} (${quest.seeds_reward} Seeds) to ${wallet}`);

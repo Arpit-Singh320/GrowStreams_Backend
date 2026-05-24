@@ -812,6 +812,43 @@ export const api = {
       }),
   },
 
+  // ─── Seasons ────────────────────────────────────────────────────────────────
+  seasons: {
+    list: () =>
+      get<{ seasons: Array<{ id: number; name: string; slug: string; status: string; start_at: string; end_at: string | null; description: string }> }>('/api/seasons'),
+    active: () =>
+      get<{ id: number; name: string; slug: string; status: string; start_at: string; end_at: string | null; description: string }>('/api/seasons/active'),
+    get: (idOrSlug: string | number) =>
+      get<{ id: number; name: string; slug: string; status: string; start_at: string; end_at: string | null; description: string }>(`/api/seasons/${idOrSlug}`),
+    leaderboard: (idOrSlug: string | number, page = 1, limit = 50) =>
+      get<{
+        season: { id: number; name: string; slug: string; status: string; startAt: string; endAt: string | null };
+        seasonId: number;
+        participants: Array<{
+          rank: number;
+          wallet: string;
+          displayName: string;
+          xUsername: string | null;
+          githubUsername: string | null;
+          evmAddress: string | null;
+          seasonSeeds: number;
+          questCompletions: number;
+        }>;
+        pagination: { page: number; limit: number; total: number; totalPages: number };
+        stats: { totalParticipants: number; totalSeeds: number; totalCompletions: number };
+      }>(`/api/seasons/${idOrSlug}/leaderboard?page=${page}&limit=${limit}`),
+    userStats: (idOrSlug: string | number, wallet: string) =>
+      get<{
+        season: { id: number; name: string; slug: string; status: string };
+        wallet: string;
+        seasonId: number;
+        seasonSeeds: number;
+        rank: number | null;
+        totalParticipants: number;
+        questCompletions: number;
+      }>(`/api/seasons/${idOrSlug}/user/${wallet}`),
+  },
+
   // ─── Wrapped VARA (wVARA) ───────────────────────────────────────────────────
   wvara: {
     meta: () =>

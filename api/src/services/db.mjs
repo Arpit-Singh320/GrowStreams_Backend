@@ -812,5 +812,110 @@ export async function migrate() {
     END $$;
   `);
 
+  // -----------------------------------------------------------------------
+  // Seasons System — for seasonal leaderboards
+  // -----------------------------------------------------------------------
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS seasons (
+      id            SERIAL PRIMARY KEY,
+      name          TEXT NOT NULL,
+      slug          TEXT UNIQUE NOT NULL,
+      status        TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('UPCOMING', 'ACTIVE', 'ENDED')),
+      start_at      TIMESTAMPTZ NOT NULL,
+      end_at        TIMESTAMPTZ,
+      description   TEXT,
+      meta          JSONB NOT NULL DEFAULT '{}',
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_seasons_status ON seasons(status);
+    CREATE INDEX IF NOT EXISTS idx_seasons_slug ON seasons(slug);
+  `);
+
+  // Add season_id column to seeds_ledger if not exists
+  await p.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'seeds_ledger' AND column_name = 'season_id'
+      ) THEN
+        ALTER TABLE seeds_ledger ADD COLUMN season_id INTEGER REFERENCES seasons(id);
+      END IF;
+    END $$;
+  `);
+
+  // Add season_id column to quest_completions if not exists
+  await p.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'quest_completions' AND column_name = 'season_id'
+      ) THEN
+        ALTER TABLE quest_completions ADD COLUMN season_id INTEGER REFERENCES seasons(id);
+      END IF;
+    END $$;
+  `);
+
+  // Create indexes for season queries
+  await p.query(`
+    CREATE INDEX IF NOT EXISTS idx_seeds_ledger_season ON seeds_ledger(season_id);
+    CREATE INDEX IF NOT EXISTS idx_quest_completions_season ON quest_completions(season_id);
+  `);
+
+  // Seed Season 1 (all existing data before May 24, 2026) if not exists
+  await p.query(`
+    INSERT INTO seasons (id, name, slug, status, start_at, end_at, description, meta)
+    VALUES (
+      1,
+      'Season 1',
+      'season-1',
+      'ENDED',
+      '2026-01-01T00:00:00Z',
+      '2026-05-24T11:20:00Z',
+      'The inaugural GrowStreams quest season. All XP earned before Season 2 launch.',
+      '{"prize_pool": "100000 VARA", "distribution": "TBD"}'
+    )
+    ON CONFLICT (slug) DO UPDATE SET
+      status = 'ENDED',
+      end_at = '2026-05-24T11:20:00Z';
+  `);
+
+  // Seed Season 2 (starting May 24, 2026) if not exists
+  await p.query(`
+    INSERT INTO seasons (id, name, slug, status, start_at, end_at, description, meta)
+    VALUES (
+      2,
+      'Season 2',
+      'season-2',
+      'ACTIVE',
+      '2026-05-24T11:20:00Z',
+      NULL,
+      'Season 2 of GrowStreams quests. Fresh start — all builders begin at 0 XP.',
+      '{"prize_pool": "TBD", "distribution": "TBD"}'
+    )
+    ON CONFLICT (slug) DO UPDATE SET
+      status = 'ACTIVE',
+      start_at = '2026-05-24T11:20:00Z';
+  `);
+
+  // Backfill season_id for existing seeds_ledger entries (Season 1)
+  await p.query(`
+    UPDATE seeds_ledger
+    SET season_id = 1
+    WHERE season_id IS NULL
+      AND created_at < '2026-05-24T11:20:00Z';
+  `);
+
+  // Backfill season_id for existing quest_completions (Season 1)
+  await p.query(`
+    UPDATE quest_completions
+    SET season_id = 1
+    WHERE season_id IS NULL
+      AND created_at < '2026-05-24T11:20:00Z';
+  `);
+
+  console.log('[db] Seasons system initialized');
   console.log('[db] Migrations complete');
 }
