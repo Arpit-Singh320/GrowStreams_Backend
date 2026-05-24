@@ -91,7 +91,7 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
   },
   WTVARA: {
     key: 'WTVARA',
-    symbol: 'wVARA',
+    symbol: 'VARA',
     name: 'Wrapped VARA',
     decimals: 12,
     vara: '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d',
