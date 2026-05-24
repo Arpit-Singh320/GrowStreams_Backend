@@ -9,7 +9,6 @@ import {
   updateSeason,
   transitionToNewSeason,
 } from '../services/season-service.mjs';
-import { syncPendingMints } from '../services/quest-service.mjs';
 
 const router = Router();
 
@@ -153,16 +152,10 @@ router.post('/transition', async (req, res, next) => {
       return res.status(400).json({ error: 'Missing required fields: newSeasonName, newSeasonSlug' });
     }
 
-    // First, sync any pending mints to ensure Season 1 data is complete
-    console.log('[seasons] Syncing pending mints before season transition...');
-    const syncResult = await syncPendingMints();
-    console.log(`[seasons] Sync complete: ${syncResult.succeeded}/${syncResult.attempted} mints succeeded`);
-
-    // Then transition to new season
+    // Transition to new season
     const newSeason = await transitionToNewSeason(newSeasonName, newSeasonSlug);
     res.status(201).json({
       message: 'Season transition complete',
-      syncResult,
       newSeason,
     });
   } catch (err) { next(err); }
