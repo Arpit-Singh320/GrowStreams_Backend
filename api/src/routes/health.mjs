@@ -34,6 +34,7 @@ router.get('/', async (req, res) => {
     balance,
     stats,
     contracts: getProgramIds(),
+    wvaraEnv: process.env.WVARA_TOKEN_ID ? `set (${process.env.WVARA_TOKEN_ID.slice(0, 10)}...)` : 'NOT SET',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
   });
