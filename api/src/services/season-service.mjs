@@ -65,13 +65,19 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
     LIMIT $2 OFFSET $3
   `, [seasonId, limit, offset]);
 
-  // Get total count
+  // Get total count of participants with Seeds in this season (for pagination)
   const countRow = await queryOne(`
     SELECT COUNT(DISTINCT wallet) AS cnt
     FROM seeds_ledger
     WHERE season_id = $1 AND delta > 0
   `, [seasonId]);
   const total = parseInt(countRow?.cnt || '0', 10);
+
+  // Get total registered users (all-time, for display)
+  const totalUsersRow = await queryOne(`
+    SELECT COUNT(*) AS cnt FROM quest_registrations
+  `);
+  const totalRegisteredUsers = parseInt(totalUsersRow?.cnt || '0', 10);
 
   // Get total Seeds minted in this season
   const seedsRow = await queryOne(`
@@ -111,9 +117,10 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
       totalPages: Math.ceil(total / limit),
     },
     stats: {
-      totalParticipants: total,
+      totalParticipants: totalRegisteredUsers,
       totalSeeds,
       totalCompletions,
+      activeParticipants: total,
     },
   };
 }
