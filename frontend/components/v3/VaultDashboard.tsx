@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import {
   Vault, ArrowUpFromLine, ArrowDownToLine, RefreshCw, Percent,
   AlertTriangle, Lock, Clock, Info, Shield, CheckCircle2, Loader2,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 export default function VaultDashboard() {
@@ -29,6 +30,8 @@ export default function VaultDashboard() {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [wrapAmount, setWrapAmount] = useState('');
+  const [wrapping, setWrapping] = useState(false);
 
   useEffect(() => {
     api.vault.paused().then(p => setPaused(p.paused)).catch(() => {});
@@ -71,6 +74,29 @@ export default function VaultDashboard() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Approval failed');
       setApproving(false);
+    }
+  };
+
+  const handleWrap = async () => {
+    if (!account?.decodedAddress) return;
+    const raw = parseFloat(wrapAmount);
+    if (isNaN(raw) || raw <= 0) {
+      toast.error('Enter a valid amount to wrap.');
+      return;
+    }
+    setWrapping(true);
+    try {
+      // Get the wrap payload from the API
+      const res = await api.wvara.wrap({ amount: wrapAmount, mode: 'payload' }) as { payload: string; value: string };
+      // Send to wVARA contract with VARA value attached
+      await signAndSend(PROGRAM_IDS.wvara, res.payload, parseInt(res.value));
+      toast.success(`Wrapped ${wrapAmount} VARA to wVARA!`);
+      setWrapAmount('');
+      setTimeout(refreshAll, 3000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Wrap failed');
+    } finally {
+      setWrapping(false);
     }
   };
 
@@ -245,6 +271,56 @@ export default function VaultDashboard() {
                   <p className="text-[10px] text-provn-muted">withdrawable</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Wrap VARA to wVARA - only show when wVARA is selected */}
+          {selectedToken.key === 'WTVARA' && (
+            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-xl p-5 space-y-4">
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-5 h-5 text-purple-400" />
+                <div>
+                  <h3 className="text-sm font-semibold">Wrap VARA → wVARA</h3>
+                  <p className="text-[10px] text-provn-muted">Convert native VARA to wrapped wVARA (1:1 ratio)</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <input
+                    value={wrapAmount}
+                    onChange={e => setWrapAmount(e.target.value)}
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="w-full px-3 py-2.5 pr-16 bg-provn-bg border border-provn-border rounded-lg text-sm focus:border-purple-500/50 focus:outline-none"
+                    placeholder="Amount to wrap"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-provn-muted">VARA</span>
+                </div>
+                <button
+                  onClick={handleWrap}
+                  disabled={wrapping || !wrapAmount || parseFloat(wrapAmount) <= 0}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {wrapping ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+                  {wrapping ? 'Wrapping...' : 'Wrap'}
+                </button>
+              </div>
+              <div className="flex gap-2">
+                {['1', '5', '10', '50', '100'].map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setWrapAmount(v)}
+                    className="px-2.5 py-1 rounded text-[11px] border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition-colors"
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-provn-muted flex items-center gap-1">
+                <Info className="w-3 h-3" /> wVARA can be used for streaming. You can unwrap back to VARA anytime.
+              </p>
             </div>
           )}
 
