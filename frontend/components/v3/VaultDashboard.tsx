@@ -88,8 +88,8 @@ export default function VaultDashboard() {
     try {
       // Get the wrap payload from the API
       const res = await api.wvara.wrap({ amount: wrapAmount, mode: 'payload' }) as { payload: string; value: string };
-      // Send to wVARA contract with VARA value attached
-      await signAndSend(PROGRAM_IDS.wvara, res.payload, parseInt(res.value));
+      // Send to wVARA contract with VARA value attached (pass as string to avoid precision loss)
+      await signAndSend(PROGRAM_IDS.wvara, res.payload, res.value);
       toast.success(`Wrapped ${wrapAmount} VARA to wVARA!`);
       setWrapAmount('');
       setTimeout(refreshAll, 3000);

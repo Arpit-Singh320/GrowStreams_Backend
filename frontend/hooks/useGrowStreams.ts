@@ -66,7 +66,7 @@ export function useGearSign() {
   };
 
   const signAndSend = useCallback(
-    async (contractOrProgramId: keyof typeof PROGRAM_IDS | string, payloadHex: string, value = 0): Promise<SendResult> => {
+    async (contractOrProgramId: keyof typeof PROGRAM_IDS | string, payloadHex: string, value: string | number = 0): Promise<SendResult> => {
       if (!api) throw new Error('Gear API not connected. Please wait for the network connection.');
       if (!account) throw new Error('Wallet not connected. Please connect your Vara wallet first.');
 
@@ -102,8 +102,12 @@ export function useGearSign() {
         const minGas = BigInt(gas.min_limit.toString());
         const gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
 
-        // Try to get a gasless voucher so the user doesn't pay fees
-        const voucherId = await getOrIssueVoucher(account.decodedAddress);
+        // Convert value to string for API compatibility
+        const valueStr = typeof value === 'string' ? value : String(value);
+        const hasValue = BigInt(valueStr) > BigInt(0);
+
+        // Try to get a gasless voucher (but skip if sending value - vouchers can't cover value transfers)
+        const voucherId = hasValue ? null : await getOrIssueVoucher(account.decodedAddress);
 
         return new Promise((resolve, reject) => {
           let tx;
@@ -113,7 +117,7 @@ export function useGearSign() {
               destination: programId,
               payload: payloadHex as `0x${string}`,
               gasLimit,
-              value,
+              value: valueStr,
             });
             tx = api.voucher.call(voucherId as `0x${string}`, { SendMessage: messageTx });
           } else {
@@ -122,7 +126,7 @@ export function useGearSign() {
               destination: programId,
               payload: payloadHex as `0x${string}`,
               gasLimit,
-              value,
+              value: valueStr,
             });
           }
 
