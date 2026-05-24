@@ -148,7 +148,7 @@ export async function connect() {
     identityRegistry: process.env.IDENTITY_REGISTRY_ID,
     growToken: process.env.GROW_TOKEN_ID,
     questSeeds: process.env.QUEST_SEEDS_ID,
-    wvara: process.env.WVARA_TOKEN_ID,
+    wvara: process.env.WVARA_TOKEN_ID, // wVARA wrapped token contract
   };
 
   for (const [name, idlPath] of Object.entries(IDL_PATHS)) {
