@@ -267,39 +267,26 @@ export default function LeaderboardPage() {
     }).catch(console.error);
   }, []);
 
-  const load = async () => {
+  const load = async (season?: Season | null) => {
+    const s = season !== undefined ? season : selectedSeason;
+    if (!s) return;
     setLoading(true);
     setError('');
     try {
-      if (selectedSeason) {
-        // Load season-specific leaderboard
-        const res = await api.seasons.leaderboard(selectedSeason.id, 1, 100);
-        const lb: LbRow[] = res.participants.map(p => ({
-          wallet: p.wallet,
-          display_name: p.displayName,
-          github_username: p.githubUsername || '',
-          registered_at: '',
-          total_xp: p.seasonSeeds,
-          quests_completed: p.questCompletions,
-          last_completed_at: null,
-          onchain_xp: p.seasonSeeds,
-        }));
-        setRows(lb);
-        setSeasonStats(res.stats);
-        setOnchainTotal(res.stats.totalSeeds);
-      } else {
-        // Fallback to legacy leaderboard
-        const res = await api.quests.leaderboard();
-        const lb = [...res.leaderboard].sort((a, b) => {
-          const aXp = (a.onchain_xp ?? a.total_xp) as number;
-          const bXp = (b.onchain_xp ?? b.total_xp) as number;
-          return bXp - aXp;
-        });
-        setRows(lb);
-        if (res.onchain_total_xp !== null && res.onchain_total_xp !== undefined) {
-          setOnchainTotal(res.onchain_total_xp);
-        }
-      }
+      const res = await api.seasons.leaderboard(s.id, 1, 100);
+      const lb: LbRow[] = res.participants.map(p => ({
+        wallet: p.wallet,
+        display_name: p.displayName,
+        github_username: p.githubUsername || '',
+        registered_at: '',
+        total_xp: p.seasonSeeds,
+        quests_completed: p.questCompletions,
+        last_completed_at: null,
+        onchain_xp: p.seasonSeeds,
+      }));
+      setRows(lb);
+      setSeasonStats(res.stats);
+      setOnchainTotal(res.stats.totalSeeds);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
     } finally {
@@ -307,7 +294,7 @@ export default function LeaderboardPage() {
     }
   };
 
-  useEffect(() => { if (selectedSeason) load(); }, [selectedSeason]);
+  useEffect(() => { if (selectedSeason) load(selectedSeason); }, [selectedSeason]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -384,6 +371,7 @@ export default function LeaderboardPage() {
                     onClick={() => {
                       setSelectedSeason(season);
                       setSeasonDropdownOpen(false);
+                      load(season);
                     }}
                     className={`w-full px-3 py-2 text-left text-xs hover:bg-provn-bg/50 flex items-center justify-between ${
                       selectedSeason?.id === season.id ? 'bg-emerald-500/10 text-emerald-400' : ''
@@ -402,7 +390,7 @@ export default function LeaderboardPage() {
             )}
           </div>
           <button
-            onClick={load}
+            onClick={() => load(selectedSeason)}
             disabled={loading}
             className="hidden sm:flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-provn-surface border border-provn-border hover:border-provn-muted/40 transition-colors disabled:opacity-50"
           >
