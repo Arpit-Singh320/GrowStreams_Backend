@@ -836,7 +836,7 @@ export const api = {
         }>;
         pagination: { page: number; limit: number; total: number; totalPages: number };
         stats: { totalParticipants: number; totalSeeds: number; totalCompletions: number };
-      }>(`/api/seasons/${idOrSlug}/leaderboard?page=${page}&limit=${limit}`),
+      }>(`/api/seasons/${idOrSlug}/leaderboard?page=${page}&limit=${limit}&_t=${Date.now()}`),
     userStats: (idOrSlug: string | number, wallet: string) =>
       get<{
         season: { id: number; name: string; slug: string; status: string };
