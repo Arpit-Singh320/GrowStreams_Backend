@@ -36,6 +36,56 @@ router.get('/active', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// Admin: GET /api/seasons/debug-seeds — Check season_id distribution
+// ---------------------------------------------------------------------------
+router.get('/debug-seeds', async (req, res, next) => {
+  try {
+    const adminKey = req.headers['x-admin-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    const validKey = process.env.ADMIN_TOKEN || process.env.ADMIN_API_KEY;
+    if (adminKey !== validKey) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { queryAll } = await import('../services/db.mjs');
+    const season1End = '2026-05-24T11:20:00.000Z';
+
+    // Check distribution
+    const distribution = await queryAll(`
+      SELECT 
+        season_id,
+        COUNT(*) as count,
+        SUM(delta) as total_seeds,
+        MIN(created_at) as earliest,
+        MAX(created_at) as latest
+      FROM seeds_ledger
+      GROUP BY season_id
+      ORDER BY season_id
+    `);
+
+    // Check entries that should be season 1 but aren't
+    const wrongSeason1 = await queryAll(`
+      SELECT COUNT(*) as count, SUM(delta) as seeds
+      FROM seeds_ledger
+      WHERE created_at < $1 AND season_id != 1
+    `, [season1End]);
+
+    // Check entries that should be season 2 but aren't  
+    const wrongSeason2 = await queryAll(`
+      SELECT COUNT(*) as count, SUM(delta) as seeds
+      FROM seeds_ledger
+      WHERE created_at >= $1 AND season_id != 2
+    `, [season1End]);
+
+    res.json({
+      distribution,
+      wrongSeason1: wrongSeason1[0],
+      wrongSeason2: wrongSeason2[0],
+      season1Cutoff: season1End,
+    });
+  } catch (err) { next(err); }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/seasons/:idOrSlug — Get a specific season by ID or slug
 // ---------------------------------------------------------------------------
 router.get('/:idOrSlug', async (req, res, next) => {

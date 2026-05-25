@@ -42,35 +42,80 @@ export async function getSeason(idOrSlug) {
 /**
  * Get leaderboard for a specific season.
  * Returns participants ranked by their Seeds earned in that season.
+ * 
+ * For Season 2+, we calculate: Season N XP = Total XP - XP earned before season start
+ * This avoids relying on season_id which may be incorrectly set.
  */
 export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
   const offset = (page - 1) * limit;
 
-  // Get participants with their season-specific Seeds total
-  const participants = await queryAll(`
-    SELECT 
-      r.wallet,
-      r.display_name,
-      r.x_username,
-      r.github_username,
-      r.evm_address,
-      COALESCE(SUM(sl.delta), 0) AS season_seeds,
-      COUNT(DISTINCT qc.id) FILTER (WHERE qc.status = 'VERIFIED') AS quest_completions
-    FROM quest_registrations r
-    LEFT JOIN seeds_ledger sl ON sl.wallet = r.wallet AND sl.season_id = $1
-    LEFT JOIN quest_completions qc ON qc.wallet = r.wallet AND qc.season_id = $1 AND qc.status = 'VERIFIED'
-    GROUP BY r.wallet, r.display_name, r.x_username, r.github_username, r.evm_address
-    HAVING COALESCE(SUM(sl.delta), 0) > 0
-    ORDER BY season_seeds DESC
-    LIMIT $2 OFFSET $3
-  `, [seasonId, limit, offset]);
+  // Get season start date
+  const season = await queryOne(`SELECT start_at FROM seasons WHERE id = $1`, [seasonId]);
+  if (!season) throw new Error('Season not found');
+  const seasonStart = season.start_at;
+
+  // For Season 1, use all XP before Season 2 start
+  // For Season 2+, use XP earned after season start date
+  const isFirstSeason = seasonId === 1;
+
+  let participants;
+  if (isFirstSeason) {
+    // Season 1: All XP before Season 2 start (May 24, 2026 11:20 UTC)
+    const season2Start = '2026-05-24T11:20:00.000Z';
+    participants = await queryAll(`
+      SELECT 
+        r.wallet,
+        r.display_name,
+        r.x_username,
+        r.github_username,
+        r.evm_address,
+        COALESCE(SUM(sl.delta) FILTER (WHERE sl.created_at < $1), 0) AS season_seeds,
+        COUNT(DISTINCT qc.id) FILTER (WHERE qc.status = 'VERIFIED' AND qc.created_at < $1) AS quest_completions
+      FROM quest_registrations r
+      LEFT JOIN seeds_ledger sl ON sl.wallet = r.wallet
+      LEFT JOIN quest_completions qc ON qc.wallet = r.wallet AND qc.status = 'VERIFIED'
+      GROUP BY r.wallet, r.display_name, r.x_username, r.github_username, r.evm_address
+      HAVING COALESCE(SUM(sl.delta) FILTER (WHERE sl.created_at < $1), 0) > 0
+      ORDER BY season_seeds DESC
+      LIMIT $2 OFFSET $3
+    `, [season2Start, limit, offset]);
+  } else {
+    // Season 2+: XP earned after season start date
+    participants = await queryAll(`
+      SELECT 
+        r.wallet,
+        r.display_name,
+        r.x_username,
+        r.github_username,
+        r.evm_address,
+        COALESCE(SUM(sl.delta) FILTER (WHERE sl.created_at >= $1), 0) AS season_seeds,
+        COUNT(DISTINCT qc.id) FILTER (WHERE qc.status = 'VERIFIED' AND qc.created_at >= $1) AS quest_completions
+      FROM quest_registrations r
+      LEFT JOIN seeds_ledger sl ON sl.wallet = r.wallet
+      LEFT JOIN quest_completions qc ON qc.wallet = r.wallet AND qc.status = 'VERIFIED'
+      GROUP BY r.wallet, r.display_name, r.x_username, r.github_username, r.evm_address
+      HAVING COALESCE(SUM(sl.delta) FILTER (WHERE sl.created_at >= $1), 0) > 0
+      ORDER BY season_seeds DESC
+      LIMIT $2 OFFSET $3
+    `, [seasonStart, limit, offset]);
+  }
 
   // Get total count of participants with Seeds in this season (for pagination)
-  const countRow = await queryOne(`
-    SELECT COUNT(DISTINCT wallet) AS cnt
-    FROM seeds_ledger
-    WHERE season_id = $1 AND delta > 0
-  `, [seasonId]);
+  let countRow;
+  if (isFirstSeason) {
+    const season2Start = '2026-05-24T11:20:00.000Z';
+    countRow = await queryOne(`
+      SELECT COUNT(*) AS cnt FROM (
+        SELECT wallet FROM seeds_ledger WHERE created_at < $1 AND delta > 0 GROUP BY wallet
+      ) sub
+    `, [season2Start]);
+  } else {
+    countRow = await queryOne(`
+      SELECT COUNT(*) AS cnt FROM (
+        SELECT wallet FROM seeds_ledger WHERE created_at >= $1 AND delta > 0 GROUP BY wallet
+      ) sub
+    `, [seasonStart]);
+  }
   const total = parseInt(countRow?.cnt || '0', 10);
 
   // Get total registered users (all-time, for display)
@@ -79,20 +124,32 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
   `);
   const totalRegisteredUsers = parseInt(totalUsersRow?.cnt || '0', 10);
 
-  // Get total Seeds minted in this season
-  const seedsRow = await queryOne(`
-    SELECT COALESCE(SUM(delta), 0) AS total
-    FROM seeds_ledger
-    WHERE season_id = $1
-  `, [seasonId]);
+  // Get total Seeds minted in this season (date-based)
+  let seedsRow;
+  if (isFirstSeason) {
+    const season2Start = '2026-05-24T11:20:00.000Z';
+    seedsRow = await queryOne(`
+      SELECT COALESCE(SUM(delta), 0) AS total FROM seeds_ledger WHERE created_at < $1
+    `, [season2Start]);
+  } else {
+    seedsRow = await queryOne(`
+      SELECT COALESCE(SUM(delta), 0) AS total FROM seeds_ledger WHERE created_at >= $1
+    `, [seasonStart]);
+  }
   const totalSeeds = parseInt(seedsRow?.total || '0', 10);
 
-  // Get total completions in this season
-  const completionsRow = await queryOne(`
-    SELECT COUNT(*) AS cnt
-    FROM quest_completions
-    WHERE season_id = $1 AND status = 'VERIFIED'
-  `, [seasonId]);
+  // Get total completions in this season (date-based)
+  let completionsRow;
+  if (isFirstSeason) {
+    const season2Start = '2026-05-24T11:20:00.000Z';
+    completionsRow = await queryOne(`
+      SELECT COUNT(*) AS cnt FROM quest_completions WHERE status = 'VERIFIED' AND created_at < $1
+    `, [season2Start]);
+  } else {
+    completionsRow = await queryOne(`
+      SELECT COUNT(*) AS cnt FROM quest_completions WHERE status = 'VERIFIED' AND created_at >= $1
+    `, [seasonStart]);
+  }
   const totalCompletions = parseInt(completionsRow?.cnt || '0', 10);
 
   // Add rank to each participant
