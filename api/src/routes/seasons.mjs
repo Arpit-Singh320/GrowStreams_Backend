@@ -166,8 +166,9 @@ router.post('/transition', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.post('/fix-backfill', async (req, res, next) => {
   try {
-    const adminKey = req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_API_KEY) {
+    const adminKey = req.headers['x-admin-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    const validKey = process.env.ADMIN_TOKEN || process.env.ADMIN_API_KEY;
+    if (adminKey !== validKey) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
