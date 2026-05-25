@@ -61,6 +61,7 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
   let participants;
   if (isFirstSeason) {
     // Season 1: All XP before Season 2 start (May 24, 2026 11:20 UTC)
+    // Use subqueries to avoid cartesian product from multiple JOINs
     const season2Start = '2026-05-24T11:20:00.000Z';
     participants = await queryAll(`
       SELECT 
@@ -69,18 +70,28 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
         r.x_username,
         r.github_username,
         r.evm_address,
-        COALESCE(SUM(sl.delta) FILTER (WHERE sl.created_at < $1), 0) AS season_seeds,
-        COUNT(DISTINCT qc.id) FILTER (WHERE qc.status = 'VERIFIED' AND qc.created_at < $1) AS quest_completions
+        COALESCE(s.total_seeds, 0) AS season_seeds,
+        COALESCE(c.quest_count, 0) AS quest_completions
       FROM quest_registrations r
-      LEFT JOIN seeds_ledger sl ON sl.wallet = r.wallet
-      LEFT JOIN quest_completions qc ON qc.wallet = r.wallet AND qc.status = 'VERIFIED'
-      GROUP BY r.wallet, r.display_name, r.x_username, r.github_username, r.evm_address
-      HAVING COALESCE(SUM(sl.delta) FILTER (WHERE sl.created_at < $1), 0) > 0
+      LEFT JOIN (
+        SELECT wallet, SUM(delta) AS total_seeds
+        FROM seeds_ledger
+        WHERE created_at < $1
+        GROUP BY wallet
+      ) s ON s.wallet = r.wallet
+      LEFT JOIN (
+        SELECT wallet, COUNT(*) AS quest_count
+        FROM quest_completions
+        WHERE status = 'VERIFIED' AND created_at < $1
+        GROUP BY wallet
+      ) c ON c.wallet = r.wallet
+      WHERE COALESCE(s.total_seeds, 0) > 0
       ORDER BY season_seeds DESC
       LIMIT $2 OFFSET $3
     `, [season2Start, limit, offset]);
   } else {
     // Season 2+: XP earned after season start date
+    // Use subqueries to avoid cartesian product from multiple JOINs
     participants = await queryAll(`
       SELECT 
         r.wallet,
@@ -88,13 +99,22 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
         r.x_username,
         r.github_username,
         r.evm_address,
-        COALESCE(SUM(sl.delta) FILTER (WHERE sl.created_at >= $1), 0) AS season_seeds,
-        COUNT(DISTINCT qc.id) FILTER (WHERE qc.status = 'VERIFIED' AND qc.created_at >= $1) AS quest_completions
+        COALESCE(s.total_seeds, 0) AS season_seeds,
+        COALESCE(c.quest_count, 0) AS quest_completions
       FROM quest_registrations r
-      LEFT JOIN seeds_ledger sl ON sl.wallet = r.wallet
-      LEFT JOIN quest_completions qc ON qc.wallet = r.wallet AND qc.status = 'VERIFIED'
-      GROUP BY r.wallet, r.display_name, r.x_username, r.github_username, r.evm_address
-      HAVING COALESCE(SUM(sl.delta) FILTER (WHERE sl.created_at >= $1), 0) > 0
+      LEFT JOIN (
+        SELECT wallet, SUM(delta) AS total_seeds
+        FROM seeds_ledger
+        WHERE created_at >= $1
+        GROUP BY wallet
+      ) s ON s.wallet = r.wallet
+      LEFT JOIN (
+        SELECT wallet, COUNT(*) AS quest_count
+        FROM quest_completions
+        WHERE status = 'VERIFIED' AND created_at >= $1
+        GROUP BY wallet
+      ) c ON c.wallet = r.wallet
+      WHERE COALESCE(s.total_seeds, 0) > 0
       ORDER BY season_seeds DESC
       LIMIT $2 OFFSET $3
     `, [seasonStart, limit, offset]);
