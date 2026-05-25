@@ -25,6 +25,7 @@ import {
   awardWelcomeBonusBySlug,
 } from '../services/quest-service.mjs';
 import { runStreamCheck } from '../cron/quest-stream-monitor.mjs';
+import { runFollowCheck, runMentionCheck } from '../cron/quest-x-monitor.mjs';
 import {
   listQuestCampaigns,
   listEndedQuestCampaigns,
