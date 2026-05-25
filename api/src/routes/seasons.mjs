@@ -161,4 +161,59 @@ router.post('/transition', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ---------------------------------------------------------------------------
+// Admin: POST /api/seasons/fix-backfill — Fix season_id for all entries
+// ---------------------------------------------------------------------------
+router.post('/fix-backfill', async (req, res, next) => {
+  try {
+    const adminKey = req.headers['x-admin-key'];
+    if (adminKey !== process.env.ADMIN_API_KEY) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { query } = await import('../services/db.mjs');
+
+    // Get season boundaries
+    const season1End = '2026-05-24T11:20:00.000Z';
+
+    // Fix seeds_ledger: set season_id based on created_at
+    const seedsResult1 = await query(`
+      UPDATE seeds_ledger 
+      SET season_id = 1 
+      WHERE created_at < $1 AND (season_id IS NULL OR season_id != 1)
+    `, [season1End]);
+
+    const seedsResult2 = await query(`
+      UPDATE seeds_ledger 
+      SET season_id = 2 
+      WHERE created_at >= $1 AND (season_id IS NULL OR season_id != 2)
+    `, [season1End]);
+
+    // Fix quest_completions: set season_id based on created_at
+    const qcResult1 = await query(`
+      UPDATE quest_completions 
+      SET season_id = 1 
+      WHERE created_at < $1 AND (season_id IS NULL OR season_id != 1)
+    `, [season1End]);
+
+    const qcResult2 = await query(`
+      UPDATE quest_completions 
+      SET season_id = 2 
+      WHERE created_at >= $1 AND (season_id IS NULL OR season_id != 2)
+    `, [season1End]);
+
+    res.json({
+      message: 'Backfill complete',
+      seedsLedger: {
+        season1Fixed: seedsResult1.rowCount,
+        season2Fixed: seedsResult2.rowCount,
+      },
+      questCompletions: {
+        season1Fixed: qcResult1.rowCount,
+        season2Fixed: qcResult2.rowCount,
+      },
+    });
+  } catch (err) { next(err); }
+});
+
 export default router;
