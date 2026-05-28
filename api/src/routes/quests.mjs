@@ -735,6 +735,17 @@ router.get('/admin/stats', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// POST /api/quests/admin/trigger-stream-check — Manually trigger stream quest check
+router.post('/admin/trigger-stream-check', requireAdmin, async (req, res) => {
+  res.json({ message: 'Stream check started in background — check Railway logs for progress' });
+  try {
+    await runStreamCheck();
+    console.log('[admin] Stream check complete');
+  } catch (err) {
+    console.error('[admin] Stream check failed:', err.message);
+  }
+});
+
 // GET /api/quests/admin/quests — list all quests with campaign info
 router.get('/admin/quests', requireAdmin, async (req, res, next) => {
   try {
