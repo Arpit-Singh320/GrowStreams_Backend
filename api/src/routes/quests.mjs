@@ -786,4 +786,38 @@ router.delete('/admin/quests/:slug', requireAdmin, async (req, res, next) => {
   }
 });
 
+// POST /api/quests/admin/deactivate-orphan-quests — Deactivate quests not in active campaigns
+router.post('/admin/deactivate-orphan-quests', requireAdmin, async (req, res, next) => {
+  try {
+    const { query, queryAll } = await import('../services/db.mjs');
+    
+    // Get IDs of active quest_campaigns
+    const activeCampaigns = await queryAll(`
+      SELECT id FROM quest_campaigns WHERE status = 'ACTIVE'
+    `);
+    const activeCampaignIds = activeCampaigns.map(c => c.id);
+    
+    // Deactivate quests that don't belong to any active campaign
+    let result;
+    if (activeCampaignIds.length === 0) {
+      // No active campaigns, deactivate all quests
+      result = await query(`UPDATE quests SET active = FALSE WHERE active = TRUE RETURNING id, slug, title`);
+    } else {
+      // Deactivate quests not in active campaigns
+      result = await query(`
+        UPDATE quests 
+        SET active = FALSE 
+        WHERE active = TRUE 
+          AND (campaign_id IS NULL OR campaign_id NOT IN (${activeCampaignIds.join(',')}))
+        RETURNING id, slug, title
+      `);
+    }
+    
+    res.json({ 
+      message: `Deactivated ${result.rowCount} orphan quests`,
+      deactivated: result.rows 
+    });
+  } catch (err) { next(err); }
+});
+
 export default router;
