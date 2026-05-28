@@ -1,6 +1,6 @@
 import { Sails } from 'sails-js';
 import { SailsIdlParser } from 'sails-js-parser';
-import { GearApi, GearKeyring } from '@gear-js/api';
+import { GearApi, GearKeyring, decodeAddress } from '@gear-js/api';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -202,6 +202,23 @@ export function getProgramIds() {
   return ids;
 }
 
+/**
+ * Normalize an address to hex format (0x...).
+ * Accepts both SS58 (e.g., kGiaMA7...) and hex (0x...) formats.
+ */
+function normalizeAddress(addr) {
+  if (!addr) return addr;
+  // Already hex format
+  if (addr.startsWith('0x')) return addr;
+  // SS58 format - decode to hex
+  try {
+    return decodeAddress(addr);
+  } catch (err) {
+    console.warn(`[sails] Failed to decode address ${addr}: ${err.message}`);
+    return addr;
+  }
+}
+
 export async function query(contractName, fnName, ...args) {
   const sails = contracts[contractName];
   if (!sails) throw new Error(`Contract ${contractName} not loaded`);
@@ -213,8 +230,16 @@ export async function query(contractName, fnName, ...args) {
   const queryFn = service.queries[fnName];
   if (!queryFn) throw new Error(`Query ${fnName} not found in ${serviceName}`);
 
+  // Normalize any address arguments (SS58 -> hex)
+  const normalizedArgs = args.map(arg => {
+    if (typeof arg === 'string' && (arg.startsWith('0x') || arg.length === 48 || arg.length === 47)) {
+      return normalizeAddress(arg);
+    }
+    return arg;
+  });
+
   // queryFn(...args) returns a QueryBuilder; set origin then call()
-  const qb = queryFn(...args);
+  const qb = queryFn(...normalizedArgs);
   if (keyring) {
     qb.withAddress(keyring.address);
   }
