@@ -746,6 +746,37 @@ router.post('/admin/trigger-stream-check', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/quests/admin/check-wallet-streams/:wallet — Check streams for a specific wallet
+router.get('/admin/check-wallet-streams/:wallet', requireAdmin, async (req, res, next) => {
+  try {
+    const { query: sailsQuery } = await import('../sails-client.mjs');
+    const { isQuestCompleted } = await import('../services/quest-service.mjs');
+    const wallet = req.params.wallet;
+    
+    // Check if already completed
+    const alreadyCompleted = await isQuestCompleted(wallet, 'create-stream');
+    
+    // Query on-chain streams
+    let streams = [];
+    let error = null;
+    try {
+      const result = await sailsQuery('streamCore', 'GetSenderStreams', wallet);
+      streams = result || [];
+    } catch (err) {
+      error = err.message;
+    }
+    
+    res.json({
+      wallet,
+      alreadyCompleted,
+      hasStreams: streams.length > 0,
+      streamCount: streams.length,
+      streamIds: streams,
+      error,
+    });
+  } catch (err) { next(err); }
+});
+
 // GET /api/quests/admin/quests — list all quests with campaign info
 router.get('/admin/quests', requireAdmin, async (req, res, next) => {
   try {
