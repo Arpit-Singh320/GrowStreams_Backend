@@ -395,7 +395,8 @@ export async function migrate() {
       icon         = EXCLUDED.icon,
       repeatable   = EXCLUDED.repeatable,
       sort_order   = EXCLUDED.sort_order,
-      meta         = EXCLUDED.meta;
+      meta         = EXCLUDED.meta
+      -- DO NOT update 'active' to preserve manual deactivations;
   `);
   // Deactivate GitHub-only quests — removed from product, existing completions preserved
   await p.query(`
