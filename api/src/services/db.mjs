@@ -399,62 +399,7 @@ export async function migrate() {
       -- DO NOT update 'active' to preserve manual deactivations;
   `);
 
-  console.log('[db] Upserted default quests (GitHub quests deactivated)');
-
-  // Seed quest campaigns
-  await p.query(`
-    INSERT INTO quest_campaigns (slug, title, description, partner, badge_label, difficulty, status, reward_summary, bonus_xp, sort_order, meta)
-    VALUES
-      (
-        'growstreams',
-        'GrowStreams Launch Campaign',
-        'Earn Seeds by contributing to the GrowStreams ecosystem — follow us, build on mainnet, star the repo, create streams, and refer friends. Seeds convert to GROW tokens at launch.',
-        'GrowStreams',
-        'Pioneer',
-        'EASY',
-        'ACTIVE',
-        'Seeds → GROW token airdrop at mainnet launch',
-        50,
-        1,
-        '{"color": "#6366f1", "accent": "#818cf8", "token": "SEEDS"}'
-      ),
-      (
-        'ginie-x-growstreams',
-        'Ginie × GrowStreams — Build with AI',
-        'The AI-powered development environment meets GrowStreams money streaming. Complete all tasks, earn Seeds, and compete for 100,000 VARA tokens. Top 5 users on the leaderboard win. Prizes distributed via Telegram after campaign ends.',
-        'Ginie',
-        'Ginie Pioneer',
-        'EASY',
-        'ACTIVE',
-        '100,000 VARA token prize pool — Top 5 win',
-        50,
-        0,
-        '{"color": "#f59e0b", "accent": "#fbbf24", "token": "SEEDS", "partner_url": "https://ginie.xyz", "end_date": "2026-05-17T23:59:59Z", "prize_pool": {"total_vara": 100000, "currency": "VARA", "distribution": "top5", "distribution_channel": "Telegram", "tiers": [{"rank": 1, "label": "1st Place", "vara": 40000}, {"rank": 2, "label": "2nd Place", "vara": 20000}, {"rank": 3, "label": "3rd Place", "vara": 15000}, {"rank": 4, "label": "4th Place", "vara": 15000}, {"rank": 5, "label": "5th Place", "vara": 10000}]}}'
-      )
-    ON CONFLICT (slug) DO UPDATE SET
-      title          = EXCLUDED.title,
-      description    = EXCLUDED.description,
-      reward_summary = EXCLUDED.reward_summary,
-      bonus_xp       = EXCLUDED.bonus_xp,
-      status         = EXCLUDED.status,
-      meta           = EXCLUDED.meta;
-  `);
-
-  // Assign campaign_id to each quest by matching slugs
-  await p.query(`
-    UPDATE quests SET campaign_id = (SELECT id FROM quest_campaigns WHERE slug = 'growstreams')
-    WHERE slug IN (
-      'welcome-bonus','follow-x','mention-x','star-repo','raise-pr',
-      'create-stream','visit-platform','join-telegram','refer-a-friend'
-    ) AND campaign_id IS NULL;
-
-    UPDATE quests SET campaign_id = (SELECT id FROM quest_campaigns WHERE slug = 'ginie-x-growstreams')
-    WHERE slug IN (
-      'follow-x-ginie','mention-x-ginie','retweet-campaign','tweet-build-growstreams'
-    ) AND campaign_id IS NULL;
-  `);
-
-  console.log('[db] Quest campaigns seeded and quests assigned to campaigns');
+  console.log('[db] Upserted default quests (legacy campaigns removed from seed)');
 
   // -----------------------------------------------------------------------
   // Ginie Invite Codes — dedicated table for 1-per-wallet giveaway codes
@@ -470,74 +415,7 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_ginie_invite_codes_claimed ON ginie_invite_codes(claimed_by);
   `);
 
-  // Seed the Ginie Invite Giveaway campaign
-  await p.query(`
-    INSERT INTO quest_campaigns (slug, title, description, partner, banner_url, badge_label, difficulty, status, reward_summary, bonus_xp, sort_order, meta)
-    VALUES (
-      'ginie-invite-giveaway',
-      'GINIE Invite Codes Giveaway',
-      'Complete both quests to unlock an exclusive Ginie invite code. Ginie is the AI-powered development environment that generates production-ready DAML smart contracts and deploys them to Canton — all from plain English.',
-      'Ginie',
-      '/ginie-banner.png',
-      'Ginie Access',
-      'EASY',
-      'ACTIVE',
-      'Earn 100 XP + unlock a Ginie invite code',
-      0,
-      -1,
-      '{"color": "#10b981", "accent": "#34d399", "token": "SEEDS", "partner_url": "https://ginie.xyz", "logo_url": "/ginie-logo.ico", "reward_type": "invite_code", "reward_partner": "Ginie", "telegram_url": "https://t.me/+ol0aeN9HO05mMjQ9"}'
-    )
-    ON CONFLICT (slug) DO UPDATE SET
-      title          = EXCLUDED.title,
-      description    = EXCLUDED.description,
-      banner_url     = EXCLUDED.banner_url,
-      reward_summary = EXCLUDED.reward_summary,
-      status         = EXCLUDED.status,
-      meta           = EXCLUDED.meta;
-  `);
-
-  // Seed the 2 Ginie campaign quests
-  await p.query(`
-    INSERT INTO quests (slug, title, description, quest_type, seeds_reward, icon, repeatable, active, sort_order, campaign_id, meta)
-    VALUES
-      (
-        'ginie-welcome',
-        'Join the Ginie × GrowStreams Giveaway',
-        'Welcome to the Ginie Invite Code Giveaway! You automatically receive 100 XP for joining this special campaign. Complete this + the Telegram quest to unlock your Ginie invite code.',
-        'WELCOME',
-        100,
-        'gift',
-        FALSE,
-        TRUE,
-        0,
-        (SELECT id FROM quest_campaigns WHERE slug = 'ginie-invite-giveaway'),
-        '{}'
-      ),
-      (
-        'ginie-join-telegram',
-        'Join the Ginie Telegram Group',
-        'Join the official Ginie Telegram community to stay updated on the latest AI-powered smart contract development tools and the Canton ecosystem.',
-        'TELEGRAM_JOIN',
-        0,
-        'send',
-        FALSE,
-        TRUE,
-        1,
-        (SELECT id FROM quest_campaigns WHERE slug = 'ginie-invite-giveaway'),
-        '{"url": "https://t.me/+ol0aeN9HO05mMjQ9"}'
-      )
-    ON CONFLICT (slug) DO UPDATE SET
-      title       = EXCLUDED.title,
-      description = EXCLUDED.description,
-      quest_type  = EXCLUDED.quest_type,
-      seeds_reward = EXCLUDED.seeds_reward,
-      icon        = EXCLUDED.icon,
-      sort_order  = EXCLUDED.sort_order,
-      campaign_id = EXCLUDED.campaign_id,
-      meta        = EXCLUDED.meta;
-  `);
-
-  console.log('[db] Ginie Invite Giveaway campaign and quests seeded');
+  // Legacy campaigns removed - only Webytes campaign should exist
 
   // -----------------------------------------------------------------------
   // Indexes
