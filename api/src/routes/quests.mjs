@@ -862,4 +862,41 @@ router.post('/admin/deactivate-orphan-quests', requireAdmin, async (req, res, ne
   } catch (err) { next(err); }
 });
 
+// POST /api/quests/admin/deactivate-except-campaigns — Deactivate all quests except those in specified campaigns
+router.post('/admin/deactivate-except-campaigns', requireAdmin, async (req, res, next) => {
+  try {
+    const { query, queryAll } = await import('../services/db.mjs');
+    const { campaignSlugs } = req.body; // Array of campaign slugs to keep active
+    
+    if (!Array.isArray(campaignSlugs) || campaignSlugs.length === 0) {
+      return res.status(400).json({ error: 'campaignSlugs array is required' });
+    }
+    
+    // Get IDs of specified campaigns
+    const campaigns = await queryAll(`
+      SELECT id FROM quest_campaigns WHERE slug = ANY($1)
+    `, [campaignSlugs]);
+    const campaignIds = campaigns.map(c => c.id);
+    
+    if (campaignIds.length === 0) {
+      return res.status(404).json({ error: 'No campaigns found with provided slugs' });
+    }
+    
+    // Deactivate all quests except those in specified campaigns
+    const result = await query(`
+      UPDATE quests 
+      SET active = FALSE 
+      WHERE active = TRUE 
+        AND (campaign_id IS NULL OR campaign_id NOT IN (${campaignIds.join(',')}))
+      RETURNING id, slug, title, campaign_id
+    `);
+    
+    res.json({ 
+      message: `Deactivated ${result.rowCount} quests outside of campaigns: ${campaignSlugs.join(', ')}`,
+      deactivated: result.rows,
+      keptCampaigns: campaignSlugs
+    });
+  } catch (err) { next(err); }
+});
+
 export default router;
