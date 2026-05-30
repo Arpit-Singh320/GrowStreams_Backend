@@ -234,7 +234,7 @@ export async function query(contractName, fnName, ...args) {
 
   // Normalize any address arguments (SS58 -> hex)
   const normalizedArgs = await Promise.all(args.map(async (arg) => {
-    if (typeof arg === 'string' && (arg.startsWith('0x') || arg.length === 48 || arg.length === 47)) {
+    if (typeof arg === 'string' && (arg.startsWith('0x') || arg.length >= 47)) {
       return await normalizeAddress(arg);
     }
     return arg;
