@@ -12,7 +12,7 @@ router.param('wallet', (req, res, next) => validateWalletParam(req, res, next));
 router.get('/', async (req, res, next) => {
   try {
     const page = Math.max(1, parseInt(req.query.page || '1', 10));
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '50', 10)));
+    const limit = Math.max(1, parseInt(req.query.limit || '50', 10));
     const track = req.query.track || null;
 
     if (track && !['OSS', 'CONTENT', 'BOTH'].includes(track)) {
