@@ -92,7 +92,6 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
   } else {
     // Season 2+: XP earned after season start date
     // Use subqueries to avoid cartesian product from multiple JOINs
-    // Cap at 350 to normalize historical XP from deactivated quests
     participants = await queryAll(`
       SELECT 
         r.wallet,
@@ -100,7 +99,7 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
         r.x_username,
         r.github_username,
         r.evm_address,
-        LEAST(COALESCE(s.total_seeds, 0), 350) AS season_seeds,
+        COALESCE(s.total_seeds, 0) AS season_seeds,
         COALESCE(c.quest_count, 0) AS quest_completions
       FROM quest_registrations r
       LEFT JOIN (
