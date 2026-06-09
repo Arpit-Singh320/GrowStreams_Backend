@@ -24,6 +24,7 @@ const QUEST_TYPES = [
   { value: 'REFERRAL',        label: 'Referral',                    icon: '👥', hint: 'Auto-triggered on registration' },
   { value: 'WELCOME',         label: 'Welcome Bonus',               icon: '🎁', hint: 'One-time, auto-awarded on join' },
   { value: 'PARTNER_CONTRACT', label: 'Partner — Deploy Contract',    icon: '📄', hint: 'User pastes their Party ID + Contract ID from a partner platform (e.g. Canton/Ginie). Admin verifies on-chain.' },
+  { value: 'IMAGE_UPLOAD',     label: 'Image Upload — Screenshot Proof', icon: '🖼️', hint: 'User uploads a screenshot as proof. Admin reviews the image and approves manually.' },
 ];
 
 const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'];
@@ -106,9 +107,10 @@ function SubmissionRow({
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [error, setError] = useState('');
 
-  const proof = (submission.proof || {}) as { x_username?: string; tweet_url?: string; party_id?: string; contract_id?: string; partner_url?: string };
+  const proof = (submission.proof || {}) as { x_username?: string; tweet_url?: string; party_id?: string; contract_id?: string; partner_url?: string; image_data?: string };
   const isFollow = submission.quest_slug === 'follow-x';
   const isPartnerContract = submission.quest_slug?.startsWith('partner-') || (submission as any).quest_type === 'PARTNER_CONTRACT';
+  const isImageUpload = (submission as any).quest_type === 'IMAGE_UPLOAD';
 
   const handleApprove = async () => {
     if (busy) return;
@@ -220,7 +222,20 @@ function SubmissionRow({
             )}
           </div>
         )}
-        {!isFollow && !isPartnerContract && proof.tweet_url && (
+        {isImageUpload && (
+          <div className="space-y-2">
+            {proof.image_data ? (
+              <img
+                src={proof.image_data}
+                alt="Submitted proof"
+                className="max-h-64 rounded-lg border border-emerald-500/20 object-contain"
+              />
+            ) : (
+              <p className="text-provn-muted text-xs">No image submitted.</p>
+            )}
+          </div>
+        )}
+        {!isFollow && !isPartnerContract && !isImageUpload && proof.tweet_url && (
           <div className="flex items-start gap-2 text-sm">
             <span className="text-provn-muted">Tweet URL:</span>
             <a
@@ -336,6 +351,9 @@ const META_FIELDS: Record<string, MetaField[]> = {
     { key: 'partner_name',      label: 'Partner Name',          placeholder: 'Ginie / Canton', hint: 'Shown on the quest card so users know which platform to use.' },
     { key: 'partner_url',       label: 'Partner Platform URL',  placeholder: 'https://canton.ginie.xyz', type: 'url' as const, hint: 'Users visit this to create their contract.' },
     { key: 'contract_type',     label: 'Expected Contract Type',placeholder: 'e.g. Stream, Escrow, Any', hint: 'Optional — shown to user as guidance.' },
+  ],
+  IMAGE_UPLOAD: [
+    { key: 'instructions', label: 'Upload Instructions', placeholder: 'Take a screenshot of the app showing your completed action.', hint: 'Displayed to the user above the file picker on the quest card.' },
   ],
 };
 

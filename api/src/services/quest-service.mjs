@@ -543,7 +543,7 @@ export async function submitQuestProof(wallet, questSlug, proof = {}) {
 export async function listPendingSubmissions() {
   return queryAll(`
     SELECT qc.id, qc.wallet, qc.quest_id, qc.proof, qc.created_at,
-           q.slug AS quest_slug, q.title AS quest_title, q.seeds_reward,
+           q.slug AS quest_slug, q.title AS quest_title, q.seeds_reward, q.quest_type,
            r.email, r.x_username, r.github_username
     FROM quest_completions qc
     JOIN quests q ON q.id = qc.quest_id

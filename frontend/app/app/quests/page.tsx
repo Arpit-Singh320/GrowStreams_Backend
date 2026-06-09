@@ -8,7 +8,7 @@ import {
   Sprout, Lock, CheckCircle2, Loader2, ArrowRight, Mail,
   Twitter, Users, Waves, Star, GitPullRequest,
   Megaphone, Clock, ExternalLink, Sparkles, Trophy, Gift, Pencil, Check, X as XIcon,
-  Eye, Heart, ChevronDown, Ticket,
+  Eye, Heart, ChevronDown, Ticket, Image as ImageIcon,
 } from 'lucide-react';
 
 const QUEST_ICONS: Record<string, React.ElementType> = {
@@ -309,7 +309,7 @@ function QuestCard({
 }: {
   quest: QuestData;
   wallet: string;
-  onClaim: (slug: string, payload?: { x_username?: string; tweet_url?: string }) => void;
+  onClaim: (slug: string, payload?: { x_username?: string; tweet_url?: string; image_data?: string }) => void;
   claiming: boolean;
 }) {
   const isCompleted = quest.completed;
@@ -321,13 +321,16 @@ function QuestCard({
   const isRetweet = quest.quest_type === 'X_RETWEET';
   const isTweetKeyword = quest.quest_type === 'X_TWEET_KEYWORD';
   const isPartnerContract = quest.quest_type === 'PARTNER_CONTRACT';
-  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword || isPartnerContract;
+  const isImageUpload = quest.quest_type === 'IMAGE_UPLOAD';
+  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword || isPartnerContract || isImageUpload;
   const needsTweetUrl = isMentionX || isRetweet || isTweetKeyword;
   const xRef = X_HANDLE_BY_SLUG[quest.slug];
   const [xUsername, setXUsername] = useState('');
   const [tweetUrl, setTweetUrl] = useState('');
   const [partyId, setPartyId] = useState('');
   const [contractId, setContractId] = useState('');
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [imageFileName, setImageFileName] = useState('');
   const questMeta = (quest.meta || {}) as Record<string, unknown>;
   const inputLabel = (questMeta.input_label as string) || (isFollowX ? 'Your X username' : 'Tweet URL');
   const inputPlaceholder = (questMeta.input_placeholder as string) || (isFollowX ? '@yourhandle' : 'https://x.com/yourhandle/status/123...');
@@ -339,6 +342,8 @@ function QuestCard({
       ? xUsername.trim().length > 0
       : isPartnerContract
       ? partyId.trim().length > 0 || contractId.trim().length > 0
+      : isImageUpload
+      ? imageData !== null
       : /^https?:\/\/(x\.com|twitter\.com)\//i.test(tweetUrl.trim())
     : true;
 
@@ -352,6 +357,9 @@ function QuestCard({
         contract_id: contractId.trim() || undefined,
         partner_url: (questMeta.partner_url as string) || undefined,
       } as Record<string, string | undefined>);
+    } else if (isImageUpload) {
+      if (!imageData) return;
+      onClaim(quest.slug, { image_data: imageData });
     } else if (needsTweetUrl) {
       if (!tweetUrl.trim()) return;
       onClaim(quest.slug, { tweet_url: tweetUrl.trim() });
@@ -444,8 +452,6 @@ function QuestCard({
             <div className="text-[11px] text-provn-muted">
               Tweet must mention{' '}
               <span className="text-emerald-400">{(questMeta.required_mention as string) || xRef?.handle || '@GrowStreams'}</span>
-              {' '}+ include your wallet:{' '}
-              <code className="text-emerald-400 text-[10px]">{wallet.slice(0, 10)}…{wallet.slice(-6)}</code>
             </div>
           )}
           {isRetweet && (
@@ -500,7 +506,7 @@ function QuestCard({
               </div>
             </div>
           )}
-          {!isPartnerContract && (
+          {!isPartnerContract && !isImageUpload && (
             <>
               <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
               <input
@@ -511,6 +517,34 @@ function QuestCard({
                 className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none"
               />
             </>
+          )}
+          {isImageUpload && (
+            <div className="space-y-2">
+              <div className="text-[11px] text-provn-muted">
+                {(questMeta.instructions as string) || 'Upload a screenshot as proof of completion.'}
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-provn-bg border border-dashed border-provn-border rounded-lg text-xs text-provn-muted hover:border-emerald-500/50 hover:text-emerald-400 transition-colors">
+                <ImageIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{imageFileName || 'Choose image (JPG, PNG, GIF — max 3 MB)'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 3 * 1024 * 1024) { alert('Image must be under 3 MB'); return; }
+                    setImageFileName(file.name);
+                    const reader = new FileReader();
+                    reader.onload = (ev) => setImageData(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
+              {imageData && (
+                <img src={imageData} alt="Preview" className="max-h-40 rounded-lg border border-provn-border object-contain" />
+              )}
+            </div>
           )}
           {isRejected && quest.rejectedSubmission?.proof && (quest.rejectedSubmission.proof as { reject_reason?: string }).reject_reason && (
             <p className="text-[11px] text-red-400">
@@ -551,6 +585,13 @@ function QuestCard({
             <p className="text-[11px] text-provn-muted">
               Contract ID: <code className="text-emerald-400 font-mono">{(quest.pendingSubmission.proof as { contract_id?: string }).contract_id}</code>
             </p>
+          )}
+          {(quest.pendingSubmission.proof as { image_data?: string })?.image_data && (
+            <img
+              src={(quest.pendingSubmission.proof as { image_data?: string }).image_data}
+              alt="Submitted proof"
+              className="max-h-32 rounded-lg border border-amber-500/20 object-contain mt-1"
+            />
           )}
         </div>
       )}
@@ -712,7 +753,7 @@ function QuestDashboard({ wallet }: { wallet: string }) {
 
   useEffect(() => { loadProgress(); }, [loadProgress]);
 
-  const handleClaim = async (slug: string, payload?: { x_username?: string; tweet_url?: string }) => {
+  const handleClaim = async (slug: string, payload?: { x_username?: string; tweet_url?: string; image_data?: string }) => {
     setClaiming(slug);
     try {
       const result = await api.quests.claim(slug, wallet, payload);

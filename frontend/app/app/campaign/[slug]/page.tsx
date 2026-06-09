@@ -136,7 +136,8 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
   const isRetweet        = quest.quest_type === 'X_RETWEET'
   const isTweetKeyword   = quest.quest_type === 'X_TWEET_KEYWORD'
   const isPartnerContract = quest.quest_type === 'PARTNER_CONTRACT'
-  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword || isPartnerContract
+  const isImageUpload = quest.quest_type === 'IMAGE_UPLOAD'
+  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword || isPartnerContract || isImageUpload
   const needsTweetUrl    = isMentionX || isRetweet || isTweetKeyword
 
   const questMeta      = (quest.meta || {}) as Record<string, unknown>
@@ -148,12 +149,16 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
   const [tweetUrl, setTweetUrl]   = useState('')
   const [partyId, setPartyId]     = useState('')
   const [contractId, setContractId] = useState('')
+  const [imageData, setImageData] = useState<string | null>(null)
+  const [imageFileName, setImageFileName] = useState('')
   const inputValue = isFollowX ? xUsername : tweetUrl
   const inputValid = needsManualInput
     ? isFollowX
       ? xUsername.trim().length > 0
       : isPartnerContract
       ? partyId.trim().length > 0 || contractId.trim().length > 0
+      : isImageUpload
+      ? imageData !== null
       : /^https?:\/\/(x\.com|twitter\.com)\//i.test(tweetUrl.trim())
     : true
 
@@ -166,6 +171,9 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
         ...(contractId.trim() ? { contract_id: contractId.trim() } : {}),
         ...(questMeta.partner_url ? { partner_url: questMeta.partner_url as string } : {}),
       })
+    } else if (isImageUpload) {
+      if (!imageData) return
+      onClaim(quest.slug, { image_data: imageData })
     } else if (needsTweetUrl) {
       onClaim(quest.slug, { tweet_url: tweetUrl.trim() })
     } else {
@@ -208,8 +216,7 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
         <div className="mb-3 space-y-1.5">
           {isMentionX && (
             <p className="text-[11px] text-provn-muted">
-              Tweet must mention <span className="text-emerald-400">{(questMeta.required_mention as string) || '@GrowStreams'}</span> + include your wallet:{' '}
-              <code className="text-emerald-400 text-[10px]">{wallet.slice(0,10)}…{wallet.slice(-6)}</code>
+              Tweet must mention <span className="text-emerald-400">{(questMeta.required_mention as string) || '@GrowStreams'}</span>
             </p>
           )}
           {isRetweet && (
@@ -249,7 +256,7 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
               </div>
             </div>
           )}
-          {!isPartnerContract && (
+          {!isPartnerContract && !isImageUpload && (
             <>
               <label className="text-[11px] font-medium text-provn-muted">{inputLabel}</label>
               <input type="text" value={inputValue}
@@ -257,6 +264,33 @@ function CampaignQuestCard({ quest, wallet, onClaim, claiming }: {
                 placeholder={inputPlaceholder}
                 className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none" />
             </>
+          )}
+          {isImageUpload && (
+            <div className="space-y-2">
+              <div className="text-[11px] text-provn-muted">
+                {(questMeta.instructions as string) || 'Upload a screenshot as proof of completion.'}
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-provn-bg border border-dashed border-provn-border rounded-lg text-xs text-provn-muted hover:border-emerald-500/50 hover:text-emerald-400 transition-colors">
+                <span>{imageFileName || 'Choose image (JPG, PNG, GIF — max 3 MB)'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    if (file.size > 3 * 1024 * 1024) { alert('Image must be under 3 MB'); return }
+                    setImageFileName(file.name)
+                    const reader = new FileReader()
+                    reader.onload = (ev) => setImageData(ev.target?.result as string)
+                    reader.readAsDataURL(file)
+                  }}
+                />
+              </label>
+              {imageData && (
+                <img src={imageData} alt="Preview" className="max-h-40 rounded-lg border border-provn-border object-contain" />
+              )}
+            </div>
           )}
           {isRejected && (quest.rejectedSubmission?.proof as any)?.reject_reason && (
             <p className="text-[11px] text-red-400">Rejected: {(quest.rejectedSubmission.proof as any).reject_reason}</p>

@@ -211,7 +211,7 @@ router.get('/seeds/:wallet', async (req, res, next) => {
 router.post('/:slug/claim', async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const { wallet, x_username, tweet_url, party_id, contract_id, partner_url } = req.body;
+    const { wallet, x_username, tweet_url, party_id, contract_id, partner_url, image_data } = req.body;
 
     if (!wallet) return res.status(400).json({ error: 'Wallet is required' });
 
@@ -350,6 +350,30 @@ router.post('/:slug/claim', async (req, res, next) => {
       });
       return res.json({
         message: 'Submitted for review. An admin will verify your contract and award XP shortly.',
+        slug,
+        wallet,
+        status: 'PENDING_REVIEW',
+        submission: result,
+      });
+    }
+
+    // Image upload quests: user uploads a screenshot/image; admin reviews it
+    if (quest.quest_type === 'IMAGE_UPLOAD') {
+      const imgData = (image_data || '').trim();
+      if (!imgData) return res.status(400).json({ error: 'Please upload an image as proof' });
+
+      // Allow base64 data URIs or plain URLs — cap raw base64 at ~4 MB
+      const MAX_BASE64_BYTES = 4 * 1024 * 1024;
+      if (imgData.startsWith('data:') && imgData.length > MAX_BASE64_BYTES) {
+        return res.status(400).json({ error: 'Image is too large. Please upload an image under 3 MB.' });
+      }
+
+      const result = await submitQuestProof(wallet, slug, {
+        image_data: imgData,
+        source: 'manual-review',
+      });
+      return res.json({
+        message: 'Image submitted for review. An admin will verify it and award Seeds shortly.',
         slug,
         wallet,
         status: 'PENDING_REVIEW',
