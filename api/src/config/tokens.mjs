@@ -80,6 +80,49 @@ export const SUPPORTED_TOKENS = {
     isStablecoin: false,
     minBuffer: 3600,
   },
+
+  // ---- Super Token variants (deploy via contracts/super-token) ----
+  // programIds are set after deployment; vara address updated in deploy-state.json
+  gUSDC: {
+    symbol: 'gUSDC',
+    name: 'Grow USDC (Super Token)',
+    decimals: 6,
+    vara: null,         // set after deployment
+    eth: null,
+    underlying: 'WUSDC',
+    icon: '/tokens/usdc.svg',
+    category: 'stablecoin',
+    isStablecoin: true,
+    isSuperToken: true,
+    minBuffer: 3600,
+  },
+  gGROW: {
+    symbol: 'gGROW',
+    name: 'Grow GROW (Super Token)',
+    decimals: 12,
+    vara: null,         // set after deployment
+    eth: null,
+    underlying: null,   // Pure Super Token (admin-mintable)
+    icon: '/tokens/grow.svg',
+    category: 'utility',
+    isStablecoin: false,
+    isSuperToken: true,
+    minBuffer: 3600,
+  },
+  gVARA: {
+    symbol: 'gVARA',
+    name: 'Grow VARA (Native Super Token)',
+    decimals: 12,
+    vara: null,         // set after deployment
+    eth: null,
+    underlying: 'VARA',
+    icon: '/tokens/vara.svg',
+    category: 'native',
+    isStablecoin: false,
+    isSuperToken: true,
+    isNativeWrapper: true,
+    minBuffer: 3600,
+  },
 };
 
 // Lookup helpers

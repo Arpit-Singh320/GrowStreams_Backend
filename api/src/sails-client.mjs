@@ -22,6 +22,7 @@ function findIdl(filename) {
     'grow-token.idl': 'contracts/grow-token/grow-token.idl',
     'quest-seeds.idl': 'contracts/quest-seeds/quest-seeds.idl',
     'wvara.idl': 'contracts/wvara/wvara.idl',
+    'super-token.idl': 'contracts/super-token/super-token.idl',
   };
   return resolve(PROJECT_ROOT, contractMap[filename] || filename);
 }
@@ -36,6 +37,7 @@ const IDL_PATHS = {
   growToken: findIdl('grow-token.idl'),
   questSeeds: findIdl('quest-seeds.idl'),
   wvara: findIdl('wvara.idl'),
+  superToken: findIdl('super-token.idl'),
 };
 
 let gearApi = null;
@@ -59,6 +61,7 @@ const contracts = {
   growToken: null,
   questSeeds: null,
   wvara: null,
+  superToken: null,
 };
 
 const SERVICE_NAMES = {
@@ -71,6 +74,7 @@ const SERVICE_NAMES = {
   growToken: 'VftService',
   questSeeds: 'SeedsService',
   wvara: 'Vft',
+  superToken: 'SuperTokenService',
 };
 
 function loadDeployState() {
@@ -99,6 +103,7 @@ const DEPLOY_KEY_MAP = {
   growToken: 'grow-token',
   questSeeds: 'quest-seeds',
   wvara: 'wvara',
+  superToken: 'super-token',
 };
 
 async function initSailsInstance(name, idlPath, programId) {
@@ -149,6 +154,7 @@ export async function connect() {
     growToken: process.env.GROW_TOKEN_ID,
     questSeeds: process.env.QUEST_SEEDS_ID,
     wvara: process.env.WVARA_TOKEN_ID, // wVARA wrapped token contract
+    superToken: process.env.SUPER_TOKEN_ID,
   };
 
   for (const [name, idlPath] of Object.entries(IDL_PATHS)) {

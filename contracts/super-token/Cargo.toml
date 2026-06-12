@@ -1,0 +1,18 @@
+[package]
+name = "super-token"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "GrowStreams Super Token — Superfluid-style streaming VFT on Vara"
+
+[dependencies]
+sails-rs.workspace = true
+gstd.workspace = true
+parity-scale-codec.workspace = true
+scale-info.workspace = true
+
+[build-dependencies]
+sails-rs = { workspace = true, features = ["wasm-builder"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]

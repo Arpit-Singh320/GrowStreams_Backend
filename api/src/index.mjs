@@ -27,6 +27,7 @@ import questsRouter from './routes/quests.mjs';
 import voucherRouter from './routes/voucher.mjs';
 import wvaraRouter from './routes/wvara.mjs';
 import seasonsRouter from './routes/seasons.mjs';
+import superTokensRouter from './routes/super-tokens.mjs';
 import { ensureVoucherTable } from './services/voucher-service.mjs';
 import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
@@ -74,6 +75,7 @@ app.use('/api/quests', questsRouter);
 app.use('/api/voucher', voucherRouter);
 app.use('/api/wvara', wvaraRouter);
 app.use('/api/seasons', seasonsRouter);
+app.use('/api/super-tokens', superTokensRouter);
 
 app.get('/', (req, res) => {
   res.json({

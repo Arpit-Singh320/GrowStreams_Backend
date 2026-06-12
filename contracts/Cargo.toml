@@ -9,6 +9,7 @@ members = [
     "grow-token",
     "quest-seeds",
     "wvara",
+    "super-token",
 ]
 resolver = "2"
 
