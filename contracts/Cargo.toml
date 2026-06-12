@@ -11,6 +11,7 @@ members = [
     "wvara",
     "super-token",
     "distribution-pool",
+    "liquidation-manager",
 ]
 resolver = "2"
 

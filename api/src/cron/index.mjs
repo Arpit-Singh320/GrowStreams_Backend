@@ -7,6 +7,7 @@ import { runStreamCheck } from './quest-stream-monitor.mjs';
 import { runFollowCheck, runMentionCheck } from './quest-x-monitor.mjs';
 import { syncOnchainMints } from '../services/quest-service.mjs';
 import { revokeExpiredVouchers } from '../services/voucher-service.mjs';
+import { runLiquidationKeeper } from './liquidation.mjs';
 
 export function initCrons() {
   // Daily XP accumulation — midnight UTC
@@ -84,6 +85,15 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
+  // Liquidation keeper — every 5 minutes, scan and liquidate insolvent super token streams
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      await runLiquidationKeeper();
+    } catch (err) {
+      console.error(`[cron] liquidation-keeper failed: ${err.message}`);
+    }
+  }, { timezone: 'UTC' });
+
   // Voucher reclaim — every 6 hours, revoke expired vouchers on-chain to reclaim VARA
   cron.schedule('30 */6 * * *', async () => {
     try {
@@ -105,5 +115,6 @@ export function initCrons() {
   console.log('[cron]   sync-onchain:     */30 * * * *   (every 30m)');
   console.log('[cron]   quest-x-follow:   0 */6 * * *    (every 6h)');
   console.log('[cron]   quest-x-mention:  0 1,7,13,19 * * * (every 6h offset)');
+  console.log('[cron]   liquidation:      */5 * * * *    (every 5m, solvency enforcement)');
   console.log('[cron]   voucher-reclaim:  30 */6 * * *   (every 6h, reclaims VARA)');
 }

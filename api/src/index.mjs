@@ -29,6 +29,7 @@ import wvaraRouter from './routes/wvara.mjs';
 import seasonsRouter from './routes/seasons.mjs';
 import superTokensRouter from './routes/super-tokens.mjs';
 import distributionPoolsRouter from './routes/distribution-pools.mjs';
+import solvencyRouter from './routes/solvency.mjs';
 import { ensureVoucherTable } from './services/voucher-service.mjs';
 import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
@@ -78,6 +79,7 @@ app.use('/api/wvara', wvaraRouter);
 app.use('/api/seasons', seasonsRouter);
 app.use('/api/super-tokens', superTokensRouter);
 app.use('/api/distribution-pools', distributionPoolsRouter);
+app.use('/api/solvency', solvencyRouter);
 
 app.get('/', (req, res) => {
   res.json({
@@ -241,6 +243,21 @@ app.get('/', (req, res) => {
         setInflowRate: 'POST /api/distribution-pools/:poolId/set-inflow-rate { sender, flow_rate, mode? }',
         claim: 'POST /api/distribution-pools/:poolId/claim',
         claimFor: 'POST /api/distribution-pools/:poolId/claim-for { member, mode? }',
+      },
+      solvency: {
+        config: 'GET /api/solvency/config',
+        account: 'GET /api/solvency/account/:account?superToken=',
+        stream: 'GET /api/solvency/stream/:streamId',
+        atRisk: 'GET /api/solvency/at-risk?superToken=&threshold=',
+        liquidationRecord: 'GET /api/solvency/liquidation/:streamId',
+        totalLiquidations: 'GET /api/solvency/total-liquidations',
+        liquidate: 'POST /api/solvency/liquidate { stream_id, sender, super_token, mode? }',
+        topUp: 'POST /api/solvency/top-up { sender, super_token, amount, mode? }',
+        setStreamCore: 'POST /api/solvency/admin/set-stream-core { stream_core }',
+        setThreshold: 'POST /api/solvency/admin/set-threshold { seconds }',
+        setReward: 'POST /api/solvency/admin/set-reward { reward }',
+        pause: 'POST /api/solvency/admin/pause',
+        unpause: 'POST /api/solvency/admin/unpause',
       },
       _note: 'POST routes accept { mode: "payload" } to return encoded payload for client-side wallet signing instead of server-side execution.',
     },

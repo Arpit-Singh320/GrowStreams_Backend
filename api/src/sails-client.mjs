@@ -24,6 +24,7 @@ function findIdl(filename) {
     'wvara.idl': 'contracts/wvara/wvara.idl',
     'super-token.idl': 'contracts/super-token/super-token.idl',
     'distribution-pool.idl': 'contracts/distribution-pool/distribution-pool.idl',
+    'liquidation-manager.idl': 'contracts/liquidation-manager/liquidation-manager.idl',
   };
   return resolve(PROJECT_ROOT, contractMap[filename] || filename);
 }
@@ -40,6 +41,7 @@ const IDL_PATHS = {
   wvara: findIdl('wvara.idl'),
   superToken: findIdl('super-token.idl'),
   distributionPool: findIdl('distribution-pool.idl'),
+  liquidationManager: findIdl('liquidation-manager.idl'),
 };
 
 let gearApi = null;
@@ -65,6 +67,7 @@ const contracts = {
   wvara: null,
   superToken: null,
   distributionPool: null,
+  liquidationManager: null,
 };
 
 const SERVICE_NAMES = {
@@ -79,6 +82,7 @@ const SERVICE_NAMES = {
   wvara: 'Vft',
   superToken: 'SuperTokenService',
   distributionPool: 'PoolService',
+  liquidationManager: 'LiquidationService',
 };
 
 function loadDeployState() {
@@ -109,6 +113,7 @@ const DEPLOY_KEY_MAP = {
   wvara: 'wvara',
   superToken: 'super-token',
   distributionPool: 'distribution-pool',
+  liquidationManager: 'liquidation-manager',
 };
 
 async function initSailsInstance(name, idlPath, programId) {
@@ -161,6 +166,7 @@ export async function connect() {
     wvara: process.env.WVARA_TOKEN_ID, // wVARA wrapped token contract
     superToken: process.env.SUPER_TOKEN_ID,
     distributionPool: process.env.DISTRIBUTION_POOL_ID,
+    liquidationManager: process.env.LIQUIDATION_MANAGER_ID,
   };
 
   for (const [name, idlPath] of Object.entries(IDL_PATHS)) {

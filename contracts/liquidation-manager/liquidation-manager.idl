@@ -1,0 +1,62 @@
+// GrowStreams — Liquidation Manager IDL
+// Solvency enforcement for Super Token streams
+
+type SolvencyStatus = enum {
+  Solvent,
+  Critical,
+  Insolvent,
+};
+
+type StreamRisk = struct {
+  stream_id: u64,
+  sender: actor_id,
+  super_token: actor_id,
+  sender_balance: u128,
+  outflow_rate: u128,
+  seconds_remaining: u64,
+  health_factor: u32,
+  status: SolvencyStatus,
+};
+
+type LiquidationRecord = struct {
+  stream_id: u64,
+  sender: actor_id,
+  liquidator: actor_id,
+  super_token: actor_id,
+  liquidated_at: u64,
+  reward_paid: u128,
+};
+
+type LiquidationManagerConfig = struct {
+  admin: actor_id,
+  stream_core: actor_id,
+  critical_threshold_seconds: u64,
+  liquidation_reward: u128,
+  total_liquidations: u64,
+  paused: bool,
+};
+
+constructor {
+  New : ();
+};
+
+service LiquidationService {
+  // --- Core ---
+  CheckSolvency : (account: actor_id, super_token: actor_id) -> StreamRisk;
+  LiquidateStream : (stream_id: u64, sender: actor_id, super_token: actor_id) -> result(null, str);
+  TopUp : (sender: actor_id, super_token: actor_id, amount: u128) -> result(null, str);
+
+  // --- Admin ---
+  SetStreamCore : (stream_core: actor_id) -> result(null, str);
+  SetCriticalThreshold : (seconds: u64) -> result(null, str);
+  SetLiquidationReward : (reward: u128) -> result(null, str);
+  SetAdmin : (new_admin: actor_id) -> result(null, str);
+  Pause : () -> result(null, str);
+  Unpause : () -> result(null, str);
+
+  // --- Queries ---
+  query GetConfig : () -> LiquidationManagerConfig;
+  query GetLiquidation : (stream_id: u64) -> opt LiquidationRecord;
+  query TotalLiquidations : () -> u64;
+  query ComputeRisk : (stream_id: u64, sender: actor_id, super_token: actor_id, balance: u128, net_flow_rate: i128) -> StreamRisk;
+};
