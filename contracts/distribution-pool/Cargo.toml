@@ -1,0 +1,18 @@
+[package]
+name = "distribution-pool"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "GrowStreams Distribution Pool — Superfluid-style GDA for one-to-many Super Token distributions"
+
+[dependencies]
+sails-rs.workspace = true
+gstd.workspace = true
+parity-scale-codec.workspace = true
+scale-info.workspace = true
+
+[build-dependencies]
+sails-rs = { workspace = true, features = ["wasm-builder"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]

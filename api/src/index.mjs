@@ -28,6 +28,7 @@ import voucherRouter from './routes/voucher.mjs';
 import wvaraRouter from './routes/wvara.mjs';
 import seasonsRouter from './routes/seasons.mjs';
 import superTokensRouter from './routes/super-tokens.mjs';
+import distributionPoolsRouter from './routes/distribution-pools.mjs';
 import { ensureVoucherTable } from './services/voucher-service.mjs';
 import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
@@ -76,6 +77,7 @@ app.use('/api/voucher', voucherRouter);
 app.use('/api/wvara', wvaraRouter);
 app.use('/api/seasons', seasonsRouter);
 app.use('/api/super-tokens', superTokensRouter);
+app.use('/api/distribution-pools', distributionPoolsRouter);
 
 app.get('/', (req, res) => {
   res.json({
@@ -225,6 +227,20 @@ app.get('/', (req, res) => {
         getByTxHash: 'GET /api/bridge/status/:txHash',
         history: 'GET /api/bridge/history/:wallet?limit=&offset=&status=&token=',
         stats: 'GET /api/bridge/stats/:wallet',
+      },
+      distributionPools: {
+        config: 'GET /api/distribution-pools/config',
+        total: 'GET /api/distribution-pools/total',
+        byAdmin: 'GET /api/distribution-pools/by-admin/:admin',
+        getPool: 'GET /api/distribution-pools/:poolId',
+        getMember: 'GET /api/distribution-pools/:poolId/member/:member',
+        allClaimable: 'GET /api/distribution-pools/:poolId/claimable',
+        create: 'POST /api/distribution-pools { super_token, mode? }',
+        setUnits: 'POST /api/distribution-pools/:poolId/set-units { member, units, mode? }',
+        distribute: 'POST /api/distribution-pools/:poolId/distribute { amount, mode? }',
+        setInflowRate: 'POST /api/distribution-pools/:poolId/set-inflow-rate { sender, flow_rate, mode? }',
+        claim: 'POST /api/distribution-pools/:poolId/claim',
+        claimFor: 'POST /api/distribution-pools/:poolId/claim-for { member, mode? }',
       },
       _note: 'POST routes accept { mode: "payload" } to return encoded payload for client-side wallet signing instead of server-side execution.',
     },
