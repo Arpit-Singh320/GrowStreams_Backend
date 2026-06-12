@@ -336,4 +336,56 @@ router.post('/:id/liquidate', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ---------------------------------------------------------------------------
+// Phase 2 — Super Token integration admin routes
+// ---------------------------------------------------------------------------
+
+// GET /api/streams/super-token/:underlyingToken
+// Returns the registered super token contract for an underlying token address.
+router.get('/super-token/:underlyingToken', async (req, res, next) => {
+  try {
+    const underlyingHex = toActorId(req.params.underlyingToken);
+    const result = await query(C, 'GetSuperToken', underlyingHex);
+    res.json({
+      underlying_token: req.params.underlyingToken,
+      super_token_contract: result ?? null,
+      registered: result != null,
+    });
+  } catch (err) { next(err); }
+});
+
+// POST /api/streams/admin/register-super-token
+// Body: { underlying_token, super_token_contract, mode? }
+// Pass super_token_contract = "0x000...000" (zero) to de-register.
+router.post('/admin/register-super-token', async (req, res, next) => {
+  try {
+    const { underlying_token, super_token_contract, mode } = req.body;
+    if (!underlying_token || !super_token_contract) {
+      return res.status(400).json({ error: 'Missing: underlying_token, super_token_contract' });
+    }
+    const underlyingHex = toActorId(underlying_token);
+    const superTokenHex = toActorId(super_token_contract);
+    if (mode === 'payload') {
+      return res.json({ payload: encodePayload(C, 'RegisterSuperToken', underlyingHex, superTokenHex) });
+    }
+    const { blockHash } = await command(C, 'RegisterSuperToken', underlyingHex, superTokenHex);
+    res.json({ underlying_token, super_token_contract, registered: true, blockHash });
+  } catch (err) { next(err); }
+});
+
+// POST /api/streams/admin/set-min-buffer
+// Body: { seconds, mode? }
+router.post('/admin/set-min-buffer', async (req, res, next) => {
+  try {
+    const { seconds, mode } = req.body;
+    if (!seconds) return res.status(400).json({ error: 'Missing: seconds' });
+    const secs = BigInt(seconds);
+    if (mode === 'payload') {
+      return res.json({ payload: encodePayload(C, 'SetMinBufferSeconds', secs) });
+    }
+    const { blockHash } = await command(C, 'SetMinBufferSeconds', secs);
+    res.json({ min_buffer_seconds: Number(secs), blockHash });
+  } catch (err) { next(err); }
+});
+
 export default router;
