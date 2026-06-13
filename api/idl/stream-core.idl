@@ -25,10 +25,12 @@ type Config = struct {
   admin: actor_id,
   min_buffer_seconds: u64,
   next_stream_id: u64,
+  token_vault: actor_id,
+  super_token_count: u32,
 };
 
 constructor {
-  New : (admin: actor_id, min_buffer_seconds: u64);
+  New : ();
 };
 
 service StreamService {
@@ -42,6 +44,11 @@ service StreamService {
   Withdraw : (stream_id: u64) -> result (u128, str);
   Liquidate : (stream_id: u64) -> result (null, str);
 
+  // --- Admin ---
+  SetTokenVault : (vault: actor_id) -> null;
+  RegisterSuperToken : (underlying_token: actor_id, super_token_contract: actor_id) -> null;
+  SetMinBufferSeconds : (seconds: u64) -> null;
+
   // --- Queries ---
   query GetStream : (stream_id: u64) -> opt Stream;
   query GetWithdrawableBalance : (stream_id: u64) -> u128;
@@ -51,6 +58,7 @@ service StreamService {
   query TotalStreams : () -> u64;
   query ActiveStreams : () -> u64;
   query GetConfig : () -> Config;
+  query GetSuperToken : (underlying_token: actor_id) -> opt actor_id;
 
   // --- Events ---
   events {

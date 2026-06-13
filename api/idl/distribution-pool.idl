@@ -1,0 +1,67 @@
+// GrowStreams — Distribution Pool IDL
+// Superfluid-style GDA: instant + streaming one-to-many Super Token distributions
+
+type PoolState = struct {
+  id: u64,
+  admin: actor_id,
+  super_token: actor_id,
+  total_units: u128,
+  settled_value_per_unit: u128,
+  inflow_rate: u128,
+  inflow_updated_at: u64,
+  total_distributed: u128,
+  created_at: u64,
+  updated_at: u64,
+};
+
+type MemberState = struct {
+  units: u128,
+  settled_snapshot: u128,
+  total_claimed: u128,
+};
+
+type ClaimPreview = struct {
+  member: actor_id,
+  claimable: u128,
+  units: u128,
+  total_claimed: u128,
+};
+
+type PoolConfig = struct {
+  admin: actor_id,
+  total_pools: u64,
+};
+
+constructor {
+  New : ();
+};
+
+service PoolService {
+  // --- Pool lifecycle ---
+  CreatePool : (super_token: actor_id) -> u64;
+
+  // --- Unit management (pool admin only) ---
+  SetUnits : (pool_id: u64, member: actor_id, new_units: u128) -> result(null, str);
+
+  // --- Instant distribution ---
+  // Admin must approve super_token allowance to this contract first.
+  Distribute : (pool_id: u64, amount: u128) -> result(null, str);
+
+  // --- Streaming distribution ---
+  // Sets the per-second inflow rate from `sender` into the pool.
+  // Pass flow_rate = 0 to stop streaming distribution.
+  SetInflowRate : (pool_id: u64, sender: actor_id, flow_rate: u128) -> result(null, str);
+
+  // --- Claim ---
+  Claim : (pool_id: u64) -> result(u128, str);
+  ClaimFor : (pool_id: u64, member: actor_id) -> result(u128, str);
+
+  // --- Queries ---
+  query GetPool : (pool_id: u64) -> opt PoolState;
+  query GetMemberState : (pool_id: u64, member: actor_id) -> MemberState;
+  query GetClaimable : (pool_id: u64, member: actor_id) -> u128;
+  query GetAllClaimable : (pool_id: u64) -> vec ClaimPreview;
+  query GetAdminPools : (admin: actor_id) -> vec u64;
+  query TotalPools : () -> u64;
+  query GetConfig : () -> PoolConfig;
+};
