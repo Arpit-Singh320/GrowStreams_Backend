@@ -454,6 +454,95 @@ async function main() {
   });
 
   // ===========================================================================
+  // Super Token Tests — Phase 1 (tests 52-57)
+  // ===========================================================================
+  console.log('\n--- SuperToken Tests (Phase 1) ---\n');
+
+  await run('[52] SuperToken GetMeta', async () => {
+    const d = await get('/api/super-tokens/meta');
+    assert(d.name != null, `SuperToken name: ${d.name}`);
+    assert(d.symbol != null, `SuperToken symbol: ${d.symbol}`);
+    assert(d.underlying_token != null, 'underlying_token present');
+  });
+
+  await run('[53] SuperToken TotalSupply', async () => {
+    const d = await get('/api/super-tokens/supply');
+    assert(d.total_supply != null, `TotalSupply: ${d.total_supply}`);
+  });
+
+  await run('[54] SuperToken BalanceOf (admin)', async () => {
+    const cfg = await get('/api/streams/config');
+    const d = await get(`/api/super-tokens/balance/${cfg.admin}`);
+    assert(d.balance != null, `Real-time balance: ${d.balance}`);
+    assert(d.net_flow_rate != null, `Net flow rate: ${d.net_flow_rate}`);
+  });
+
+  await run('[55] SuperToken StaticBalanceOf (included in balance)', async () => {
+    const cfg = await get('/api/streams/config');
+    const d = await get(`/api/super-tokens/balance/${cfg.admin}`);
+    assert(d.static_balance != null, `Static balance: ${d.static_balance}`);
+  });
+
+  await run('[56] SuperToken IsFlowController (stream-core)', async () => {
+    const d = await get(`/api/super-tokens/flow-controller/0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4`);
+    assert(d.is_flow_controller === true, `stream-core is flow controller: ${d.is_flow_controller}`);
+  });
+
+  await run('[57] StreamCore GetSuperToken (grow-token mapped)', async () => {
+    const growToken = '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163';
+    const d = await get(`/api/streams/super-token/${growToken}`);
+    assert(d.registered === true, `grow-token registered: ${d.registered}`);
+    assert(d.super_token_contract != null, `super-token: ${d.super_token_contract?.slice(0,18)}...`);
+  });
+
+  // ===========================================================================
+  // Solvency / Liquidation Tests — Phase 4 (tests 58-62)
+  // ===========================================================================
+  console.log('\n--- Solvency / Liquidation Tests (Phase 4) ---\n');
+
+  await run('[58] Solvency GetConfig', async () => {
+    const d = await get('/api/solvency/config');
+    assert(d != null, 'Solvency config returned');
+    console.log(`  config: ${JSON.stringify(d).slice(0, 80)}...`);
+  });
+
+  await run('[59] Solvency TotalLiquidations', async () => {
+    const d = await get('/api/solvency/total-liquidations');
+    assert(d.total_liquidations != null, `Total liquidations: ${d.total_liquidations}`);
+  });
+
+  await run('[60] Solvency AccountCheck (admin)', async () => {
+    const cfg = await get('/api/streams/config');
+    const d = await get(`/api/solvency/account/${cfg.admin}`);
+    assert(d.account != null, 'Account solvency check returned');
+    assert(['Solvent','Critical','Insolvent'].includes(d.status), `Status: ${d.status}`);
+    console.log(`  status=${d.status}, balance=${d.balance}, net_flow=${d.net_flow_rate}`);
+  });
+
+  await run('[61] Solvency AtRisk scan', async () => {
+    const d = await get('/api/solvency/at-risk');
+    assert(typeof d.count === 'number', `At-risk scan returned ${d.count} streams`);
+    assert(d.scanned_at != null, 'scanned_at present');
+    console.log(`  at-risk count: ${d.count}`);
+  });
+
+  // ===========================================================================
+  // Distribution Pool Tests — Phase 3 (tests 62-65)
+  // ===========================================================================
+  console.log('\n--- Distribution Pool Tests (Phase 3) ---\n');
+
+  await run('[62] DistributionPool GetConfig', async () => {
+    const d = await get('/api/distribution-pools/config');
+    assert(d != null, 'Pool config returned');
+    console.log(`  config: ${JSON.stringify(d).slice(0, 80)}...`);
+  });
+
+  await run('[63] DistributionPool TotalPools', async () => {
+    const d = await get('/api/distribution-pools/total');
+    assert(d.total_pools != null, `Total pools: ${d.total_pools}`);
+  });
+
+  // ===========================================================================
   // Summary
   // ===========================================================================
   console.log('\n========================================');
