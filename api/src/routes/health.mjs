@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getApi, getKeyring, getProgramIds } from '../sails-client.mjs';
+import { getRelayerBalance, getEscrowInfo } from '../vara-eth-client.mjs';
 
 const router = Router();
 
@@ -27,6 +28,30 @@ router.get('/', async (req, res) => {
     }
   }
 
+  let varaEth = null;
+  try {
+    const [escrowInfo, relayer] = await Promise.all([
+      getEscrowInfo(),
+      getRelayerBalance(),
+    ]);
+    if (escrowInfo) {
+      varaEth = {
+        status: 'configured',
+        network: escrowInfo.network,
+        chainId: escrowInfo.chainId,
+        escrow:  escrowInfo.escrow,
+        mirror:  escrowInfo.mirror,
+        token:   escrowInfo.token,
+        relayer: relayer ? {
+          address:    relayer.address,
+          balanceEth: (Number(BigInt(relayer.balanceWei)) / 1e18).toFixed(6) + ' ETH',
+        } : null,
+      };
+    }
+  } catch (e) {
+    varaEth = { status: 'error', error: e.message };
+  }
+
   res.json({
     status: api && api.isConnected ? 'healthy' : 'degraded',
     network: api ? api.runtimeChain.toString() : null,
@@ -34,6 +59,7 @@ router.get('/', async (req, res) => {
     balance,
     stats,
     contracts: getProgramIds(),
+    varaEth,
     wvaraEnv: process.env.WVARA_TOKEN_ID ? `set (${process.env.WVARA_TOKEN_ID.slice(0, 10)}...)` : 'NOT SET',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),

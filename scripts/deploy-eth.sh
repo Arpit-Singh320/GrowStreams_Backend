@@ -1,18 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# GrowStreams V2 — Deploy stream-core-eth to Vara.eth (Hoodi Testnet)
+# GrowStreams V2 — Deploy stream-core-eth WASM to Vara.eth (Hoodi Testnet)
+#
+# What this script does (Steps 1-4):
+#   1. Import ETH private key into ethexe keyring
+#   2. Upload stream_core_eth.opt.wasm → get CODE_ID
+#   3. Create program with ABI interface (create-with-abi) → get PROGRAM_ID + MIRROR
+#   4. Top up executable balance (1 wVARA = 1000000000000 units)
+#
+# What it does NOT do (handled by JS scripts):
+#   - Deploy StreamCoreEthAbi.sol / StreamEscrow.sol  → node scripts/deploy-js/deploy-eth.mjs
+#   - Send Initialize message                          → node scripts/deploy-js/init-stream-core-eth.mjs
 #
 # Prerequisites:
-#   1. Fill .env: ETH_PRIVATE_KEY, ETH_ADDRESS, ADMIN_ADDRESS, VARA_ETH_* variables
-#   2. Fund ETH_ADDRESS at https://eth.vara.network/faucet (need ~0.05 ETH for gas)
-#   3. Install ethexe binary: https://get.gear.rs/#vara-eth
-#      OR: cargo install --git https://github.com/gear-tech/gear ethexe-cli
-#   4. Build the contract first: cd contracts/vara-eth && cargo build --release
+#   1. Fill .env with all VARA_ETH_* vars (see .env.example)
+#   2. Fund ETH_ADDRESS on Hoodi: https://holesky-faucet.pk910.de (or ask team)
+#   3. Install ethexe: cargo install --git https://github.com/gear-tech/gear --bin ethexe
+#   4. Build WASM: cd contracts/vara-eth && cargo build --release --target wasm32v1-none
+#   5. Compile Solidity: node scripts/deploy-js/compile-escrow.mjs
+#      (Puts StreamCoreEthAbi address into STREAM_CORE_ETH_ABI in .env — needed for create-with-abi)
 #
-# After this script:
-#   - Set STREAM_CORE_ETH_CODE_ID, STREAM_CORE_ETH_PROGRAM_ID, STREAM_CORE_ETH_MIRROR in .env
-#   - Run: node scripts/deploy-js/deploy-eth.mjs   (deploys StreamEscrow.sol)
+# Resume flags (skip completed steps):
+#   SKIP_UPLOAD=1   — reuse STREAM_CORE_ETH_CODE_ID from .env
+#   SKIP_CREATE=1   — reuse STREAM_CORE_ETH_PROGRAM_ID + STREAM_CORE_ETH_MIRROR from .env
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -20,46 +31,53 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Load env
 if [ -f "$PROJECT_ROOT/.env" ]; then
   set -a; source "$PROJECT_ROOT/.env"; set +a
+elif [ -f "$PROJECT_ROOT/api/.env" ]; then
+  set -a; source "$PROJECT_ROOT/api/.env"; set +a
 else
-  echo "Error: .env not found"; exit 1
+  echo "Error: .env not found at $PROJECT_ROOT/.env"; exit 1
 fi
 
-# Validate required vars
-: "${ETH_PRIVATE_KEY:?Set ETH_PRIVATE_KEY in .env (run: node scripts/deploy-js/show-keys.mjs)}"
+# Required vars
+: "${ETH_PRIVATE_KEY:?Set ETH_PRIVATE_KEY in .env}"
 : "${ETH_ADDRESS:?Set ETH_ADDRESS in .env}"
-: "${ADMIN_ADDRESS:?Set ADMIN_ADDRESS in .env (Vara SS58 or 0x hex)}"
-: "${VARA_ETH_RPC:?VARA_ETH_RPC missing}"
-: "${VARA_ETH_ROUTER:?VARA_ETH_ROUTER missing}"
+: "${VARA_ETH_RPC:?Set VARA_ETH_RPC in .env (e.g. https://hoodi-reth-rpc.gear-tech.io)}"
+: "${VARA_ETH_ROUTER:?Set VARA_ETH_ROUTER in .env (Hoodi router address)}"
+: "${STREAM_CORE_ETH_ABI:?Set STREAM_CORE_ETH_ABI in .env (deploy StreamCoreEthAbi.sol first via compile-escrow.mjs)}"
+
+SKIP_UPLOAD="${SKIP_UPLOAD:-0}"
+SKIP_CREATE="${SKIP_CREATE:-0}"
+# Executable balance top-up: 1 wVARA = 1000000000000 (12 decimals)
+TOPUP_AMOUNT="${VARA_ETH_TOPUP:-1000000000000}"
 
 # Check ethexe binary
 if ! command -v ethexe &>/dev/null; then
   echo ""
   echo "Error: ethexe binary not found."
-  echo "Install with one of:"
-  echo "  curl -L https://get.gear.rs/ethexe-latest-aarch64-apple-darwin.tar.gz | tar xz"
-  echo "  cargo install --git https://github.com/gear-tech/gear ethexe-cli"
+  echo "Install: cargo install --git https://github.com/gear-tech/gear --bin ethexe"
   exit 1
 fi
 
-WASM_PATH="$PROJECT_ROOT/contracts/vara-eth/target/wasm-projects/release/wasm32v1-none/release/stream_core_eth.wasm"
+WASM_PATH="$PROJECT_ROOT/contracts/vara-eth/target/wasm32v1-none/wasm32-gear/release/stream_core_eth.opt.wasm"
 DEPLOY_STATE="$PROJECT_ROOT/deploy-state.json"
 SALT="0x$(openssl rand -hex 32)"
 
 if [ ! -f "$WASM_PATH" ]; then
   echo "Error: WASM artifact not found at:"
   echo "  $WASM_PATH"
-  echo "Build first: cd contracts/vara-eth && cargo build --release"
+  echo "Build first: cd contracts/vara-eth && cargo build --release --target wasm32v1-none"
   exit 1
 fi
 
 [ ! -f "$DEPLOY_STATE" ] && echo '{}' > "$DEPLOY_STATE"
 
 echo "=== GrowStreams V2 — Vara.eth Deploy (Hoodi Testnet) ==="
-echo "RPC     : $VARA_ETH_RPC"
-echo "Router  : $VARA_ETH_ROUTER"
-echo "Sender  : $ETH_ADDRESS"
-echo "WASM    : $WASM_PATH"
-echo "Salt    : $SALT"
+echo "RPC          : $VARA_ETH_RPC"
+echo "Router       : $VARA_ETH_ROUTER"
+echo "Sender       : $ETH_ADDRESS"
+echo "ABI Contract : $STREAM_CORE_ETH_ABI"
+echo "WASM         : $WASM_PATH"
+echo "Salt         : $SALT"
+echo "Top-up       : $TOPUP_AMOUNT (wVARA base units)"
 echo ""
 
 # ── Step 1: Import key ──────────────────────────────────────────────────────
@@ -69,102 +87,90 @@ echo "  Key imported."
 echo ""
 
 # ── Step 2: Upload WASM code ────────────────────────────────────────────────
-echo "Step 2/4: Uploading WASM code (waiting for on-chain approval)..."
-UPLOAD_OUTPUT=$(ethexe tx \
-  --ethereum-rpc "$VARA_ETH_RPC" \
-  --ethereum-router "$VARA_ETH_ROUTER" \
-  --sender "$ETH_ADDRESS" \
-  upload "$WASM_PATH" \
-  --watch 2>&1)
+if [ "$SKIP_UPLOAD" = "1" ]; then
+  : "${STREAM_CORE_ETH_CODE_ID:?SKIP_UPLOAD=1 but STREAM_CORE_ETH_CODE_ID not set in .env}"
+  CODE_ID="$STREAM_CORE_ETH_CODE_ID"
+  echo "Step 2/4: Skipping upload (SKIP_UPLOAD=1), using CODE_ID=$CODE_ID"
+else
+  echo "Step 2/4: Uploading WASM code (--watch, may take 1-2 min)..."
+  UPLOAD_OUTPUT=$(ethexe tx \
+    --ethereum-rpc "$VARA_ETH_RPC" \
+    --ethereum-router "$VARA_ETH_ROUTER" \
+    --sender "$ETH_ADDRESS" \
+    upload "$WASM_PATH" \
+    --watch 2>&1)
+  echo "$UPLOAD_OUTPUT"
 
-echo "$UPLOAD_OUTPUT"
+  CODE_ID=$(echo "$UPLOAD_OUTPUT" | grep -oE 'code[_\s-]?id["\s:=]+0x[a-fA-F0-9]+' | grep -oE '0x[a-fA-F0-9]+' | head -1 || echo "")
+  # fallback: any 0x hex that is 66 chars (32 bytes)
+  if [ -z "$CODE_ID" ]; then
+    CODE_ID=$(echo "$UPLOAD_OUTPUT" | grep -oE '0x[a-fA-F0-9]{64}' | head -1 || echo "")
+  fi
 
-CODE_ID=$(echo "$UPLOAD_OUTPUT" | grep -oE '"code_id"\s*:\s*"(0x[a-fA-F0-9]+)"' | grep -oE '0x[a-fA-F0-9]+' | head -1 || \
-          echo "$UPLOAD_OUTPUT" | grep -oE 'code_id[[:space:]]*[=:][[:space:]]*(0x[a-fA-F0-9]+)' | grep -oE '0x[a-fA-F0-9]+' | head -1 || echo "")
-
-if [ -z "$CODE_ID" ]; then
+  if [ -z "$CODE_ID" ]; then
+    echo ""
+    echo "Error: Could not parse code_id from ethexe output."
+    echo "Set STREAM_CORE_ETH_CODE_ID in .env and re-run with SKIP_UPLOAD=1."
+    exit 1
+  fi
   echo ""
-  echo "Error: Could not parse code_id from ethexe output."
-  echo "Set STREAM_CORE_ETH_CODE_ID manually in .env and re-run with SKIP_UPLOAD=1."
-  exit 1
+  echo "  Code ID: $CODE_ID"
 fi
-
-echo ""
-echo "  Code ID: $CODE_ID"
 
 # ── Step 3: Create program with ABI interface ───────────────────────────────
-echo ""
-echo "Step 3/4: Creating program with ABI interface..."
-
-# admin_bytes32: pad SS58 or hex address to 32 bytes
-# If ADMIN_ADDRESS starts with 0x it's already hex; pad to 32 bytes
-if [[ "$ADMIN_ADDRESS" == 0x* ]]; then
-  ADMIN_HEX="$ADMIN_ADDRESS"
+if [ "$SKIP_CREATE" = "1" ]; then
+  : "${STREAM_CORE_ETH_PROGRAM_ID:?SKIP_CREATE=1 but STREAM_CORE_ETH_PROGRAM_ID not set in .env}"
+  : "${STREAM_CORE_ETH_MIRROR:?SKIP_CREATE=1 but STREAM_CORE_ETH_MIRROR not set in .env}"
+  PROGRAM_ID="$STREAM_CORE_ETH_PROGRAM_ID"
+  MIRROR_ADDR="$STREAM_CORE_ETH_MIRROR"
+  echo "Step 3/4: Skipping create (SKIP_CREATE=1), using PROGRAM_ID=$PROGRAM_ID MIRROR=$MIRROR_ADDR"
 else
-  # SS58 to hex via ethexe (or just use the hex public key from show-keys.mjs)
-  ADMIN_HEX="$ADMIN_ADDRESS"
+  echo ""
+  echo "Step 3/4: Creating program with ABI (create-with-abi)..."
+  # create-with-abi <code_id> <abi_contract_address> --salt <salt> --watch
+  CREATE_OUTPUT=$(ethexe tx \
+    --ethereum-rpc "$VARA_ETH_RPC" \
+    --ethereum-router "$VARA_ETH_ROUTER" \
+    --sender "$ETH_ADDRESS" \
+    create-with-abi "$CODE_ID" "$STREAM_CORE_ETH_ABI" \
+    --salt "$SALT" \
+    --watch 2>&1)
+  echo "$CREATE_OUTPUT"
+
+  PROGRAM_ID=$(echo "$CREATE_OUTPUT" | grep -oE 'program[_\s-]?id["\s:=]+0x[a-fA-F0-9]+' | grep -oE '0x[a-fA-F0-9]+' | head -1 || echo "")
+  if [ -z "$PROGRAM_ID" ]; then
+    PROGRAM_ID=$(echo "$CREATE_OUTPUT" | grep -oE '0x[a-fA-F0-9]{64}' | head -1 || echo "")
+  fi
+
+  MIRROR_ADDR=$(echo "$CREATE_OUTPUT" | grep -oiE 'mirror["\s:=]+0x[a-fA-F0-9]{40}' | grep -oE '0x[a-fA-F0-9]{40}' | head -1 || echo "")
+  if [ -z "$MIRROR_ADDR" ]; then
+    MIRROR_ADDR=$(echo "$CREATE_OUTPUT" | grep -oE '0x[a-fA-F0-9]{40}' | tail -1 || echo "")
+  fi
+
+  if [ -z "$PROGRAM_ID" ] || [ -z "$MIRROR_ADDR" ]; then
+    echo ""
+    echo "Error: Could not parse program_id / mirror from create-with-abi output."
+    echo "Set STREAM_CORE_ETH_PROGRAM_ID and STREAM_CORE_ETH_MIRROR in .env, then re-run with SKIP_UPLOAD=1 SKIP_CREATE=1."
+    exit 1
+  fi
+  echo ""
+  echo "  Program ID  : $PROGRAM_ID"
+  echo "  Mirror Addr : $MIRROR_ADDR"
 fi
 
-CREATE_OUTPUT=$(ethexe tx \
-  --ethereum-rpc "$VARA_ETH_RPC" \
-  --ethereum-router "$VARA_ETH_ROUTER" \
-  --sender "$ETH_ADDRESS" \
-  create-with-abi "$CODE_ID" "$SALT" \
-  --watch 2>&1)
-
-echo "$CREATE_OUTPUT"
-
-PROGRAM_ID=$(echo "$CREATE_OUTPUT" | grep -oE '"program_id"\s*:\s*"(0x[a-fA-F0-9]+)"' | grep -oE '0x[a-fA-F0-9]+' | head -1 || echo "")
-MIRROR_ADDR=$(echo "$CREATE_OUTPUT" | grep -oE '"mirror"\s*:\s*"(0x[a-fA-F0-9]{40})"' | grep -oE '0x[a-fA-F0-9]{40}' | head -1 || \
-              echo "$CREATE_OUTPUT" | grep -oiE 'mirror[[:space:]]*[=:][[:space:]]*(0x[a-fA-F0-9]{40})' | grep -oE '0x[a-fA-F0-9]{40}' | head -1 || echo "")
-
-if [ -z "$PROGRAM_ID" ] || [ -z "$MIRROR_ADDR" ]; then
-  echo ""
-  echo "Warning: Could not auto-parse program_id / mirror from output."
-  echo "Set them manually in .env and then run the init step below:"
-  echo ""
-  echo "  ethexe tx --ethereum-rpc \$VARA_ETH_RPC --ethereum-router \$VARA_ETH_ROUTER \\"
-  echo "    --sender \$ETH_ADDRESS \\"
-  echo "    send \$STREAM_CORE_ETH_MIRROR \\"
-  echo "    '{\"initialize\": {\"admin\": \"<ADMIN_HEX32>\", \"min_buffer_seconds\": $MIN_BUFFER_SECONDS}}'"
-  exit 1
-fi
-
+# ── Step 4: Top up executable balance ───────────────────────────────────────
 echo ""
-echo "  Program ID  : $PROGRAM_ID"
-echo "  Mirror Addr : $MIRROR_ADDR"
-
-# ── Step 4: Fund executable balance + initialize ────────────────────────────
-echo ""
-echo "Step 4/4: Topping up executable balance and initializing..."
-
-# Top up 0.1 wTVARA (100000000000 units, 12 decimals) so the program can execute
+echo "Step 4/4: Topping up executable balance ($TOPUP_AMOUNT wVARA base units)..."
 ethexe tx \
   --ethereum-rpc "$VARA_ETH_RPC" \
   --ethereum-router "$VARA_ETH_ROUTER" \
   --sender "$ETH_ADDRESS" \
-  fund "$MIRROR_ADDR" 100000000000
-
-# Build admin bytes32 (pad ETH address to 32 bytes, or use Vara hex pubkey)
-ADMIN_BYTES32=$(node --input-type=module <<EOF
-const addr = '${ETH_ADDRESS}';
-const hex = addr.startsWith('0x') ? addr.slice(2) : addr;
-const padded = hex.padStart(64, '0');
-process.stdout.write('0x' + padded);
-EOF
-)
-
-# Initialize the program: set admin and min_buffer_seconds
-ethexe tx \
-  --ethereum-rpc "$VARA_ETH_RPC" \
-  --ethereum-router "$VARA_ETH_ROUTER" \
-  --sender "$ETH_ADDRESS" \
-  send "$MIRROR_ADDR" \
-  "{\"initialize\": {\"admin\": \"$ADMIN_BYTES32\", \"min_buffer_seconds\": $MIN_BUFFER_SECONDS}}" \
+  executable-balance-top-up "$MIRROR_ADDR" "$TOPUP_AMOUNT" \
+  --approve \
   --watch
 
 echo ""
-echo "=== Deployment complete ==="
+echo "=== WASM deploy complete ==="
 echo ""
 echo "Add these to .env:"
 echo "  STREAM_CORE_ETH_CODE_ID=\"$CODE_ID\""
@@ -179,11 +185,13 @@ if command -v jq &>/dev/null; then
     --arg codeId "$CODE_ID" \
     --arg programId "$PROGRAM_ID" \
     --arg mirror "$MIRROR_ADDR" \
+    --arg abiAddr "$STREAM_CORE_ETH_ABI" \
     --arg time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.["stream-core-eth"] = {
       "codeId": $codeId,
       "programId": $programId,
       "mirror": $mirror,
+      "abiContract": $abiAddr,
       "network": "vara-eth-hoodi",
       "deployedAt": $time
     }' "$DEPLOY_STATE" > "$TMP" && mv "$TMP" "$DEPLOY_STATE"
@@ -191,4 +199,6 @@ if command -v jq &>/dev/null; then
 fi
 
 echo ""
-echo "Next: node scripts/deploy-js/deploy-eth.mjs   (deploys StreamEscrow.sol)"
+echo "Next steps:"
+echo "  1. node scripts/deploy-js/init-stream-core-eth.mjs   (send Initialize message)"
+echo "  2. node scripts/deploy-js/deploy-eth.mjs             (deploy StreamEscrow.sol)"

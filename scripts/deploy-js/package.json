@@ -8,7 +8,15 @@
     "deploy:stream-core": "node deploy.mjs stream-core",
     "deploy:token-vault": "node deploy.mjs token-vault",
     "deploy:eth": "node deploy-eth.mjs",
-    "show-keys": "node show-keys.mjs"
+    "compile:escrow": "node compile-escrow.mjs",
+    "deploy:mock-token": "node deploy-mock-token.mjs",
+    "upload:wasm": "node upload-wasm.mjs",
+    "create:program": "node create-program.mjs",
+    "topup:balance": "node topup-balance.mjs",
+    "init:stream-core-eth": "node init-stream-core-eth.mjs",
+    "show-keys": "node show-keys.mjs",
+    "test:vara-eth": "node test-vara-eth.mjs",
+    "test:vara-eth:readonly": "node test-vara-eth.mjs --skip-write"
   },
   "dependencies": {
     "@gear-js/api": "^0.45.0",
@@ -18,6 +26,7 @@
     "ethers": "^6.13.2",
     "sails-js": "^0.5.1",
     "sails-js-parser": "^0.5.1",
+    "solc": "^0.8.35",
     "twitter-api-v2": "^1.29.0",
     "viem": "^2.21.8"
   }

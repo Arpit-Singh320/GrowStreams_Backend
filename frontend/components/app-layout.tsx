@@ -8,7 +8,7 @@ import { Wallet as GearWallet } from '@gear-js/wallet-connect';
 import {
   LayoutDashboard, Waves, Vault, GitFork, Shield,
   Trophy, Fingerprint, Wallet, LogOut, Menu, X, Coins,
-  Medal, Zap, Smartphone, Sprout, ArrowLeftRight,
+  Medal, Zap, Smartphone, Sprout, ArrowLeftRight, Cpu,
 } from 'lucide-react';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -25,6 +25,7 @@ const navItems = [
   { href: '/app/grow', label: 'GROW Token', icon: Coins, soon: true },
   { href: '/app/vault', label: 'Vault', icon: Vault },
   { href: '/app/bridge', label: 'Bridge', icon: ArrowLeftRight },
+  { href: '/app/vara-eth', label: 'Vara.eth', icon: Cpu },
   { href: '/app/campaign', label: 'Campaign', icon: Zap },
   { href: '/app/quests', label: 'Earn', icon: Sprout },
   { href: '/app/leaderboard', label: 'Leaderboard', icon: Medal },

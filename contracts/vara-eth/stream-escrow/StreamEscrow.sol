@@ -30,46 +30,41 @@ interface IERC20 {
     function transfer(address to, uint256 amount) external returns (bool);
 }
 
-/// @dev Minimal interface generated from stream-core-eth IDL via `cargo sails sol`.
-/// Method names follow the generated pattern: <Service><Method>(bool callReply, ...).
-/// Callback names follow: replyOn_<Service><Method>(bytes32 messageId, ...).
-///
-/// NOTE: The stream-core-eth contract uses explicit `caller` and `nowSecs`
-/// parameters instead of runtime msg::source()/exec::block_timestamp() syscalls,
-/// because the ethexe runtime does not expose gstd host functions.
-/// StreamEscrow passes msg.sender (as bytes32) and block.timestamp for both.
+/// @dev Interface generated from stream-core-eth IDL via `cargo sails sol`.
+/// Names are camelCase (service prefix + method). Types use uint8[32] for [u8;32].
+/// Verified against: contracts/vara-eth/StreamCoreEth.sol
 interface IStreamCoreEth {
-    function StreamServiceCreateStream(
-        bool callReply,
-        bytes32 caller,
-        bytes32 sender,
-        bytes32 receiver,
+    function streamServiceCreateStream(
+        bool _callReply,
+        uint8[32] calldata caller,
+        uint8[32] calldata sender,
+        uint8[32] calldata receiver,
         uint128 flowRate,
         uint128 initialDeposit,
         uint64 nowSecs
-    ) external payable returns (bytes32 messageId);
+    ) external returns (bytes32 messageId);
 
-    function StreamServiceRecordDeposit(
-        bool callReply,
-        bytes32 caller,
+    function streamServiceRecordDeposit(
+        bool _callReply,
+        uint8[32] calldata caller,
         uint64 streamId,
         uint128 amount
-    ) external payable returns (bytes32 messageId);
+    ) external returns (bytes32 messageId);
 
-    function StreamServiceRecordWithdraw(
-        bool callReply,
-        bytes32 caller,
+    function streamServiceRecordWithdraw(
+        bool _callReply,
+        uint8[32] calldata caller,
         uint64 streamId,
         uint128 amount,
         uint64 nowSecs
-    ) external payable returns (bytes32 messageId);
+    ) external returns (bytes32 messageId);
 
-    function StreamServiceStopStream(
-        bool callReply,
-        bytes32 caller,
+    function streamServiceStopStream(
+        bool _callReply,
+        uint8[32] calldata caller,
         uint64 streamId,
         uint64 nowSecs
-    ) external payable returns (bytes32 messageId);
+    ) external returns (bytes32 messageId);
 }
 
 contract StreamEscrow {
@@ -106,6 +101,7 @@ contract StreamEscrow {
     // messageId → pending operation context (per skill: store enough context
     // to complete the operation after the async callback arrives)
     mapping(bytes32 => PendingCreate)   private pendingCreates;
+    mapping(bytes32 => PendingCreate)   private pendingDeposits;
     mapping(bytes32 => PendingWithdraw) private pendingWithdraws;
     mapping(bytes32 => PendingStop)     private pendingStops;
 
@@ -161,14 +157,16 @@ contract StreamEscrow {
 
         // Pad 20-byte EVM address to bytes32 for Vara.eth ActorId
         bytes32 senderBytes32 = _addressToBytes32(msg.sender);
+        uint8[32] memory senderArr = _bytes32ToArr(senderBytes32);
+        uint8[32] memory receiverArr = _bytes32ToArr(receiverBytes32);
 
         // callReply=true — we want the async callback
         // Pass msg.sender as caller and block.timestamp as nowSecs
-        bytes32 messageId = streamCoreAbi.StreamServiceCreateStream{value: 0}(
+        bytes32 messageId = streamCoreAbi.streamServiceCreateStream(
             true,
-            senderBytes32,
-            senderBytes32,
-            receiverBytes32,
+            senderArr,
+            senderArr,
+            receiverArr,
             flowRate,
             amount,
             uint64(block.timestamp)
@@ -194,15 +192,15 @@ contract StreamEscrow {
         bool ok = token.transferFrom(msg.sender, address(this), amount);
         require(ok, "ERC-20 transferFrom failed");
 
-        bytes32 callerBytes32 = _addressToBytes32(msg.sender);
-        bytes32 messageId = streamCoreAbi.StreamServiceRecordDeposit{value: 0}(
+        uint8[32] memory callerArr = _bytes32ToArr(_addressToBytes32(msg.sender));
+        bytes32 messageId = streamCoreAbi.streamServiceRecordDeposit(
             true,
-            callerBytes32,
+            callerArr,
             streamId,
             amount
         );
 
-        pendingCreates[messageId] = PendingCreate({
+        pendingDeposits[messageId] = PendingCreate({
             depositor: msg.sender,
             receiver: address(0),
             amount: amount,
@@ -219,10 +217,10 @@ contract StreamEscrow {
     function withdraw(uint64 streamId, uint128 amount) external {
         require(amount > 0, "amount must be > 0");
 
-        bytes32 callerBytes32 = _addressToBytes32(msg.sender);
-        bytes32 messageId = streamCoreAbi.StreamServiceRecordWithdraw{value: 0}(
+        uint8[32] memory callerArr = _bytes32ToArr(_addressToBytes32(msg.sender));
+        bytes32 messageId = streamCoreAbi.streamServiceRecordWithdraw(
             true,
-            callerBytes32,
+            callerArr,
             streamId,
             amount,
             uint64(block.timestamp)
@@ -242,10 +240,10 @@ contract StreamEscrow {
      * @notice Stop a stream and reclaim unstreamed tokens.
      */
     function stopStream(uint64 streamId) external {
-        bytes32 callerBytes32 = _addressToBytes32(msg.sender);
-        bytes32 messageId = streamCoreAbi.StreamServiceStopStream{value: 0}(
+        uint8[32] memory callerArr = _bytes32ToArr(_addressToBytes32(msg.sender));
+        bytes32 messageId = streamCoreAbi.streamServiceStopStream(
             true,
-            callerBytes32,
+            callerArr,
             streamId,
             uint64(block.timestamp)
         );
@@ -279,7 +277,9 @@ contract StreamEscrow {
         _;
     }
 
-    function replyOn_StreamServiceCreateStream(
+    // ---- value-return callbacks (generated names, camelCase) ----
+
+    function replyOn_streamServiceCreateStream(
         bytes32 messageId,
         uint64 streamId
     ) external onlyStreamCore {
@@ -294,36 +294,7 @@ contract StreamEscrow {
         delete pendingCreates[messageId];
     }
 
-    function replyOn_StreamServiceRecordDeposit(
-        bytes32 messageId
-    ) external onlyStreamCore {
-        PendingCreate storage op = pendingCreates[messageId];
-        require(op.active, "Unknown or already handled messageId");
-        op.active = false;
-
-        emit DepositConfirmed(messageId, 0);
-        delete pendingCreates[messageId];
-    }
-
-    function replyOn_StreamServiceRecordWithdraw(
-        bytes32 messageId
-    ) external onlyStreamCore {
-        PendingWithdraw storage op = pendingWithdraws[messageId];
-        require(op.active, "Unknown or already handled messageId");
-        op.active = false;
-
-        // Transfer tokens to receiver (update state before transfer — skill rule)
-        address recipient = op.recipient;
-        uint128 amount = op.amount;
-        delete pendingWithdraws[messageId];
-
-        bool ok = token.transfer(recipient, amount);
-        require(ok, "Token transfer failed");
-
-        emit WithdrawConfirmed(messageId, recipient, amount);
-    }
-
-    function replyOn_StreamServiceStopStream(
+    function replyOn_streamServiceStopStream(
         bytes32 messageId,
         uint128 unstreamed
     ) external onlyStreamCore {
@@ -343,19 +314,86 @@ contract StreamEscrow {
         emit StopConfirmed(messageId, streamId, unstreamed);
     }
 
+    // ---- unit-return callbacks (generated names, camelCase) ----
+    // Per skill error-log: unit-return methods may arrive as replyOn_...(bytes32,())
+    // selector instead of replyOn_...(bytes32). Keep both for compatibility.
+
+    function replyOn_streamServiceRecordDeposit(
+        bytes32 messageId
+    ) external onlyStreamCore {
+        _finaliseDeposit(messageId);
+    }
+
+    function replyOn_streamServiceRecordWithdraw(
+        bytes32 messageId
+    ) external onlyStreamCore {
+        _finaliseWithdraw(messageId);
+    }
+
+    // ---- unit-return fallbacks for (bytes32,()) selector variant ----
+    // Mirror may call replyOn_...(bytes32,()) on unit-return methods.
+    // We decode the messageId from calldata and dispatch to the same logic.
+
+    fallback() external onlyStreamCore {
+        // Must be at least 4 (selector) + 32 (messageId) bytes
+        if (msg.data.length < 36) return;
+        bytes4 sel = bytes4(msg.data[:4]);
+        bytes32 messageId;
+        assembly { messageId := calldataload(4) }
+
+        if (sel == bytes4(keccak256("replyOn_streamServiceRecordDeposit(bytes32,())"))) {
+            _finaliseDeposit(messageId);
+        } else if (sel == bytes4(keccak256("replyOn_streamServiceRecordWithdraw(bytes32,())"))) {
+            _finaliseWithdraw(messageId);
+        }
+    }
+
+    function _finaliseDeposit(bytes32 messageId) internal {
+        PendingCreate storage op = pendingDeposits[messageId];
+        require(op.active, "Unknown or already handled messageId");
+        op.active = false;
+        emit DepositConfirmed(messageId, 0);
+        delete pendingDeposits[messageId];
+    }
+
+    function _finaliseWithdraw(bytes32 messageId) internal {
+        PendingWithdraw storage op = pendingWithdraws[messageId];
+        require(op.active, "Unknown or already handled messageId");
+        op.active = false;
+
+        address recipient = op.recipient;
+        uint128 amount = op.amount;
+        delete pendingWithdraws[messageId];
+
+        bool ok = token.transfer(recipient, amount);
+        require(ok, "Token transfer failed");
+
+        emit WithdrawConfirmed(messageId, recipient, amount);
+    }
+
     /**
      * @notice Called by Vara.eth ABI interface on any message error.
-     *         Per skill: mark operation failed, do not auto-refund unless
-     *         value actually returned. Credit claimable for user to reclaim.
+     *         Per skill: mark operation failed, credit claimable for user to reclaim.
+     *         Signature matches generated: onErrorReply(bytes32, bytes calldata, bytes4)
      */
-    function onErrorReply(bytes32 messageId) external onlyStreamCore {
-        // Check creates (failed stream creation — refund escrowed tokens)
+    function onErrorReply(bytes32 messageId, bytes calldata /*payload*/, bytes4 /*replyCode*/) external onlyStreamCore {
+        // Check stream creates (failed — refund escrowed tokens)
         PendingCreate storage pc = pendingCreates[messageId];
         if (pc.active) {
             pc.active = false;
             claimable[pc.depositor] += pc.amount;
             emit AsyncCallFailed(messageId, "create_stream");
             delete pendingCreates[messageId];
+            return;
+        }
+
+        // Check add-deposits (failed — refund escrowed tokens)
+        PendingCreate storage pd = pendingDeposits[messageId];
+        if (pd.active) {
+            pd.active = false;
+            claimable[pd.depositor] += pd.amount;
+            emit AsyncCallFailed(messageId, "record_deposit");
+            delete pendingDeposits[messageId];
             return;
         }
 
@@ -388,5 +426,12 @@ contract StreamEscrow {
 
     function _bytes32ToAddress(bytes32 b) internal pure returns (address) {
         return address(uint160(uint256(b)));
+    }
+
+    /// @dev Convert bytes32 to uint8[32] as required by the generated ABI interface.
+    function _bytes32ToArr(bytes32 b) internal pure returns (uint8[32] memory arr) {
+        for (uint256 i = 0; i < 32; i++) {
+            arr[i] = uint8(b[i]);
+        }
     }
 }

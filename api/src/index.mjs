@@ -30,6 +30,7 @@ import seasonsRouter from './routes/seasons.mjs';
 import superTokensRouter from './routes/super-tokens.mjs';
 import distributionPoolsRouter from './routes/distribution-pools.mjs';
 import solvencyRouter from './routes/solvency.mjs';
+import varaEthRouter from './routes/vara-eth-streams.mjs';
 import { ensureVoucherTable } from './services/voucher-service.mjs';
 import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
@@ -80,6 +81,7 @@ app.use('/api/seasons', seasonsRouter);
 app.use('/api/super-tokens', superTokensRouter);
 app.use('/api/distribution-pools', distributionPoolsRouter);
 app.use('/api/solvency', solvencyRouter);
+app.use('/api/vara-eth', varaEthRouter);
 
 app.get('/', (req, res) => {
   res.json({
@@ -243,6 +245,19 @@ app.get('/', (req, res) => {
         setInflowRate: 'POST /api/distribution-pools/:poolId/set-inflow-rate { sender, flow_rate, mode? }',
         claim: 'POST /api/distribution-pools/:poolId/claim',
         claimFor: 'POST /api/distribution-pools/:poolId/claim-for { member, mode? }',
+      },
+      varaEth: {
+        info:        'GET /api/vara-eth/info',
+        balance:     'GET /api/vara-eth/balance/:address',
+        wvara:       'GET /api/vara-eth/wvara/:address',
+        claimable:   'GET /api/vara-eth/claimable/:address',
+        depositor:   'GET /api/vara-eth/depositor/:streamId',
+        streams:     'GET /api/vara-eth/streams/:address',
+        deposit:     'POST /api/vara-eth/deposit { receiver, flowRate, amount }',
+        addDeposit:  'POST /api/vara-eth/deposit/:streamId { amount }',
+        withdraw:    'POST /api/vara-eth/withdraw/:streamId { amount }',
+        stop:        'POST /api/vara-eth/stop/:streamId',
+        claim:       'POST /api/vara-eth/claim',
       },
       solvency: {
         config: 'GET /api/solvency/config',

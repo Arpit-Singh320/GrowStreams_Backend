@@ -7,7 +7,7 @@
 //!    the companion Solidity contract (StreamEscrow.sol) on the Ethereum side.
 //!    This program is a pure stream-state registry.
 //!
-//! 2. sails-rs with `ethexe` feature (0.10.1) — NOT the Vara-native 0.6 build.
+//! 2. sails-rs with `ethexe` feature (1.0.0) — NOT the Vara-native 0.6 build.
 //!
 //! 3. `static mut` replaced with `RefCell` — required for ethexe safety.
 //!
@@ -69,8 +69,11 @@ pub struct StreamView {
     pub status: StreamStatus,
 }
 
-#[derive(Encode, Decode, TypeInfo)]
 #[event]
+#[derive(Clone, Debug, PartialEq, Eq, Encode, TypeInfo, ReflectHash)]
+#[codec(crate = sails_rs::scale_codec)]
+#[type_info(crate = sails_rs::type_info)]
+#[reflect_hash(crate = sails_rs)]
 pub enum StreamEvent {
     StreamCreated { id: StreamId, sender: [u8; 32], receiver: [u8; 32], flow_rate: u128, deposit: u128 },
     StreamUpdated { id: StreamId, new_flow_rate: u128 },

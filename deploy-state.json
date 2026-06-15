@@ -61,5 +61,38 @@
     "deployedAt": "2026-05-23T19:41:34.775Z",
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network"
+  },
+  "stream-core-eth-abi": {
+    "address": "0x7f11e270b10944da1c492497b5cff5f59ba33bb7",
+    "network": "vara-eth-hoodi",
+    "deployedAt": "2026-06-15T12:55:38.352Z",
+    "txHash": "0x0464e414d77c955e59f24d9468db3bcdb274e5a8467cb4efc42f3c4fef4001eb"
+  },
+  "stream-core-eth": {
+    "programId": "0xd3CB10206785Db691d60CF829859044e8c05b9FB",
+    "mirror": "0xd3CB10206785Db691d60CF829859044e8c05b9FB",
+    "abiContract": "0x7f11e270b10944da1c492497b5cff5f59ba33bb7",
+    "salt": "0x728cf48ba7502841963ff87dd3c7d6cab68bd860234e5a8175b98ed7c779b76b",
+    "network": "vara-eth-hoodi",
+    "createdAt": "2026-06-15T18:35:15.899Z",
+    "createTxHash": "0x92de7b3da41d5e73c6439289ea71119181b29a1b3828d2785f00fe58e52f95d8",
+    "initializedAt": "2026-06-15T20:46:07.200Z",
+    "initTxHash": "0x4cc9455697dbcf1ab8ef134171492980bc0c00fb8f7dd4e6649ec6a3e01549f6",
+    "admin": "0x20344A08608da16f46275c291E1e54339485fE8C",
+    "minBufferSeconds": "3600"
+  },
+  "mock-usdc": {
+    "address": "0x61ffd23e5b553da8b3d42f8d072cb0263396d14b",
+    "network": "vara-eth-hoodi",
+    "deployedAt": "2026-06-15T19:11:27.099Z",
+    "deployTxHash": "0x15821777eb3f1f488da79e1328e1a91e6a5a3c8d5ec7cc3fba112d59aee8997b"
+  },
+  "stream-escrow": {
+    "address": "0xd807159630609366585117181a6ab1127bb09838",
+    "token": "0x61ffd23e5b553da8b3d42f8d072cb0263396d14b",
+    "abiContract": "0x7f11e270b10944da1c492497b5cff5f59ba33bb7",
+    "network": "vara-eth-hoodi",
+    "deployedAt": "2026-06-15T20:46:26.833Z",
+    "txHash": "0x7c8fb744af19dba6ee1262b5f92227e37e4e4e2fee3485f0192f877306aa52a9"
   }
 }

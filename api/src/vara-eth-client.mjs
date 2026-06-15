@@ -237,3 +237,340 @@ export async function getRelayerBalance() {
   const balance = await client.getBalance({ address: account.address });
   return { address: account.address, balanceWei: balance.toString() };
 }
+
+// ---------------------------------------------------------------------------
+// ERC-20 ABI (minimal — used for token approve + balanceOf)
+// ---------------------------------------------------------------------------
+const ERC20_ABI = [
+  {
+    type: 'function', name: 'balanceOf',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }], stateMutability: 'view',
+  },
+  {
+    type: 'function', name: 'allowance',
+    inputs: [{ name: 'owner', type: 'address' }, { name: 'spender', type: 'address' }],
+    outputs: [{ type: 'uint256' }], stateMutability: 'view',
+  },
+  {
+    type: 'function', name: 'approve',
+    inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }],
+    outputs: [{ type: 'bool' }], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'decimals',
+    inputs: [], outputs: [{ type: 'uint8' }], stateMutability: 'view',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// StreamEscrow ABI (deposit, withdraw, stop, claimable)
+// ---------------------------------------------------------------------------
+const STREAM_ESCROW_ABI = [
+  {
+    type: 'function', name: 'deposit',
+    inputs: [
+      { name: 'receiverBytes32', type: 'bytes32' },
+      { name: 'flowRate',        type: 'uint128' },
+      { name: 'amount',          type: 'uint128' },
+    ],
+    outputs: [], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'addDeposit',
+    inputs: [{ name: 'streamId', type: 'uint64' }, { name: 'amount', type: 'uint128' }],
+    outputs: [], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'withdraw',
+    inputs: [{ name: 'streamId', type: 'uint64' }, { name: 'amount', type: 'uint128' }],
+    outputs: [], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'stopStream',
+    inputs: [{ name: 'streamId', type: 'uint64' }],
+    outputs: [], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'claim',
+    inputs: [], outputs: [], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'claimable',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }], stateMutability: 'view',
+  },
+  {
+    type: 'function', name: 'streamDepositor',
+    inputs: [{ name: 'streamId', type: 'uint64' }],
+    outputs: [{ type: 'address' }], stateMutability: 'view',
+  },
+  {
+    type: 'function', name: 'token',
+    inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view',
+  },
+  {
+    type: 'function', name: 'streamCoreAbi',
+    inputs: [], outputs: [{ type: 'address' }], stateMutability: 'view',
+  },
+  {
+    type: 'event', name: 'StreamPending',
+    inputs: [
+      { name: 'messageId', type: 'bytes32', indexed: true },
+      { name: 'sender',    type: 'address', indexed: true },
+      { name: 'receiver',  type: 'address', indexed: true },
+      { name: 'amount',    type: 'uint128', indexed: false },
+    ],
+  },
+  {
+    type: 'event', name: 'StreamCreated',
+    inputs: [
+      { name: 'messageId', type: 'bytes32', indexed: true },
+      { name: 'streamId',  type: 'uint64',  indexed: true },
+      { name: 'sender',    type: 'address', indexed: true },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// StreamCoreEthAbi — read-only queries (streamServiceGet*)
+// ---------------------------------------------------------------------------
+const STREAM_CORE_READ_ABI = [
+  {
+    type: 'function', name: 'streamServiceGetSenderStreams',
+    inputs: [{ name: '_callReply', type: 'bool' }, { name: 'sender', type: 'uint8[32]' }],
+    outputs: [{ name: 'messageId', type: 'bytes32' }], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'streamServiceTotalStreams',
+    inputs: [{ name: '_callReply', type: 'bool' }],
+    outputs: [{ name: 'messageId', type: 'bytes32' }], stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function', name: 'streamServiceActiveStreams',
+    inputs: [{ name: '_callReply', type: 'bool' }],
+    outputs: [{ name: 'messageId', type: 'bytes32' }], stateMutability: 'nonpayable',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Helper: pad 0x EVM address to bytes32 uint8[32] array
+// ---------------------------------------------------------------------------
+function evmAddressToUint8Array32(addr) {
+  const hex = addr.replace(/^0x/, '').toLowerCase();
+  const padded = hex.padStart(64, '0');
+  return Array.from(Buffer.from(padded, 'hex'));
+}
+
+// ---------------------------------------------------------------------------
+// getEscrowTokenBalance — token balance of an EVM address
+// ---------------------------------------------------------------------------
+export async function getEscrowTokenBalance(evmAddress) {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  const tokenAddr  = process.env.VARA_ETH_TOKEN;
+  if (!escrowAddr || !tokenAddr) return null;
+
+  const client = getPublicClient();
+  const [balance, decimals] = await Promise.all([
+    client.readContract({ address: tokenAddr, abi: ERC20_ABI, functionName: 'balanceOf', args: [evmAddress] }),
+    client.readContract({ address: tokenAddr, abi: ERC20_ABI, functionName: 'decimals' }),
+  ]);
+  return { balance: balance.toString(), decimals: Number(decimals), token: tokenAddr };
+}
+
+// ---------------------------------------------------------------------------
+// getClaimableBalance — unclaimed refunds in StreamEscrow for an address
+// ---------------------------------------------------------------------------
+export async function getClaimableBalance(evmAddress) {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  if (!escrowAddr) return '0';
+
+  const client = getPublicClient();
+  const amount = await client.readContract({
+    address: escrowAddr, abi: STREAM_ESCROW_ABI,
+    functionName: 'claimable', args: [evmAddress],
+  });
+  return amount.toString();
+}
+
+// ---------------------------------------------------------------------------
+// getEscrowInfo — static config read from StreamEscrow
+// ---------------------------------------------------------------------------
+export async function getEscrowInfo() {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  if (!escrowAddr) return null;
+
+  const client = getPublicClient();
+  const [token, abiContract] = await Promise.all([
+    client.readContract({ address: escrowAddr, abi: STREAM_ESCROW_ABI, functionName: 'token' }),
+    client.readContract({ address: escrowAddr, abi: STREAM_ESCROW_ABI, functionName: 'streamCoreAbi' }),
+  ]);
+  return {
+    escrow:      escrowAddr,
+    token,
+    abiContract,
+    mirror:      process.env.STREAM_CORE_ETH_MIRROR,
+    chainId:     VARA_ETH_CHAIN_ID,
+    rpc:         VARA_ETH_RPC,
+    network:     'vara-eth-hoodi',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// depositAndCreateStream — approve + call StreamEscrow.deposit
+// Called server-side via relayer wallet.
+// ---------------------------------------------------------------------------
+export async function depositAndCreateStream({ receiverEvmAddress, flowRate, amount }) {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  const tokenAddr  = process.env.VARA_ETH_TOKEN;
+  if (!escrowAddr || !tokenAddr) {
+    throw new Error('[vara-eth] STREAM_ESCROW_ADDRESS or VARA_ETH_TOKEN not configured');
+  }
+
+  const wallet = getWalletClient();
+  const client = getPublicClient();
+
+  // receiver as bytes32
+  const receiverBytes32 = `0x${receiverEvmAddress.replace(/^0x/, '').padStart(64, '0')}`;
+
+  // Step 1: approve escrow to spend token
+  const approveTx = await wallet.writeContract({
+    address: tokenAddr, abi: ERC20_ABI, functionName: 'approve',
+    args: [escrowAddr, BigInt(amount)],
+  });
+  await client.waitForTransactionReceipt({ hash: approveTx });
+
+  // Step 2: deposit + create stream
+  const depositTx = await wallet.writeContract({
+    address: escrowAddr, abi: STREAM_ESCROW_ABI, functionName: 'deposit',
+    args: [receiverBytes32, BigInt(flowRate), BigInt(amount)],
+  });
+  const receipt = await client.waitForTransactionReceipt({ hash: depositTx });
+
+  // Parse StreamPending event for messageId
+  const pendingLog = receipt.logs.find(l =>
+    l.address.toLowerCase() === escrowAddr.toLowerCase() &&
+    l.topics[0] === '0x' + Buffer.from('StreamPending(bytes32,address,address,uint128)').toString('hex').slice(0, 64)
+  );
+
+  return {
+    approveTxHash: approveTx,
+    depositTxHash: depositTx,
+    blockNumber: receipt.blockNumber.toString(),
+    status: receipt.status,
+    messageId: pendingLog?.topics?.[1] ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// addDepositToStream — approve + call StreamEscrow.addDeposit
+// ---------------------------------------------------------------------------
+export async function addDepositToStream({ streamId, amount }) {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  const tokenAddr  = process.env.VARA_ETH_TOKEN;
+  if (!escrowAddr || !tokenAddr) {
+    throw new Error('[vara-eth] STREAM_ESCROW_ADDRESS or VARA_ETH_TOKEN not configured');
+  }
+
+  const wallet = getWalletClient();
+  const client = getPublicClient();
+
+  const approveTx = await wallet.writeContract({
+    address: tokenAddr, abi: ERC20_ABI, functionName: 'approve',
+    args: [escrowAddr, BigInt(amount)],
+  });
+  await client.waitForTransactionReceipt({ hash: approveTx });
+
+  const tx = await wallet.writeContract({
+    address: escrowAddr, abi: STREAM_ESCROW_ABI, functionName: 'addDeposit',
+    args: [BigInt(streamId), BigInt(amount)],
+  });
+  const receipt = await client.waitForTransactionReceipt({ hash: tx });
+  return { txHash: tx, blockNumber: receipt.blockNumber.toString(), status: receipt.status };
+}
+
+// ---------------------------------------------------------------------------
+// withdrawFromStream — call StreamEscrow.withdraw
+// ---------------------------------------------------------------------------
+export async function withdrawFromStream({ streamId, amount }) {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  if (!escrowAddr) throw new Error('[vara-eth] STREAM_ESCROW_ADDRESS not configured');
+
+  const wallet = getWalletClient();
+  const client = getPublicClient();
+
+  const tx = await wallet.writeContract({
+    address: escrowAddr, abi: STREAM_ESCROW_ABI, functionName: 'withdraw',
+    args: [BigInt(streamId), BigInt(amount)],
+  });
+  const receipt = await client.waitForTransactionReceipt({ hash: tx });
+  return { txHash: tx, blockNumber: receipt.blockNumber.toString(), status: receipt.status };
+}
+
+// ---------------------------------------------------------------------------
+// stopEvmStream — call StreamEscrow.stopStream
+// ---------------------------------------------------------------------------
+export async function stopEvmStream({ streamId }) {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  if (!escrowAddr) throw new Error('[vara-eth] STREAM_ESCROW_ADDRESS not configured');
+
+  const wallet = getWalletClient();
+  const client = getPublicClient();
+
+  const tx = await wallet.writeContract({
+    address: escrowAddr, abi: STREAM_ESCROW_ABI, functionName: 'stopStream',
+    args: [BigInt(streamId)],
+  });
+  const receipt = await client.waitForTransactionReceipt({ hash: tx });
+  return { txHash: tx, blockNumber: receipt.blockNumber.toString(), status: receipt.status };
+}
+
+// ---------------------------------------------------------------------------
+// claimEscrowRefund — call StreamEscrow.claim for refunded tokens
+// ---------------------------------------------------------------------------
+export async function claimEscrowRefund() {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  if (!escrowAddr) throw new Error('[vara-eth] STREAM_ESCROW_ADDRESS not configured');
+
+  const wallet = getWalletClient();
+  const client = getPublicClient();
+
+  const tx = await wallet.writeContract({
+    address: escrowAddr, abi: STREAM_ESCROW_ABI, functionName: 'claim', args: [],
+  });
+  const receipt = await client.waitForTransactionReceipt({ hash: tx });
+  return { txHash: tx, blockNumber: receipt.blockNumber.toString(), status: receipt.status };
+}
+
+// ---------------------------------------------------------------------------
+// getStreamDepositor — who owns a given streamId in the escrow
+// ---------------------------------------------------------------------------
+export async function getStreamDepositor(streamId) {
+  const escrowAddr = process.env.STREAM_ESCROW_ADDRESS;
+  if (!escrowAddr) return null;
+
+  const client = getPublicClient();
+  const addr = await client.readContract({
+    address: escrowAddr, abi: STREAM_ESCROW_ABI,
+    functionName: 'streamDepositor', args: [BigInt(streamId)],
+  });
+  return addr;
+}
+
+// ---------------------------------------------------------------------------
+// getWvaraBalance — wVARA balance of any address (from Router's wVARA contract)
+// ---------------------------------------------------------------------------
+export async function getWvaraBalance(evmAddress) {
+  const routerAddr = process.env.VARA_ETH_ROUTER;
+  if (!routerAddr) return null;
+
+  const ROUTER_ABI = [{
+    type: 'function', name: 'wrappedVara', inputs: [],
+    outputs: [{ type: 'address' }], stateMutability: 'view',
+  }];
+
+  const client = getPublicClient();
+  const wvaraAddr = await client.readContract({ address: routerAddr, abi: ROUTER_ABI, functionName: 'wrappedVara' });
+  const balance = await client.readContract({ address: wvaraAddr, abi: ERC20_ABI, functionName: 'balanceOf', args: [evmAddress] });
+  return { address: evmAddress, wvaraAddress: wvaraAddr, balance: balance.toString(), decimals: 12 };
+}

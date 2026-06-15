@@ -792,5 +792,55 @@ export async function migrate() {
   `);
 
   console.log('[db] Seasons system initialized');
+
+  // -----------------------------------------------------------------------
+  // Phase 4 — Vara.eth EVM Streams (StreamEscrow on Hoodi)
+  // -----------------------------------------------------------------------
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS evm_streams (
+      id              SERIAL PRIMARY KEY,
+      message_id      TEXT UNIQUE,
+      stream_id       BIGINT,
+      sender          TEXT NOT NULL,
+      receiver        TEXT NOT NULL,
+      flow_rate       TEXT NOT NULL,
+      amount          TEXT NOT NULL,
+      token           TEXT NOT NULL,
+      escrow_address  TEXT NOT NULL,
+      approve_tx      TEXT,
+      deposit_tx      TEXT NOT NULL,
+      block_number    TEXT,
+      status          TEXT NOT NULL DEFAULT 'PENDING'
+                      CHECK (status IN ('PENDING', 'ACTIVE', 'STOPPED', 'FAILED')),
+      network         TEXT NOT NULL DEFAULT 'vara-eth-hoodi',
+      created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_evm_streams_sender   ON evm_streams(sender);
+    CREATE INDEX IF NOT EXISTS idx_evm_streams_receiver ON evm_streams(receiver);
+    CREATE INDEX IF NOT EXISTS idx_evm_streams_status   ON evm_streams(status);
+    CREATE INDEX IF NOT EXISTS idx_evm_streams_msg_id   ON evm_streams(message_id);
+  `);
+
+  console.log('[db] Phase 4: evm_streams table ready');
+
+  // Seed the Vara.eth EVM stream quest (idempotent)
+  await p.query(`
+    INSERT INTO quests (slug, title, description, quest_type, seeds_reward, repeatable, active, sort_order, meta)
+    VALUES (
+      'onchain-stream-eth',
+      'Create a Stream on Vara.eth',
+      'Create a real token stream on Vara.eth (Hoodi testnet) using the StreamEscrow contract. Earn Seeds for bridging to Ethereum!',
+      'ONCHAIN_STREAM_ETH',
+      150,
+      false,
+      true,
+      20,
+      '{"network": "vara-eth-hoodi", "contract": "StreamEscrow"}'
+    )
+    ON CONFLICT (slug) DO NOTHING
+  `);
+
   console.log('[db] Migrations complete');
 }

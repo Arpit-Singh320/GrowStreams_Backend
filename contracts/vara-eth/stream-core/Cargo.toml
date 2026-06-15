@@ -1,7 +1,8 @@
 [package]
 name = "stream-core-eth"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.93"
 license = "MIT"
 description = "GrowStreams V2 — Stream state machine for Vara.eth (ethexe runtime, no cross-program async)"
 
@@ -11,7 +12,7 @@ parity-scale-codec = { workspace = true }
 scale-info = { workspace = true }
 
 [build-dependencies]
-sails-rs = { version = "0.10.1", features = ["wasm-builder"] }
+sails-rs = { version = "1.0.0", features = ["build"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
