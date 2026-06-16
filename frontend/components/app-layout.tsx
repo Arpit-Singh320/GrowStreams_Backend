@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useWalletConnect } from '@/contexts/WalletConnectContext';
+import NetworkToggle from '@/components/ui/NetworkToggle';
 
 const PixelBlast = dynamic(() => import('@/components/ui/PixelBlast'), { ssr: false });
 const RisingLines = dynamic(() => import('@/components/ui/RisingLines'), { ssr: false });
@@ -182,9 +183,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <span className="hidden sm:inline">{isWCConnecting ? 'Connecting...' : 'Mobile'}</span>
               </button>
             )}
-            <div className="flex items-center gap-2 text-xs text-provn-muted">
-              <span className="hidden sm:inline">Vara Mainnet</span>
+            <NetworkToggle />
+            <div className="flex items-center gap-1.5 text-xs text-provn-muted">
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="hidden sm:inline">
+                {pathname.startsWith('/app/vara-eth') ? 'Hoodi Testnet' : 'Vara Mainnet'}
+              </span>
             </div>
           </div>
         </header>
