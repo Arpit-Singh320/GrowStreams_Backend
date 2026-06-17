@@ -92,16 +92,22 @@ export function useGearSign() {
           throw new Error('Could not access wallet signer. Please reconnect your wallet.');
         }
 
-        const gas = await api.program.calculateGas.handle(
-          account.decodedAddress as `0x${string}`,
-          programId,
-          payloadHex as `0x${string}`,
-          value,
-          true,
-        );
-
-        const minGas = BigInt(gas.min_limit.toString());
-        const gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
+        const FIXED_GAS = '50000000000'; // 50B — safe fallback
+        let gasLimit = FIXED_GAS;
+        try {
+          const gas = await api.program.calculateGas.handle(
+            account.decodedAddress as `0x${string}`,
+            programId,
+            payloadHex as `0x${string}`,
+            value,
+            true,
+          );
+          const minGas = BigInt(gas.min_limit.toString());
+          gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
+        } catch {
+          // calculateGas failed (e.g. InactiveProgram or new contract) — use fixed gas
+          gasLimit = FIXED_GAS;
+        }
 
         // Convert value to string for API compatibility
         const valueStr = typeof value === 'string' ? value : String(value);

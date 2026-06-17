@@ -103,23 +103,30 @@ router.post('/unwrap', async (req, res, next) => {
 });
 
 // POST /api/gvara/approve-wvara
-// Approve the gVARA contract to spend wVARA on behalf of user (returns wVARA contract payload)
+// Approve the gVARA contract to spend wVARA on behalf of user.
+// Delegates to /api/wvara/approve logic (handles u256 vec<u8> encoding correctly).
 // Body: { amount, mode? }
 router.post('/approve-wvara', async (req, res, next) => {
   try {
     const { amount, amountRaw, mode } = req.body;
     if (!amount && !amountRaw) return res.status(400).json({ error: 'Missing: amount or amountRaw' });
-    // The approve must be sent to the wVARA contract, not gVARA.
-    // Return the gVARA program ID so frontend knows where to send the approval.
+
     const gvaraId = process.env.GVARA_TOKEN_ID;
-    if (!gvaraId) return res.status(503).json({ error: 'gVARA not configured' });
+    const wvaraId = process.env.WVARA_TOKEN_ID;
+    if (!gvaraId) return res.status(503).json({ error: 'GVARA_TOKEN_ID not configured' });
+    if (!wvaraId) return res.status(503).json({ error: 'WVARA_TOKEN_ID not configured' });
+
     const baseAmount = amountRaw ? BigInt(amountRaw) : toBaseUnits(amount, GVARA_DECIMALS);
-    // Encode approve payload for wVARA contract (VFT Approve(spender, amount))
-    const wvaraPayload = encodePayload('wvara', 'Approve', gvaraId, baseAmount);
+    // Use toActorId so sails-js gets a proper Uint8Array for actor_id
+    const spenderHex = toActorId(gvaraId);
+
+    // encodePayload via wvara contract instance — same code as /api/wvara/approve
+    const payload = encodePayload('wvara', 'Approve', spenderHex, baseAmount);
+
     res.json({
-      wvara_program_id: process.env.WVARA_TOKEN_ID,
+      wvara_program_id: wvaraId,
       gvara_program_id: gvaraId,
-      payload: wvaraPayload,
+      payload,
       amount: baseAmount.toString(),
     });
   } catch (err) { next(err); }
