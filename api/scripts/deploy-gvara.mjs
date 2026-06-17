@@ -47,7 +47,8 @@ function encodeSailsInitPayload(...parts) {
     if (typeof p === 'boolean') return Buffer.from([p ? 1 : 0]);
     if (typeof p === 'number') { const b = Buffer.alloc(1); b.writeUInt8(p); return b; }
     if (p instanceof Uint8Array || Buffer.isBuffer(p)) {
-      return Buffer.concat([encodeCompactU32(p.length), Buffer.from(p)]);
+      // ActorId is fixed 32 bytes — no length prefix in SCALE encoding
+      return Buffer.from(p);
     }
     return Buffer.alloc(0);
   });

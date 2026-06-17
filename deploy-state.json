@@ -96,9 +96,9 @@
     "txHash": "0x7c8fb744af19dba6ee1262b5f92227e37e4e4e2fee3485f0192f877306aa52a9"
   },
   "gvara-token": {
-    "programId": "0x4b672cb263e26f5a6660fc2c0a3b906cd998eb45a1bb6cd5d447d106ce70eacb",
+    "programId": "0x71de1ef1f4dec1a4fe862aa6c92747c8499bbf1af128625749027392709f4a72",
     "codeId": "0xd275fb3d1c64c7dcbe50fd33dcc12f1aea318c1f190a4f80d5b60635755a26e0",
-    "deployedAt": "2026-06-17T19:04:42.151Z",
+    "deployedAt": "2026-06-17T19:49:59.124Z",
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network",
     "underlyingToken": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
