@@ -8,7 +8,7 @@ import { decodeAddress } from '@gear-js/api';
 import { api as gsApi, type PayloadResult, type TxResult } from '@/lib/growstreams-api';
 
 export const PROGRAM_IDS: Record<string, string> = {
-  streamCore: '0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d',
+  streamCore: '0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4',
   tokenVault: '0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef',
   growToken: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
   splitsRouter: '0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45',
@@ -92,14 +92,19 @@ export function useGearSign() {
           throw new Error('Could not access wallet signer. Please reconnect your wallet.');
         }
 
-        const FIXED_GAS = '50000000000'; // 50B — safe fallback
+        const FIXED_GAS = '50000000000';       // 50B — safe for simple calls
+        const ASYNC_GAS  = '100000000000';      // 100B — for async cross-contract calls (stream-core, gVARA)
         // Convert value to string for API compatibility
         const valueStr = typeof value === 'string' ? value : String(value);
         const hasValue = BigInt(valueStr) > BigInt(0);
 
-        let gasLimit = FIXED_GAS;
-        if (!hasValue) {
-          // Only estimate gas for zero-value messages — gas estimation with value is unreliable on Vara mainnet
+        // Skip gas estimation for contracts that make async cross-contract calls:
+        // stream-core (calls gVARA.UpdateFlow / vault) and gVARA (sends VARA reply)
+        const isAsyncCall = programId === PROGRAM_IDS.gvaraToken || programId === PROGRAM_IDS.streamCore;
+
+        let gasLimit = isAsyncCall ? ASYNC_GAS : FIXED_GAS;
+        if (!hasValue && !isAsyncCall) {
+          // Only estimate gas for simple zero-value messages without async calls
           try {
             const gas = await api.program.calculateGas.handle(
               account.decodedAddress as `0x${string}`,
