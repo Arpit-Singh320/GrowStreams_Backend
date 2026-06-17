@@ -252,7 +252,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </Link>
-              {listTokens().filter((t: TokenConfig) => t.key !== 'GROW' && t.key !== 'VARA').map((tok: TokenConfig) => {
+              {listTokens().filter((t: TokenConfig) => t.key !== 'GROW' && t.key !== 'VARA' && t.key !== 'WTVARA' && t.key !== 'GVARA').map((tok: TokenConfig) => {
                 const b = tokenBalances[tok.key] || { wallet: '0', vault: '0' };
                 // Values are already in display units from the API
                 const walletVal = parseFloat(b.wallet) || 0;
