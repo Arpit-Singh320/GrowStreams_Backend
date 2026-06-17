@@ -115,8 +115,11 @@ export function useGearSign() {
           }
         }
 
-        // Try to get a gasless voucher (but skip if sending value - vouchers can't cover value transfers)
-        const voucherId = hasValue ? null : await getOrIssueVoucher(account.decodedAddress);
+        // Skip voucher for gVARA contract — UnwrapNative sends VARA back via msg::send,
+        // which is incompatible with voucher-wrapped calls on Vara mainnet.
+        const isGvaraCall = programId === PROGRAM_IDS.gvaraToken;
+        // Try to get a gasless voucher (but skip if sending value or calling gVARA)
+        const voucherId = (hasValue || isGvaraCall) ? null : await getOrIssueVoucher(account.decodedAddress);
 
         return new Promise((resolve, reject) => {
           let tx;
