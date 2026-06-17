@@ -93,25 +93,27 @@ export function useGearSign() {
         }
 
         const FIXED_GAS = '50000000000'; // 50B — safe fallback
-        let gasLimit = FIXED_GAS;
-        try {
-          const gas = await api.program.calculateGas.handle(
-            account.decodedAddress as `0x${string}`,
-            programId,
-            payloadHex as `0x${string}`,
-            value,
-            true,
-          );
-          const minGas = BigInt(gas.min_limit.toString());
-          gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
-        } catch {
-          // calculateGas failed (e.g. InactiveProgram or new contract) — use fixed gas
-          gasLimit = FIXED_GAS;
-        }
-
         // Convert value to string for API compatibility
         const valueStr = typeof value === 'string' ? value : String(value);
         const hasValue = BigInt(valueStr) > BigInt(0);
+
+        let gasLimit = FIXED_GAS;
+        if (!hasValue) {
+          // Only estimate gas for zero-value messages — gas estimation with value is unreliable on Vara mainnet
+          try {
+            const gas = await api.program.calculateGas.handle(
+              account.decodedAddress as `0x${string}`,
+              programId,
+              payloadHex as `0x${string}`,
+              0,
+              true,
+            );
+            const minGas = BigInt(gas.min_limit.toString());
+            gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
+          } catch {
+            gasLimit = FIXED_GAS;
+          }
+        }
 
         // Try to get a gasless voucher (but skip if sending value - vouchers can't cover value transfers)
         const voucherId = hasValue ? null : await getOrIssueVoucher(account.decodedAddress);
