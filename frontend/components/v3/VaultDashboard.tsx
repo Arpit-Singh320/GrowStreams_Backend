@@ -32,10 +32,22 @@ export default function VaultDashboard() {
   const [approving, setApproving] = useState(false);
   const [wrapAmount, setWrapAmount] = useState('');
   const [wrapping, setWrapping] = useState(false);
+  const [gvaraMode, setGvaraMode] = useState<'wrap' | 'unwrap'>('wrap');
+  const [gvaraAmount, setGvaraAmount] = useState('');
+  const [gvaraBusy, setGvaraBusy] = useState(false);
+  const [gvaraBalance, setGvaraBalance] = useState('0');
+  const [gvaraApproving, setGvaraApproving] = useState(false);
 
   useEffect(() => {
     api.vault.paused().then(p => setPaused(p.paused)).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!account?.decodedAddress) return;
+    api.gvara.balance(account.decodedAddress)
+      .then(b => setGvaraBalance(b.balance_display || '0'))
+      .catch(() => {});
+  }, [account]);
 
   const walletBalMap: Record<string, string> = {};
   for (const wb of walletBalances) {
@@ -74,6 +86,49 @@ export default function VaultDashboard() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Approval failed');
       setApproving(false);
+    }
+  };
+
+  const handleGvaraApprove = async () => {
+    if (!account?.decodedAddress) return;
+    setGvaraApproving(true);
+    try {
+      const res = await api.gvara.approveWvara({ amount: gvaraAmount || '999999', mode: 'payload' });
+      await signAndSend(res.wvara_program_id, res.payload);
+      toast.success('wVARA approved for gVARA wrapping! Wait 10s then wrap.');
+      setTimeout(() => setGvaraApproving(false), 10000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Approval failed');
+      setGvaraApproving(false);
+    }
+  };
+
+  const handleGvaraAction = async () => {
+    if (!account?.decodedAddress) return;
+    const raw = parseFloat(gvaraAmount);
+    if (isNaN(raw) || raw <= 0) { toast.error('Enter a valid amount'); return; }
+    setGvaraBusy(true);
+    try {
+      if (gvaraMode === 'wrap') {
+        const res = await api.gvara.wrap({ amount: gvaraAmount, mode: 'payload' }) as { payload: string };
+        await signAndSend(PROGRAM_IDS.gvaraToken, res.payload);
+        toast.success(`Wrapped ${gvaraAmount} wVARA → gVARA!`);
+      } else {
+        const res = await api.gvara.unwrap({ amount: gvaraAmount, mode: 'payload' }) as { payload: string };
+        await signAndSend(PROGRAM_IDS.gvaraToken, res.payload);
+        toast.success(`Unwrapped ${gvaraAmount} gVARA → wVARA!`);
+      }
+      setGvaraAmount('');
+      setTimeout(async () => {
+        if (account?.decodedAddress) {
+          api.gvara.balance(account.decodedAddress).then(b => setGvaraBalance(b.balance_display || '0')).catch(() => {});
+        }
+        await refreshAll();
+      }, 3000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Transaction failed');
+    } finally {
+      setGvaraBusy(false);
     }
   };
 
@@ -271,6 +326,88 @@ export default function VaultDashboard() {
                   <p className="text-[10px] text-provn-muted">withdrawable</p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* gVARA wrap/unwrap — show when VARA (wVARA) is selected */}
+          {selectedToken.key === 'WTVARA' && (
+            <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft className="w-5 h-5 text-emerald-400" />
+                  <div>
+                    <h3 className="text-sm font-semibold">Wrap wVARA ↔ gVARA</h3>
+                    <p className="text-[10px] text-provn-muted">gVARA is the Superfluid streaming token for VARA</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-provn-muted">
+                  <span>gVARA balance:</span>
+                  <span className="font-mono text-emerald-400 font-medium">{gvaraBalance}</span>
+                </div>
+              </div>
+              <div className="flex gap-1.5 p-1 bg-provn-bg rounded-lg">
+                <button
+                  onClick={() => setGvaraMode('wrap')}
+                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${
+                    gvaraMode === 'wrap' ? 'bg-emerald-500/20 text-emerald-400' : 'text-provn-muted hover:text-provn-text'
+                  }`}
+                >
+                  Wrap wVARA → gVARA
+                </button>
+                <button
+                  onClick={() => setGvaraMode('unwrap')}
+                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${
+                    gvaraMode === 'unwrap' ? 'bg-teal-500/20 text-teal-400' : 'text-provn-muted hover:text-provn-text'
+                  }`}
+                >
+                  Unwrap gVARA → wVARA
+                </button>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <input
+                    value={gvaraAmount}
+                    onChange={e => setGvaraAmount(e.target.value)}
+                    type="number" min="0" step="any"
+                    className="w-full px-3 py-2.5 pr-20 bg-provn-bg border border-provn-border rounded-lg text-sm focus:border-emerald-500/50 focus:outline-none"
+                    placeholder="Amount"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-provn-muted">
+                    {gvaraMode === 'wrap' ? 'wVARA' : 'gVARA'}
+                  </span>
+                </div>
+                <button
+                  onClick={handleGvaraAction}
+                  disabled={gvaraBusy || !gvaraAmount || parseFloat(gvaraAmount) <= 0}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {gvaraBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
+                  {gvaraBusy ? '...' : gvaraMode === 'wrap' ? 'Wrap' : 'Unwrap'}
+                </button>
+              </div>
+              <div className="flex gap-2">
+                {['1', '5', '10', '50', '100'].map(v => (
+                  <button key={v} type="button" onClick={() => setGvaraAmount(v)}
+                    className="px-2.5 py-1 rounded text-[11px] border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+                    {v}
+                  </button>
+                ))}
+              </div>
+              {gvaraMode === 'wrap' && (
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-provn-muted flex items-center gap-1">
+                    <Info className="w-3 h-3" /> First approve wVARA, then wrap to get gVARA
+                  </p>
+                  <button
+                    onClick={handleGvaraApprove}
+                    disabled={gvaraApproving}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 disabled:opacity-50 transition-colors"
+                  >
+                    {gvaraApproving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                    {gvaraApproving ? 'Approving...' : 'Approve wVARA'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

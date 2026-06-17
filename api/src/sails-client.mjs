@@ -40,6 +40,7 @@ const IDL_PATHS = {
   questSeeds: findIdl('quest-seeds.idl'),
   wvara: findIdl('wvara.idl'),
   superToken: findIdl('super-token.idl'),
+  gvaraToken: findIdl('super-token.idl'),
   distributionPool: findIdl('distribution-pool.idl'),
   liquidationManager: findIdl('liquidation-manager.idl'),
 };
@@ -66,6 +67,7 @@ const contracts = {
   questSeeds: null,
   wvara: null,
   superToken: null,
+  gvaraToken: null,
   distributionPool: null,
   liquidationManager: null,
 };
@@ -81,6 +83,7 @@ const SERVICE_NAMES = {
   questSeeds: 'SeedsService',
   wvara: 'Vft',
   superToken: 'SuperTokenService',
+  gvaraToken: 'SuperTokenService',
   distributionPool: 'PoolService',
   liquidationManager: 'LiquidationService',
 };
@@ -112,6 +115,7 @@ const DEPLOY_KEY_MAP = {
   questSeeds: 'quest-seeds',
   wvara: 'wvara',
   superToken: 'super-token',
+  gvaraToken: 'gvara-token',
   distributionPool: 'distribution-pool',
   liquidationManager: 'liquidation-manager',
 };
@@ -165,6 +169,7 @@ export async function connect() {
     questSeeds: process.env.QUEST_SEEDS_ID,
     wvara: process.env.WVARA_TOKEN_ID, // wVARA wrapped token contract
     superToken: process.env.SUPER_TOKEN_ID,
+    gvaraToken: process.env.GVARA_TOKEN_ID,
     distributionPool: process.env.DISTRIBUTION_POOL_ID,
     liquidationManager: process.env.LIQUIDATION_MANAGER_ID,
   };
