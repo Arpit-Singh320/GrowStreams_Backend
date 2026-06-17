@@ -152,14 +152,16 @@ if (balance < 5) { console.error('Need at least 5 VARA to deploy gVARA'); proces
 
 const parser = await SailsIdlParser.new();
 
-// Deploy gVARA: wraps wVARA, 12 decimals, not native wrapper
+// Deploy gVARA: native wrapper (is_native_wrapper: true, underlying = zero address)
+// Users send native VARA with the WrapNative tx to get gVARA back 1:1
+const ZERO_ACTOR_ID = '0x0000000000000000000000000000000000000000000000000000000000000000';
 const gVaraPayload = encodeSailsInitPayload(
   'New',
   'GrowStreams VARA',
   'gVARA',
   12,
-  encodeActorId(WVARA_TOKEN_ID),
-  false,
+  encodeActorId(ZERO_ACTOR_ID),
+  true,
 );
 
 const { programId: GVARA_TOKEN_ID, codeId: gVaraCodeId } =

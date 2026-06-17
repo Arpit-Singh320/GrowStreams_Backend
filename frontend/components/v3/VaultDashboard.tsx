@@ -30,13 +30,10 @@ export default function VaultDashboard() {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [approving, setApproving] = useState(false);
-  const [wrapAmount, setWrapAmount] = useState('');
-  const [wrapping, setWrapping] = useState(false);
   const [gvaraMode, setGvaraMode] = useState<'wrap' | 'unwrap'>('wrap');
   const [gvaraAmount, setGvaraAmount] = useState('');
   const [gvaraBusy, setGvaraBusy] = useState(false);
   const [gvaraBalance, setGvaraBalance] = useState('0');
-  const [gvaraApproving, setGvaraApproving] = useState(false);
 
   useEffect(() => {
     api.vault.paused().then(p => setPaused(p.paused)).catch(() => {});
@@ -89,20 +86,6 @@ export default function VaultDashboard() {
     }
   };
 
-  const handleGvaraApprove = async () => {
-    if (!account?.decodedAddress) return;
-    setGvaraApproving(true);
-    try {
-      const res = await api.gvara.approveWvara({ amount: gvaraAmount || '999999', mode: 'payload' });
-      await signAndSend(res.wvara_program_id, res.payload);
-      toast.success('wVARA approved for gVARA wrapping! Wait 10s then wrap.');
-      setTimeout(() => setGvaraApproving(false), 10000);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Approval failed');
-      setGvaraApproving(false);
-    }
-  };
-
   const handleGvaraAction = async () => {
     if (!account?.decodedAddress) return;
     const raw = parseFloat(gvaraAmount);
@@ -110,13 +93,13 @@ export default function VaultDashboard() {
     setGvaraBusy(true);
     try {
       if (gvaraMode === 'wrap') {
-        const res = await api.gvara.wrap({ amount: gvaraAmount, mode: 'payload' }) as { payload: string };
-        await signAndSend(PROGRAM_IDS.gvaraToken, res.payload);
-        toast.success(`Wrapped ${gvaraAmount} wVARA → gVARA!`);
+        const res = await api.gvara.wrapNative({ amount: gvaraAmount, mode: 'payload' });
+        await signAndSend(PROGRAM_IDS.gvaraToken, res.payload, res.value);
+        toast.success(`Wrapped ${gvaraAmount} VARA → gVARA!`);
       } else {
-        const res = await api.gvara.unwrap({ amount: gvaraAmount, mode: 'payload' }) as { payload: string };
+        const res = await api.gvara.unwrapNative({ amount: gvaraAmount, mode: 'payload' }) as { payload: string };
         await signAndSend(PROGRAM_IDS.gvaraToken, res.payload);
-        toast.success(`Unwrapped ${gvaraAmount} gVARA → wVARA!`);
+        toast.success(`Unwrapped ${gvaraAmount} gVARA → VARA!`);
       }
       setGvaraAmount('');
       setTimeout(async () => {
@@ -132,28 +115,6 @@ export default function VaultDashboard() {
     }
   };
 
-  const handleWrap = async () => {
-    if (!account?.decodedAddress) return;
-    const raw = parseFloat(wrapAmount);
-    if (isNaN(raw) || raw <= 0) {
-      toast.error('Enter a valid amount to wrap.');
-      return;
-    }
-    setWrapping(true);
-    try {
-      // Get the wrap payload from the API
-      const res = await api.wvara.wrap({ amount: wrapAmount, mode: 'payload' }) as { payload: string; value: string };
-      // Send to wVARA contract with VARA value attached (pass as string to avoid precision loss)
-      await signAndSend(PROGRAM_IDS.wvara, res.payload, res.value);
-      toast.success(`Wrapped ${wrapAmount} VARA to wVARA!`);
-      setWrapAmount('');
-      setTimeout(refreshAll, 3000);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Wrap failed');
-    } finally {
-      setWrapping(false);
-    }
-  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -336,8 +297,8 @@ export default function VaultDashboard() {
                 <div className="flex items-center gap-2">
                   <ArrowRightLeft className="w-5 h-5 text-emerald-400" />
                   <div>
-                    <h3 className="text-sm font-semibold">Wrap wVARA ↔ gVARA</h3>
-                    <p className="text-[10px] text-provn-muted">gVARA is the Superfluid streaming token for VARA</p>
+                    <h3 className="text-sm font-semibold">Wrap VARA ↔ gVARA</h3>
+                    <p className="text-[10px] text-provn-muted">gVARA is the Superfluid streaming token — wrap native VARA directly</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-xs text-provn-muted">
@@ -352,7 +313,7 @@ export default function VaultDashboard() {
                     gvaraMode === 'wrap' ? 'bg-emerald-500/20 text-emerald-400' : 'text-provn-muted hover:text-provn-text'
                   }`}
                 >
-                  Wrap wVARA → gVARA
+                  Wrap VARA → gVARA
                 </button>
                 <button
                   onClick={() => setGvaraMode('unwrap')}
@@ -360,7 +321,7 @@ export default function VaultDashboard() {
                     gvaraMode === 'unwrap' ? 'bg-teal-500/20 text-teal-400' : 'text-provn-muted hover:text-provn-text'
                   }`}
                 >
-                  Unwrap gVARA → wVARA
+                  Unwrap gVARA → VARA
                 </button>
               </div>
               <div className="flex gap-3">
@@ -373,7 +334,7 @@ export default function VaultDashboard() {
                     placeholder="Amount"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-provn-muted">
-                    {gvaraMode === 'wrap' ? 'wVARA' : 'gVARA'}
+                    {gvaraMode === 'wrap' ? 'VARA' : 'gVARA'}
                   </span>
                 </div>
                 <button
@@ -394,72 +355,18 @@ export default function VaultDashboard() {
                 ))}
               </div>
               {gvaraMode === 'wrap' && (
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-provn-muted flex items-center gap-1">
-                    <Info className="w-3 h-3" /> First approve wVARA, then wrap to get gVARA
-                  </p>
-                  <button
-                    onClick={handleGvaraApprove}
-                    disabled={gvaraApproving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 disabled:opacity-50 transition-colors"
-                  >
-                    {gvaraApproving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                    {gvaraApproving ? 'Approving...' : 'Approve wVARA'}
-                  </button>
-                </div>
+                <p className="text-[10px] text-provn-muted flex items-center gap-1">
+                  <Info className="w-3 h-3" /> Native VARA is sent directly — no approval needed. 1 VARA = 1 gVARA.
+                </p>
+              )}
+              {gvaraMode === 'unwrap' && (
+                <p className="text-[10px] text-provn-muted flex items-center gap-1">
+                  <Info className="w-3 h-3" /> Burns gVARA and returns native VARA to your wallet.
+                </p>
               )}
             </div>
           )}
 
-          {/* Wrap VARA to wVARA - only show when wVARA is selected */}
-          {selectedToken.key === 'WTVARA' && (
-            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-xl p-5 space-y-4">
-              <div className="flex items-center gap-2">
-                <ArrowRightLeft className="w-5 h-5 text-purple-400" />
-                <div>
-                  <h3 className="text-sm font-semibold">Wrap VARA → wVARA</h3>
-                  <p className="text-[10px] text-provn-muted">Convert native VARA to wrapped wVARA (1:1 ratio)</p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <div className="flex-1 relative">
-                  <input
-                    value={wrapAmount}
-                    onChange={e => setWrapAmount(e.target.value)}
-                    type="number"
-                    min="0"
-                    step="any"
-                    className="w-full px-3 py-2.5 pr-16 bg-provn-bg border border-provn-border rounded-lg text-sm focus:border-purple-500/50 focus:outline-none"
-                    placeholder="Amount to wrap"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-provn-muted">VARA</span>
-                </div>
-                <button
-                  onClick={handleWrap}
-                  disabled={wrapping || !wrapAmount || parseFloat(wrapAmount) <= 0}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  {wrapping ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRightLeft className="w-4 h-4" />}
-                  {wrapping ? 'Wrapping...' : 'Wrap'}
-                </button>
-              </div>
-              <div className="flex gap-2">
-                {['1', '5', '10', '50', '100'].map(v => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setWrapAmount(v)}
-                    className="px-2.5 py-1 rounded text-[11px] border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition-colors"
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[10px] text-provn-muted flex items-center gap-1">
-                <Info className="w-3 h-3" /> wVARA can be used for streaming. You can unwrap back to VARA anytime.
-              </p>
-            </div>
-          )}
 
           {/* Deposit / Withdraw form */}
           <div className="bg-provn-surface border border-provn-border rounded-xl p-5 space-y-4">

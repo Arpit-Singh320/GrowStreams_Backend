@@ -61,10 +61,11 @@ router.get('/balance/:account', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/gvara/wrap
-// Body: { amount (human-readable wVARA), mode? }
-// User must first approve wVARA allowance to gVARA contract, then call wrap.
-router.post('/wrap', async (req, res, next) => {
+// POST /api/gvara/wrap-native
+// Wrap native VARA → gVARA (1:1). Send VARA value with the tx.
+// Body: { amount (human-readable VARA), mode? }
+// The `value` field in the response must be attached as the VARA value when signing.
+router.post('/wrap-native', async (req, res, next) => {
   try {
     const { amount, amountRaw, mode } = req.body;
     if (!amount && !amountRaw) return res.status(400).json({ error: 'Missing: amount or amountRaw' });
@@ -73,18 +74,21 @@ router.post('/wrap', async (req, res, next) => {
       ? BigInt(amountRaw)
       : toBaseUnits(amount, GVARA_DECIMALS);
 
+    // WrapNative takes no arguments — VARA value is attached to the message
+    const payload = encodePayload(C, 'WrapNative');
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'Wrap', baseAmount) });
+      return res.json({ payload, value: baseAmount.toString() });
     }
 
-    const { result, blockHash } = await command(C, 'Wrap', baseAmount);
+    const { result, blockHash } = await command(C, 'WrapNative');
     res.status(201).json({ wrapped: baseAmount.toString(), blockHash });
   } catch (err) { next(err); }
 });
 
-// POST /api/gvara/unwrap
+// POST /api/gvara/unwrap-native
+// Unwrap gVARA → native VARA. Burns gVARA and returns VARA.
 // Body: { amount (human-readable gVARA), mode? }
-router.post('/unwrap', async (req, res, next) => {
+router.post('/unwrap-native', async (req, res, next) => {
   try {
     const { amount, amountRaw, mode } = req.body;
     if (!amount && !amountRaw) return res.status(400).json({ error: 'Missing: amount or amountRaw' });
@@ -93,42 +97,13 @@ router.post('/unwrap', async (req, res, next) => {
       ? BigInt(amountRaw)
       : toBaseUnits(amount, GVARA_DECIMALS);
 
+    const payload = encodePayload(C, 'UnwrapNative', baseAmount);
     if (mode === 'payload') {
-      return res.json({ payload: encodePayload(C, 'Unwrap', baseAmount) });
+      return res.json({ payload });
     }
 
-    const { result, blockHash } = await command(C, 'Unwrap', baseAmount);
+    const { result, blockHash } = await command(C, 'UnwrapNative', baseAmount);
     res.json({ unwrapped: baseAmount.toString(), blockHash });
-  } catch (err) { next(err); }
-});
-
-// POST /api/gvara/approve-wvara
-// Approve the gVARA contract to spend wVARA on behalf of user.
-// Delegates to /api/wvara/approve logic (handles u256 vec<u8> encoding correctly).
-// Body: { amount, mode? }
-router.post('/approve-wvara', async (req, res, next) => {
-  try {
-    const { amount, amountRaw, mode } = req.body;
-    if (!amount && !amountRaw) return res.status(400).json({ error: 'Missing: amount or amountRaw' });
-
-    const gvaraId = process.env.GVARA_TOKEN_ID;
-    const wvaraId = process.env.WVARA_TOKEN_ID;
-    if (!gvaraId) return res.status(503).json({ error: 'GVARA_TOKEN_ID not configured' });
-    if (!wvaraId) return res.status(503).json({ error: 'WVARA_TOKEN_ID not configured' });
-
-    const baseAmount = amountRaw ? BigInt(amountRaw) : toBaseUnits(amount, GVARA_DECIMALS);
-    // Use toActorId so sails-js gets a proper Uint8Array for actor_id
-    const spenderHex = toActorId(gvaraId);
-
-    // encodePayload via wvara contract instance — same code as /api/wvara/approve
-    const payload = encodePayload('wvara', 'Approve', spenderHex, baseAmount);
-
-    res.json({
-      wvara_program_id: wvaraId,
-      gvara_program_id: gvaraId,
-      payload,
-      amount: baseAmount.toString(),
-    });
   } catch (err) { next(err); }
 });
 
