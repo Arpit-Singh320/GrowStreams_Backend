@@ -296,9 +296,8 @@ export default function VaultDashboard() {
             </div>
           )}
 
-          {/* gVARA wrap/unwrap — show when VARA (wVARA) is selected */}
-          {selectedToken.key === 'WTVARA' && (
-            <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-xl p-5 space-y-4">
+          {/* gVARA wrap/unwrap — always visible */}
+          <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-xl p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ArrowRightLeft className="w-5 h-5 text-emerald-400" />
@@ -380,9 +379,7 @@ export default function VaultDashboard() {
                   <Info className="w-3 h-3" /> Burns gVARA and returns native VARA to your wallet.
                 </p>
               )}
-            </div>
-          )}
-
+          </div>
 
           {/* Deposit / Withdraw form */}
           <div className="bg-provn-surface border border-provn-border rounded-xl p-5 space-y-4">
