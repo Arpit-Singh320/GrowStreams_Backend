@@ -94,9 +94,13 @@ export default function CreateStream({ onCreated }: CreateStreamProps) {
 
     setBusy(true);
     try {
+      // gVARA streams: pass wVARA address as token — stream-core maps wVARA→gVARA internally
+      const tokenAddress = tok.key === 'GVARA'
+        ? '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d'
+        : tok.vara;
       await actions.createStream(
         receiver,
-        tok.vara,
+        tokenAddress,
         flowRatePerSecond.toString(),
         depositBaseUnits.toString(),
       );
