@@ -34,17 +34,26 @@ export default function VaultDashboard() {
   const [gvaraAmount, setGvaraAmount] = useState('');
   const [gvaraBusy, setGvaraBusy] = useState(false);
   const [gvaraBalance, setGvaraBalance] = useState('0');
+  const [gvaraLoading, setGvaraLoading] = useState(false);
 
   useEffect(() => {
     api.vault.paused().then(p => setPaused(p.paused)).catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const fetchGvaraBalance = useCallback(async () => {
     if (!account?.decodedAddress) return;
-    api.gvara.balance(account.decodedAddress)
-      .then(b => setGvaraBalance(b.balance_display || '0'))
-      .catch(() => {});
+    setGvaraLoading(true);
+    try {
+      const b = await api.gvara.balance(account.decodedAddress);
+      setGvaraBalance(b.balance_display || '0');
+    } catch {
+      // ignore
+    } finally {
+      setGvaraLoading(false);
+    }
   }, [account]);
+
+  useEffect(() => { fetchGvaraBalance(); }, [fetchGvaraBalance]);
 
   const walletBalMap: Record<string, string> = {};
   for (const wb of walletBalances) {
@@ -102,14 +111,9 @@ export default function VaultDashboard() {
         toast.success(`Unwrapped ${gvaraAmount} gVARA → VARA!`);
       }
       setGvaraAmount('');
-      const refreshGvara = () => {
-        if (account?.decodedAddress) {
-          api.gvara.balance(account.decodedAddress).then(b => setGvaraBalance(b.balance_display || '0')).catch(() => {});
-        }
-      };
-      setTimeout(async () => { refreshGvara(); await refreshAll(); }, 3000);
-      setTimeout(refreshGvara, 8000);
-      setTimeout(refreshGvara, 15000);
+      setTimeout(async () => { fetchGvaraBalance(); await refreshAll(); }, 3000);
+      setTimeout(fetchGvaraBalance, 8000);
+      setTimeout(fetchGvaraBalance, 15000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Transaction failed');
     } finally {
@@ -303,9 +307,19 @@ export default function VaultDashboard() {
                     <p className="text-[10px] text-provn-muted">gVARA is the Superfluid streaming token — wrap native VARA directly</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-provn-muted">
-                  <span>gVARA balance:</span>
-                  <span className="font-mono text-emerald-400 font-medium">{gvaraBalance}</span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-xs text-provn-muted">
+                    <span>gVARA balance:</span>
+                    <span className="font-mono text-emerald-400 font-semibold text-sm">{gvaraBalance || '0'}</span>
+                  </div>
+                  <button
+                    onClick={fetchGvaraBalance}
+                    disabled={gvaraLoading}
+                    className="p-1 rounded hover:bg-emerald-500/10 transition-colors disabled:opacity-50"
+                    title="Refresh gVARA balance"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${gvaraLoading ? 'animate-spin' : ''}`} />
+                  </button>
                 </div>
               </div>
               <div className="flex gap-1.5 p-1 bg-provn-bg rounded-lg">
