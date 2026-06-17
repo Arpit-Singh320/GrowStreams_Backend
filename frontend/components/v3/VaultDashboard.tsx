@@ -102,12 +102,14 @@ export default function VaultDashboard() {
         toast.success(`Unwrapped ${gvaraAmount} gVARA → VARA!`);
       }
       setGvaraAmount('');
-      setTimeout(async () => {
+      const refreshGvara = () => {
         if (account?.decodedAddress) {
           api.gvara.balance(account.decodedAddress).then(b => setGvaraBalance(b.balance_display || '0')).catch(() => {});
         }
-        await refreshAll();
-      }, 3000);
+      };
+      setTimeout(async () => { refreshGvara(); await refreshAll(); }, 3000);
+      setTimeout(refreshGvara, 8000);
+      setTimeout(refreshGvara, 15000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Transaction failed');
     } finally {
