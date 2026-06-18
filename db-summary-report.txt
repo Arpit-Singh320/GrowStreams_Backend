@@ -1,0 +1,122 @@
+{
+  "participants": {
+    "count": 27,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "contributions": {
+    "count": 46,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "xp_events": {
+    "count": 84,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "daily_snapshots": {
+    "count": 1965,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "users": {
+    "count": 68,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "referrals": {
+    "count": 2,
+    "hasData": true,
+    "sampleSize": 2
+  },
+  "stream_events": {
+    "count": 20,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "vault_events": {
+    "count": 9,
+    "hasData": true,
+    "sampleSize": 9
+  },
+  "bridge_transactions": {
+    "count": 0,
+    "hasData": false,
+    "sampleSize": 0
+  },
+  "analytics_protocol_snapshots": {
+    "count": 5,
+    "hasData": true,
+    "sampleSize": 5
+  },
+  "analytics_tvl_snapshots": {
+    "count": 35,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "quest_invites": {
+    "count": 6213,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "quest_registrations": {
+    "count": 1791,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "quest_campaigns": {
+    "count": 10,
+    "hasData": true,
+    "sampleSize": 10
+  },
+  "quests": {
+    "count": 41,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "quest_completions": {
+    "count": 8082,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "seeds_ledger": {
+    "count": 8026,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "ginie_invite_codes": {
+    "count": 1000,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "campaigns": {
+    "count": 1,
+    "hasData": true,
+    "sampleSize": 1
+  },
+  "campaign_participants": {
+    "count": 27,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "campaign_payouts": {
+    "count": 25,
+    "hasData": true,
+    "sampleSize": 15
+  },
+  "seasons": {
+    "count": 2,
+    "hasData": true,
+    "sampleSize": 2
+  },
+  "evm_streams": {
+    "count": 1,
+    "hasData": true,
+    "sampleSize": 1
+  },
+  "vouchers": {
+    "count": 79,
+    "hasData": true,
+    "sampleSize": 15
+  }
+}

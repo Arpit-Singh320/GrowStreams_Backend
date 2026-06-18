@@ -10,6 +10,17 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return data as T;
 }
 
+// Local proxy for analytics to avoid external API issues
+async function localRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data as T;
+}
+
 function authedRequest<T>(token: string, path: string, options?: RequestInit): Promise<T> {
   return request<T>(path, {
     ...options,
@@ -302,6 +313,171 @@ export interface PayloadResult {
   value?: string;
 }
 
+export interface AnalyticsContracts {
+  streamCore: string | null;
+  tokenVault: string | null;
+  growToken: string | null;
+  splitsRouter?: string | null;
+  distributionPool?: string | null;
+  liquidationManager?: string | null;
+}
+
+export interface AnalyticsExplorerLink {
+  key: string;
+  name: string;
+  address: string | null;
+  explorerUrl: string | null;
+  network: string;
+}
+
+export interface AnalyticsTvlToken {
+  key: string;
+  symbol: string;
+  name: string;
+  address: string | null;
+  category: string;
+  isStablecoin: boolean;
+  decimals: number;
+  balanceRaw: string;
+  balanceDisplay: string;
+  estimatedUsd: number | null;
+  pricingSource: string | null;
+  error?: string;
+}
+
+export interface AnalyticsTvlResponse {
+  vaultAddress: string;
+  pricing: {
+    source: string;
+    coverage: string;
+  };
+  totals: {
+    estimatedUsd: number;
+    estimatedStablecoinUsd: number;
+  };
+  tokens: AnalyticsTvlToken[];
+}
+
+export interface AnalyticsActivityResponse {
+  available: boolean;
+  windowDays: number;
+  source: string;
+  capturesPayloadSignedTransactions: boolean;
+  transactionCount: number;
+  streamEventCount: number;
+  vaultEventCount: number;
+  bridgeTransactionCount?: number;
+  uniqueWallets: number;
+  observedWithdrawVolumeUsd: number;
+  volumeUsd?: {
+    last24h: number;
+    last7d: number;
+    last30d: number;
+  };
+  dau?: number;
+  totalTransactions?: number;
+  uniqueWalletsAllTime?: number;
+  lastObservedActivityAt: string | null;
+  lastUpdatedAt?: string | null;
+}
+
+export interface AnalyticsHistoryPoint {
+  snapped_at: string;
+  estimated_tvl_usd: string | number;
+  estimated_stablecoin_tvl_usd: string | number;
+  total_streams: number;
+  active_streams: number;
+  observed_stream_event_count: number;
+  observed_vault_event_count: number;
+  observed_unique_wallets: number;
+  observed_withdraw_volume_usd: string | number;
+  observed_window_days: number;
+  observed_volume_source: string;
+  volume_24h_usd?: string | number;
+  volume_7d_usd?: string | number;
+  volume_30d_usd?: string | number;
+  dau?: number;
+  total_transactions?: number;
+  unique_wallets_all_time?: number;
+  last_activity_at?: string | null;
+  last_updated_at?: string | null;
+}
+
+export interface AnalyticsTvlHistoryPoint {
+  date: string;
+  tvl_usd: string | number;
+  stablecoin_tvl_usd: string | number;
+  snapped_at: string;
+}
+
+export interface AnalyticsVolumeHistoryPoint {
+  date: string;
+  volumeUsd: number;
+}
+
+export interface AnalyticsSummaryResponse {
+  generatedAt: string;
+  contracts: AnalyticsContracts;
+  explorerLinks?: AnalyticsExplorerLink[];
+  protocol: {
+    totalStreams: number;
+    activeStreams: number;
+  };
+  tvl: AnalyticsTvlResponse;
+  activity: AnalyticsActivityResponse;
+  users?: {
+    totalRegistered: number;
+    available: boolean;
+  };
+  quests?: {
+    registrations: number;
+    completions: number;
+    seedsDistributed: number;
+    available: boolean;
+  };
+  contributors?: {
+    participants: number;
+    contributions: number;
+    xpEvents: number;
+    available: boolean;
+  };
+  campaigns?: {
+    participants: number;
+    payouts: number;
+    available: boolean;
+  };
+  kpis?: {
+    tvlUsd: number;
+    volumeUsd: {
+      last24h: number;
+      last7d: number;
+      last30d: number;
+    };
+    dau: number;
+    totalTransactions: number;
+    uniqueWalletsAllTime: number;
+    totalRegisteredUsers?: number;
+    questRegistrations?: number;
+    questCompletions?: number;
+    contributorCount?: number;
+  };
+  freshness?: {
+    lastUpdatedAt: string | null;
+    lastSnapshotAt: string | null;
+    lastEventAt: string | null;
+    snapshotAgeSeconds: number | null;
+    isStale: boolean;
+    indexerRunning: boolean;
+  };
+  coverage: {
+    tvlSource: string;
+    streamCountsSource: string;
+    activitySource?: string;
+    usersSource?: string;
+    notes: string[];
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Multi-Campaign types
 // ---------------------------------------------------------------------------
@@ -429,6 +605,19 @@ export interface QuestProgress {
 
 export const api = {
   health: () => get<HealthData>('/health'),
+
+  analytics: {
+    summary: (days = 30) => localRequest<AnalyticsSummaryResponse>(`/api/analytics/summary?days=${days}`),
+    tvl: () => localRequest<AnalyticsTvlResponse>('/api/analytics/tvl'),
+    activity: (days = 30) => localRequest<AnalyticsActivityResponse>(`/api/analytics/activity?days=${days}`),
+    history: (hours = 24 * 7) => localRequest<{ available: boolean; lookbackHours: number; snapshots: AnalyticsHistoryPoint[] }>(`/api/analytics/history?hours=${hours}`),
+    contracts: () => localRequest<AnalyticsContracts>('/api/analytics/contracts'),
+    explorerLinks: () => localRequest<{ links: AnalyticsExplorerLink[]; count: number }>('/api/analytics/explorer-links'),
+    tvlHistory: (days = 30) => localRequest<{ available: boolean; lookbackDays: number; points: AnalyticsTvlHistoryPoint[] }>(`/api/analytics/tvl-history?days=${days}`),
+    volumeHistory: (days = 30) => localRequest<{ available: boolean; lookbackDays: number; source: string; coverage: string; points: AnalyticsVolumeHistoryPoint[] }>(`/api/analytics/volume-history?days=${days}`),
+    transactions: (limit = 50) => localRequest<{ available: boolean; transactions: any[]; count: number }>(`/api/analytics/transactions?limit=${limit}`),
+    wallets: (limit = 50) => localRequest<{ available: boolean; wallets: any[]; count: number }>(`/api/analytics/wallets?limit=${limit}`),
+  },
 
   tokens: {
     list: () => get<{ tokens: TokenInfo[]; count: number }>('/api/tokens'),

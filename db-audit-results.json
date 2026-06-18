@@ -1,0 +1,3906 @@
+{
+  "participants": {
+    "count": 27,
+    "sample": [
+      {
+        "id": 37,
+        "wallet": "0x064c4fb187267f2a3d47070351da5382610c6725803961d471bc16183677c56c",
+        "github_handle": null,
+        "x_handle": "goldifiweb3",
+        "display_name": "goldifiweb3",
+        "track": "CONTENT",
+        "total_xp": 10,
+        "created_at": "2026-04-09T17:33:12.384Z",
+        "updated_at": "2026-04-09T17:33:12.396Z",
+        "user_id": "1449052a-ca7a-4722-b4b8-0444aad3de44"
+      },
+      {
+        "id": 35,
+        "wallet": "<script>alert(1775691196)</script>",
+        "github_handle": "test-xss",
+        "x_handle": null,
+        "display_name": "test-xss",
+        "track": "OSS",
+        "total_xp": 10,
+        "created_at": "2026-04-08T23:33:16.352Z",
+        "updated_at": "2026-04-08T23:33:16.361Z",
+        "user_id": "0954d504-feaa-4fdb-a6e1-9e39f0d3d2d4"
+      },
+      {
+        "id": 34,
+        "wallet": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+        "github_handle": "gh-user",
+        "x_handle": null,
+        "display_name": "gh-user",
+        "track": "OSS",
+        "total_xp": 10,
+        "created_at": "2026-04-08T23:06:45.724Z",
+        "updated_at": "2026-04-08T23:06:45.728Z",
+        "user_id": "8acc7856-1b50-4f95-977c-1d29b81143f4"
+      },
+      {
+        "id": 33,
+        "wallet": "<script>alert(1)</script>",
+        "github_handle": "test",
+        "x_handle": null,
+        "display_name": "test",
+        "track": "OSS",
+        "total_xp": 10,
+        "created_at": "2026-04-08T23:06:38.775Z",
+        "updated_at": "2026-04-08T23:06:38.782Z",
+        "user_id": "368cc339-afd1-4822-862d-3fa2083b620b"
+      },
+      {
+        "id": 32,
+        "wallet": "0x22b1e62d12f48e506ac0d81d9c9100c0310456e555f95144bea8850a001ff84a",
+        "github_handle": "zeel991",
+        "x_handle": null,
+        "display_name": "zeel991",
+        "track": "OSS",
+        "total_xp": 10,
+        "created_at": "2026-04-07T06:59:00.006Z",
+        "updated_at": "2026-04-07T06:59:00.014Z",
+        "user_id": "520b4727-2bb0-474a-a623-0370ef007e0a"
+      },
+      {
+        "id": 31,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "github_handle": null,
+        "x_handle": "prathmeshweb3",
+        "display_name": "prathmeshweb3",
+        "track": "CONTENT",
+        "total_xp": 1460,
+        "created_at": "2026-04-06T06:22:49.343Z",
+        "updated_at": "2026-04-09T00:00:01.533Z",
+        "user_id": "805b15f9-17d0-4040-827c-39f290fd6882"
+      },
+      {
+        "id": 30,
+        "wallet": "0xa6d5aa3dcf1d7f12a9fbb641ae8e603b3a92b0f8e9fd17b3894850ebcf710e33",
+        "github_handle": "rohan911438",
+        "x_handle": null,
+        "display_name": "rohan911438",
+        "track": "OSS",
+        "total_xp": 10,
+        "created_at": "2026-04-05T13:20:03.726Z",
+        "updated_at": "2026-04-05T13:20:03.734Z",
+        "user_id": "6046c013-9b6a-4601-9b31-63ff7a5e5613"
+      },
+      {
+        "id": 29,
+        "wallet": "0x4eaa74b8716fffeecf7cfb08b03a9599ad2816d120781ced0adee14fc55cf949",
+        "github_handle": null,
+        "x_handle": "SabenSoul",
+        "display_name": "SabenSoul",
+        "track": "CONTENT",
+        "total_xp": 10,
+        "created_at": "2026-04-05T12:07:17.056Z",
+        "updated_at": "2026-04-05T12:07:17.066Z",
+        "user_id": "e88df67c-84e6-4429-9c01-2f0044e0edf9"
+      },
+      {
+        "id": 28,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "github_handle": "Anmol-345",
+        "x_handle": null,
+        "display_name": "Anmol-345",
+        "track": "OSS",
+        "total_xp": 4710,
+        "created_at": "2026-04-05T11:13:39.942Z",
+        "updated_at": "2026-04-19T00:00:01.430Z",
+        "user_id": "449092ec-4c41-40ae-8c9c-a01c1e50c919"
+      },
+      {
+        "id": 27,
+        "wallet": "0xb8ece92a20f1d9cd5be8a8278851114f619d5543b542d72830a5a2156e9ba151",
+        "github_handle": "Oltking",
+        "x_handle": "ddevoure_",
+        "display_name": "Oltking",
+        "track": "BOTH",
+        "total_xp": 1010,
+        "created_at": "2026-04-03T08:37:04.947Z",
+        "updated_at": "2026-04-05T06:00:03.910Z",
+        "user_id": "382495e8-4238-4366-bee6-95377a62a2b7"
+      },
+      {
+        "id": 26,
+        "wallet": "0x1afb3b7f0ab889b44db7ad37d0653cb36528d19262e8f8c9966dc5c7bcb00c1e",
+        "github_handle": null,
+        "x_handle": "Shashwat_web3",
+        "display_name": "Shashwat_web3",
+        "track": "CONTENT",
+        "total_xp": 510,
+        "created_at": "2026-04-02T08:47:55.746Z",
+        "updated_at": "2026-04-05T06:00:03.306Z",
+        "user_id": "d1cf4108-6914-42c0-a821-4c595cb96023"
+      },
+      {
+        "id": 24,
+        "wallet": "0x30e0dc5605871cbad85e9ea957e83c2a59df2e7b26656b37c2e0a5dfd7637e70",
+        "github_handle": null,
+        "x_handle": "GediyaPoorvesh",
+        "display_name": "GediyaPoorvesh",
+        "track": "CONTENT",
+        "total_xp": 780,
+        "created_at": "2026-04-01T05:14:53.124Z",
+        "updated_at": "2026-04-07T00:00:04.874Z",
+        "user_id": "df0c5df9-e148-48c0-ac70-1f682b39a116"
+      },
+      {
+        "id": 23,
+        "wallet": "0x88a13e7f3a22533fb91253cf36de9e3944a1cb02de2ebeb35a6e30f5b9dded79",
+        "github_handle": null,
+        "x_handle": "nerminsaymaz55",
+        "display_name": "nerminsaymaz55",
+        "track": "CONTENT",
+        "total_xp": 10,
+        "created_at": "2026-03-26T19:10:50.327Z",
+        "updated_at": "2026-03-26T19:10:50.334Z",
+        "user_id": "2a90dba8-53e4-41e6-a88b-832e995c6c9a"
+      },
+      {
+        "id": 22,
+        "wallet": "0xae55fee14bdd7ac7e7a1aebb519a05fce58d6dd1ae8fce3ea1109aa18c174c1f",
+        "github_handle": null,
+        "x_handle": "leylasilmez55",
+        "display_name": "leylasilmez55",
+        "track": "CONTENT",
+        "total_xp": 360,
+        "created_at": "2026-03-26T16:51:21.917Z",
+        "updated_at": "2026-04-05T05:53:47.467Z",
+        "user_id": "5625c2b9-ca22-4c7a-b6e9-b078f666c31e"
+      },
+      {
+        "id": 21,
+        "wallet": "0x48bd1bd87e0e9b91e299d8e73c15d5c2f7c7dbbdf5861eade87d7513b25da522",
+        "github_handle": null,
+        "x_handle": "ceylandoymaz55",
+        "display_name": "ceylandoymaz55",
+        "track": "CONTENT",
+        "total_xp": 10,
+        "created_at": "2026-03-26T16:34:39.293Z",
+        "updated_at": "2026-03-26T16:34:39.299Z",
+        "user_id": "3f9f38cf-aa53-4b4b-82eb-cc5facad234f"
+      }
+    ]
+  },
+  "contributions": {
+    "count": 46,
+    "sample": [
+      {
+        "id": 101,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041919987347239240",
+        "pr_number": null,
+        "tweet_id": "2041919987347239240",
+        "score": 43,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post has a catchy opening but lacks depth and clarity in explaining how GrowStreams is solving problems. It would benefit from more detailed insights or examples to engage the audience effectively.",
+        "agent_response": {
+          "phase": "rejected_after_reeval",
+          "score": 45,
+          "factors": {
+            "quality": 15,
+            "relevance": 10,
+            "engagement": 10,
+            "originality": 5,
+            "educationalValue": 5
+          },
+          "feedback": "The post has a catchy opening but lacks depth and clarity in explaining how GrowStreams is solving problems. It would benefit from more detailed insights or examples to engage the audience effectively.",
+          "velocity": 0.01,
+          "contentType": "thread",
+          "qualityScore": 45,
+          "combinedScore": 43,
+          "followerCount": 28,
+          "engagementScore": 40
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-08T17:00:13.424Z",
+        "updated_at": "2026-04-08T18:00:02.523Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 100,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041920298954715421",
+        "pr_number": null,
+        "tweet_id": "2041920298954715421",
+        "score": 25,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post touches on an interesting concept regarding real-time payments and freelancing, but it lacks depth and clarity. It would benefit from more substantial insights or explanations about how GrowStreams specifically impacts this change.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 25,
+          "factors": {
+            "quality": 10,
+            "relevance": 5,
+            "engagement": 5,
+            "originality": 3,
+            "educationalValue": 2
+          },
+          "feedback": "The post touches on an interesting concept regarding real-time payments and freelancing, but it lacks depth and clarity. It would benefit from more substantial insights or explanations about how GrowStreams specifically impacts this change.",
+          "velocity": 0.01,
+          "contentType": "general",
+          "qualityScore": 25,
+          "followerCount": 28,
+          "engagementScore": 40
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-08T17:00:10.619Z",
+        "updated_at": "2026-04-08T17:00:10.620Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 99,
+        "wallet": "0x38ccb07653bb68fb18c5cc9838afb38c1cfa88ef6b9761215e925ab75e62d25a",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041766632599756971",
+        "pr_number": null,
+        "tweet_id": "2041766632599756971",
+        "score": 10,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post lacks substantial content and does not provide any meaningful insight or information about GrowStreams. It appears to be a low-effort mention without educational value or engagement potential.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 10,
+          "factors": {
+            "quality": 5,
+            "relevance": 2,
+            "engagement": 2,
+            "originality": 1,
+            "educationalValue": 0
+          },
+          "feedback": "The post lacks substantial content and does not provide any meaningful insight or information about GrowStreams. It appears to be a low-effort mention without educational value or engagement potential.",
+          "velocity": 0.045,
+          "contentType": "general",
+          "qualityScore": 10,
+          "followerCount": 42,
+          "engagementScore": 55
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-08T07:00:14.534Z",
+        "updated_at": "2026-04-08T07:00:14.535Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 98,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041381353724551489",
+        "pr_number": null,
+        "tweet_id": "2041381353724551489",
+        "score": 55,
+        "xp_awarded": 500,
+        "status": "CLOSED",
+        "agent_feedback": "The post presents an interesting concept about automatic salary payments, which is relevant to GrowStreams. However, it lacks depth and educational value, offering little insight into how the technology works. Improving clarity and providing more information could enhance engagement and originality.",
+        "agent_response": {
+          "phase": "finalized",
+          "score": 55,
+          "factors": {
+            "quality": 20,
+            "relevance": 10,
+            "engagement": 10,
+            "originality": 5,
+            "educationalValue": 10
+          },
+          "feedback": "The post presents an interesting concept about automatic salary payments, which is relevant to GrowStreams. However, it lacks depth and educational value, offering little insight into how the technology works. Improving clarity and providing more information could enhance engagement and originality.",
+          "velocity": 0.025,
+          "contentType": "general",
+          "qualityScore": 55,
+          "combinedScore": 55,
+          "followerCount": 25,
+          "engagementScore": 55
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-07T05:30:05.350Z",
+        "updated_at": "2026-05-01T00:00:00.804Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 97,
+        "wallet": "0x30e0dc5605871cbad85e9ea957e83c2a59df2e7b26656b37c2e0a5dfd7637e70",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041357552223727934",
+        "pr_number": null,
+        "tweet_id": "2041357552223727934",
+        "score": 20,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post lacks substantial content and does not provide any educational value or insights about GrowStreams or Vara Network. It appears to be a low-effort mention without meaningful engagement or discussion.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 20,
+          "factors": {
+            "quality": 10,
+            "relevance": 5,
+            "engagement": 3,
+            "originality": 2,
+            "educationalValue": 0
+          },
+          "feedback": "The post lacks substantial content and does not provide any educational value or insights about GrowStreams or Vara Network. It appears to be a low-effort mention without meaningful engagement or discussion.",
+          "velocity": 0,
+          "contentType": "general",
+          "qualityScore": 20,
+          "followerCount": 714,
+          "engagementScore": 20
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-07T03:30:08.141Z",
+        "updated_at": "2026-04-07T03:30:08.142Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 96,
+        "wallet": "0x30e0dc5605871cbad85e9ea957e83c2a59df2e7b26656b37c2e0a5dfd7637e70",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041357552223727934",
+        "pr_number": null,
+        "tweet_id": "2041357552223727934",
+        "score": 20,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post lacks substantial content and does not provide any meaningful insight or information about GrowStreams or its technology. It appears to be a low-effort mention without educational value or engagement potential.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 20,
+          "factors": {
+            "quality": 10,
+            "relevance": 5,
+            "engagement": 5,
+            "originality": 0,
+            "educationalValue": 0
+          },
+          "feedback": "The post lacks substantial content and does not provide any meaningful insight or information about GrowStreams or its technology. It appears to be a low-effort mention without educational value or engagement potential.",
+          "velocity": 0,
+          "contentType": "general",
+          "qualityScore": 20,
+          "followerCount": 714,
+          "engagementScore": 20
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-07T03:30:05.507Z",
+        "updated_at": "2026-04-07T03:30:05.508Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 95,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041204903817977879",
+        "pr_number": null,
+        "tweet_id": "2041204903817977879",
+        "score": 43,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post introduces the concept of streaming payments, which is relevant to GrowStreams, but lacks depth and clarity. It could benefit from more detailed explanations or examples to enhance its educational value and engagement potential.",
+        "agent_response": {
+          "phase": "rejected_after_reeval",
+          "score": 45,
+          "factors": {
+            "quality": 15,
+            "relevance": 10,
+            "engagement": 10,
+            "originality": 5,
+            "educationalValue": 5
+          },
+          "feedback": "The post introduces the concept of streaming payments, which is relevant to GrowStreams, but lacks depth and clarity. It could benefit from more detailed explanations or examples to enhance its educational value and engagement potential.",
+          "velocity": 0.01,
+          "contentType": "thread",
+          "qualityScore": 45,
+          "combinedScore": 43,
+          "followerCount": 23,
+          "engagementScore": 40
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-06T17:30:09.515Z",
+        "updated_at": "2026-04-06T18:00:04.775Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 94,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041205268869210501",
+        "pr_number": null,
+        "tweet_id": "2041205268869210501",
+        "score": 25,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post lacks clarity and depth, making it difficult to understand its connection to GrowStreams or the broader context of streaming payments. It would benefit from more specific insights or explanations related to the technology or its implications.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 25,
+          "factors": {
+            "quality": 10,
+            "relevance": 5,
+            "engagement": 5,
+            "originality": 5,
+            "educationalValue": 0
+          },
+          "feedback": "The post lacks clarity and depth, making it difficult to understand its connection to GrowStreams or the broader context of streaming payments. It would benefit from more specific insights or explanations related to the technology or its implications.",
+          "velocity": 0,
+          "contentType": "general",
+          "qualityScore": 25,
+          "followerCount": 23,
+          "engagementScore": 20
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-06T17:30:05.655Z",
+        "updated_at": "2026-04-06T17:30:05.655Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 93,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041174258571997469",
+        "pr_number": null,
+        "tweet_id": "2041174258571997469",
+        "score": 35,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post presents a provocative idea about payment structures but lacks depth and clarity. It does not provide substantial information about GrowStreams or how it works, which limits its educational value and engagement potential.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 35,
+          "factors": {
+            "quality": 15,
+            "relevance": 10,
+            "engagement": 0,
+            "originality": 5,
+            "educationalValue": 5
+          },
+          "feedback": "The post presents a provocative idea about payment structures but lacks depth and clarity. It does not provide substantial information about GrowStreams or how it works, which limits its educational value and engagement potential.",
+          "velocity": 0,
+          "contentType": "general",
+          "qualityScore": 35,
+          "followerCount": 21,
+          "engagementScore": 20
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-06T15:30:08.372Z",
+        "updated_at": "2026-04-06T15:30:08.373Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 92,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041175207105482754",
+        "pr_number": null,
+        "tweet_id": "2041175207105482754",
+        "score": 59,
+        "xp_awarded": 500,
+        "status": "CLOSED",
+        "agent_feedback": "The post presents a provocative idea about payment structures but lacks depth and clarity. It could benefit from more explanation about how GrowStreams works and its advantages over traditional salary systems to enhance its educational value.",
+        "agent_response": {
+          "phase": "promoted",
+          "score": 45,
+          "factors": {
+            "quality": 15,
+            "relevance": 10,
+            "engagement": 10,
+            "originality": 5,
+            "educationalValue": 5
+          },
+          "feedback": "The post presents a provocative idea about payment structures but lacks depth and clarity. It could benefit from more explanation about how GrowStreams works and its advantages over traditional salary systems to enhance its educational value.",
+          "velocity": 0.13,
+          "contentType": "general",
+          "qualityScore": 45,
+          "combinedScore": 59,
+          "followerCount": 21,
+          "engagementScore": 85
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-06T15:30:05.320Z",
+        "updated_at": "2026-05-01T00:00:00.804Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 91,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "track": "CONTENT",
+        "external_id": "TWEET#2041067569696968951",
+        "pr_number": null,
+        "tweet_id": "2041067569696968951",
+        "score": 49,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post introduces an interesting concept about real-time payments but lacks depth and clarity. It could benefit from more detailed insights or examples to engage the audience and educate them about GrowStreams effectively.",
+        "agent_response": {
+          "phase": "rejected_after_reeval",
+          "score": 45,
+          "factors": {
+            "quality": 15,
+            "relevance": 10,
+            "engagement": 10,
+            "originality": 5,
+            "educationalValue": 5
+          },
+          "feedback": "The post introduces an interesting concept about real-time payments but lacks depth and clarity. It could benefit from more detailed insights or examples to engage the audience and educate them about GrowStreams effectively.",
+          "velocity": 0.025,
+          "contentType": "general",
+          "qualityScore": 45,
+          "combinedScore": 49,
+          "followerCount": 15,
+          "engagementScore": 55
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-06T09:00:06.345Z",
+        "updated_at": "2026-04-06T12:00:04.702Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 90,
+        "wallet": "0x4eaa74b8716fffeecf7cfb08b03a9599ad2816d120781ced0adee14fc55cf949",
+        "track": "CONTENT",
+        "external_id": "TWEET#2040858948081971392",
+        "pr_number": null,
+        "tweet_id": "2040858948081971392",
+        "score": 10,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post lacks clarity and depth, making it difficult to understand its message. It does not provide any meaningful insights about GrowStreams or the broader context of streaming payments.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 10,
+          "factors": {
+            "quality": 5,
+            "relevance": 2,
+            "engagement": 0,
+            "originality": 3,
+            "educationalValue": 0
+          },
+          "feedback": "The post lacks clarity and depth, making it difficult to understand its message. It does not provide any meaningful insights about GrowStreams or the broader context of streaming payments.",
+          "velocity": 0,
+          "contentType": "general",
+          "qualityScore": 10,
+          "followerCount": 14,
+          "engagementScore": 20
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-05T18:30:06.445Z",
+        "updated_at": "2026-04-05T18:30:06.445Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 89,
+        "wallet": "0x4eaa74b8716fffeecf7cfb08b03a9599ad2816d120781ced0adee14fc55cf949",
+        "track": "CONTENT",
+        "external_id": "TWEET#2040859224067236150",
+        "pr_number": null,
+        "tweet_id": "2040859224067236150",
+        "score": 10,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post lacks clarity and substance, making it difficult to understand its message. It does not provide any meaningful discussion about GrowStreams or the technology behind it, resulting in a low score.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 10,
+          "factors": {
+            "quality": 5,
+            "relevance": 2,
+            "engagement": 2,
+            "originality": 1,
+            "educationalValue": 0
+          },
+          "feedback": "The post lacks clarity and substance, making it difficult to understand its message. It does not provide any meaningful discussion about GrowStreams or the technology behind it, resulting in a low score.",
+          "velocity": 0,
+          "contentType": "general",
+          "qualityScore": 10,
+          "followerCount": 14,
+          "engagementScore": 20
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-05T18:30:03.608Z",
+        "updated_at": "2026-04-05T18:30:03.609Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 88,
+        "wallet": "0x30e0dc5605871cbad85e9ea957e83c2a59df2e7b26656b37c2e0a5dfd7637e70",
+        "track": "CONTENT",
+        "external_id": "TWEET#2040776992723972160",
+        "pr_number": null,
+        "tweet_id": "2040776992723972160",
+        "score": 25,
+        "xp_awarded": 0,
+        "status": "REJECTED",
+        "agent_feedback": "The post lacks depth and does not provide any meaningful information about GrowStreams or its technology. It appears to be a low-effort mention without educational value or engagement potential.",
+        "agent_response": {
+          "phase": "initial",
+          "score": 25,
+          "factors": {
+            "quality": 10,
+            "relevance": 5,
+            "engagement": 5,
+            "originality": 5,
+            "educationalValue": 0
+          },
+          "feedback": "The post lacks depth and does not provide any meaningful information about GrowStreams or its technology. It appears to be a low-effort mention without educational value or engagement potential.",
+          "velocity": 0,
+          "contentType": "general",
+          "qualityScore": 25,
+          "followerCount": 714,
+          "engagementScore": 20
+        },
+        "first_scored_at": null,
+        "max_daily_until": null,
+        "submitted_at": "2026-04-05T13:05:51.314Z",
+        "updated_at": "2026-04-05T13:05:51.314Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      },
+      {
+        "id": 87,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "track": "OSS",
+        "external_id": "PR#24",
+        "pr_number": 24,
+        "tweet_id": null,
+        "score": 65,
+        "xp_awarded": 700,
+        "status": "COMPLETED",
+        "agent_feedback": "The pull request introduces a significant amount of new functionality, including API endpoints and tests, which is commendable. However, it lacks a linked issue for context, making it difficult to assess its relevance fully. Additionally, while the code is mostly well-structured, there are areas where documentation and edge cases could be improved.",
+        "agent_response": {
+          "score": 65,
+          "factors": {
+            "codeQuality": 15,
+            "correctness": 25,
+            "completeness": 0,
+            "testCoverage": 20,
+            "issueRelevance": 5
+          },
+          "feedback": "The pull request introduces a significant amount of new functionality, including API endpoints and tests, which is commendable. However, it lacks a linked issue for context, making it difficult to assess its relevance fully. Additionally, while the code is mostly well-structured, there are areas where documentation and edge cases could be improved."
+        },
+        "first_scored_at": "2026-04-05T13:05:38.294Z",
+        "max_daily_until": "2026-04-19T13:05:38.294Z",
+        "submitted_at": "2026-04-05T13:05:38.294Z",
+        "updated_at": "2026-04-19T14:00:00.965Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "campaign_count": 1
+      }
+    ]
+  },
+  "xp_events": {
+    "count": 84,
+    "sample": [
+      {
+        "id": 94,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-19T00:00:01.423Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 93,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-18T00:00:01.188Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 92,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-17T00:00:00.386Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 91,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-16T00:00:01.655Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 90,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-15T00:00:01.306Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 89,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-14T00:00:01.291Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 88,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-13T00:00:01.814Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 87,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-12T00:00:01.748Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 86,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-11T00:00:01.487Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 85,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-10T00:00:01.441Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 84,
+        "wallet": "0x064c4fb187267f2a3d47070351da5382610c6725803961d471bc16183677c56c",
+        "xp_delta": 10,
+        "reason": "JOIN_BONUS",
+        "contribution_id": null,
+        "created_at": "2026-04-09T17:33:12.390Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 83,
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "xp_delta": 45,
+        "reason": "ENGAGEMENT_BONUS",
+        "contribution_id": 98,
+        "created_at": "2026-04-09T00:00:01.524Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 82,
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_delta": 150,
+        "reason": "DAILY_ACCUMULATION",
+        "contribution_id": 80,
+        "created_at": "2026-04-09T00:00:01.075Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 81,
+        "wallet": "<script>alert(1775691196)</script>",
+        "xp_delta": 10,
+        "reason": "JOIN_BONUS",
+        "contribution_id": null,
+        "created_at": "2026-04-08T23:33:16.358Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      },
+      {
+        "id": 80,
+        "wallet": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+        "xp_delta": 10,
+        "reason": "JOIN_BONUS",
+        "contribution_id": null,
+        "created_at": "2026-04-08T23:06:45.726Z",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d"
+      }
+    ]
+  },
+  "daily_snapshots": {
+    "count": 1965,
+    "sample": [
+      {
+        "id": 2076,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0x82d3c9fafe347ceb93ef05778b1eeab7cbbff7f2084113eef9a0edbe4cb4992c",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 25
+      },
+      {
+        "id": 2075,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0x08bf362b59c274da506c1fbbc910eba23deb1dcf204f671f32a627d4b98fcb73",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 24
+      },
+      {
+        "id": 2074,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0x389dd99f2f7ebe85edfa5959acd40d7d5e47e3ca151be49a49207e14af345571",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 23
+      },
+      {
+        "id": 2073,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0xdc5a12707c1aee2f762fa8d2d2526857dd761be350e7556d7978aa9db19d1115",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 22
+      },
+      {
+        "id": 2072,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0xb6b3e720679a2e2d29cf7eb5f80b3a1b5b88ccad6dda70b0bfc6195b462a5b45",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 21
+      },
+      {
+        "id": 2071,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0xe0db7e4bce1ba77c99e8a2e0e41ea492bc11f1ad0ffe42959b17b1b60ee90875",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 20
+      },
+      {
+        "id": 2070,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0x22b1e62d12f48e506ac0d81d9c9100c0310456e555f95144bea8850a001ff84a",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 19
+      },
+      {
+        "id": 2069,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0x9e0e518e04ce3dfe36d2a338a8e10b02c6a5a9bfceefaa9a9bf627dc2f4a412e",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 18
+      },
+      {
+        "id": 2068,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0x4eaa74b8716fffeecf7cfb08b03a9599ad2816d120781ced0adee14fc55cf949",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 17
+      },
+      {
+        "id": 2067,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0xa6d5aa3dcf1d7f12a9fbb641ae8e603b3a92b0f8e9fd17b3894850ebcf710e33",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 16
+      },
+      {
+        "id": 2066,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0x064c4fb187267f2a3d47070351da5382610c6725803961d471bc16183677c56c",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 15
+      },
+      {
+        "id": 2065,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "<script>alert(1775691196)</script>",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 14
+      },
+      {
+        "id": 2064,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 13
+      },
+      {
+        "id": 2063,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "<script>alert(1)</script>",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 12
+      },
+      {
+        "id": 2062,
+        "snapshot_date": "2026-06-17T18:30:00.000Z",
+        "wallet": "0x88a13e7f3a22533fb91253cf36de9e3944a1cb02de2ebeb35a6e30f5b9dded79",
+        "xp_at_snapshot": 10,
+        "rank_at_snapshot": 11
+      }
+    ]
+  },
+  "users": {
+    "count": 68,
+    "sample": [
+      {
+        "id": "f6a2e1b4-46ca-4be9-aa64-6f1d4173863b",
+        "wallet": "<script>alert(1776319279)</script>",
+        "github_handle": "test-xss",
+        "x_handle": null,
+        "display_name": "test-xss",
+        "referral_code": "GS-6NEDM2",
+        "referred_by": null,
+        "created_at": "2026-04-16T06:01:19.429Z",
+        "updated_at": "2026-04-16T06:01:19.429Z"
+      },
+      {
+        "id": "f366bafc-cef4-4940-b712-2d5d39a100dd",
+        "wallet": "0xUSER_ALPHA",
+        "github_handle": "alpha_dev",
+        "x_handle": "alpha_x",
+        "display_name": "alpha_dev",
+        "referral_code": "GS-DW2ZX3",
+        "referred_by": null,
+        "created_at": "2026-03-16T12:51:38.038Z",
+        "updated_at": "2026-03-16T12:51:38.038Z"
+      },
+      {
+        "id": "ee4c9e30-008e-473b-9a16-ef58bf7475d9",
+        "wallet": "<script>alert(1776103275)</script>",
+        "github_handle": "test-xss",
+        "x_handle": null,
+        "display_name": "test-xss",
+        "referral_code": "GS-Q9BWPJ",
+        "referred_by": null,
+        "created_at": "2026-04-13T18:01:15.610Z",
+        "updated_at": "2026-04-13T18:01:15.610Z"
+      },
+      {
+        "id": "ed1d781b-f056-445b-87c4-c498ff77c4d3",
+        "wallet": "<script>alert(1776232878)</script>",
+        "github_handle": "test-xss",
+        "x_handle": null,
+        "display_name": "test-xss",
+        "referral_code": "GS-BGUGJH",
+        "referred_by": null,
+        "created_at": "2026-04-15T06:01:18.780Z",
+        "updated_at": "2026-04-15T06:01:18.780Z"
+      },
+      {
+        "id": "ea2d23ed-6ffa-4e70-8c05-e4f20b0df7cb",
+        "wallet": "0xE2E_ALPHA_1773747955",
+        "github_handle": "e2e_alpha_gh",
+        "x_handle": "e2e_alpha_x",
+        "display_name": "e2e_alpha_gh",
+        "referral_code": "GS-NLR9NC",
+        "referred_by": null,
+        "created_at": "2026-03-17T11:49:13.780Z",
+        "updated_at": "2026-03-17T11:49:13.780Z"
+      },
+      {
+        "id": "e9188ea0-4ce8-4446-bc7a-7c9d310bba86",
+        "wallet": "0x82d3c9fafe347ceb93ef05778b1eeab7cbbff7f2084113eef9a0edbe4cb4992c",
+        "github_handle": null,
+        "x_handle": "nurullahtepe555",
+        "display_name": "nurullahtepe555",
+        "referral_code": "GS-D8ZUGB",
+        "referred_by": null,
+        "created_at": "2026-03-26T12:36:17.064Z",
+        "updated_at": "2026-03-26T12:36:17.064Z"
+      },
+      {
+        "id": "e88df67c-84e6-4429-9c01-2f0044e0edf9",
+        "wallet": "0x4eaa74b8716fffeecf7cfb08b03a9599ad2816d120781ced0adee14fc55cf949",
+        "github_handle": null,
+        "x_handle": "SabenSoul",
+        "display_name": "SabenSoul",
+        "referral_code": "GS-TZKB7R",
+        "referred_by": null,
+        "created_at": "2026-04-05T12:07:17.050Z",
+        "updated_at": "2026-04-05T12:07:17.050Z"
+      },
+      {
+        "id": "e445006d-6256-477e-b702-c661d6e6526e",
+        "wallet": "0x8c41fe99914b68aa378e497f33e8fd9395138ab9b0e6c0b04f1846e7f7da5355",
+        "github_handle": "Sarthakv007",
+        "x_handle": "Sar1hakkk",
+        "display_name": "Sarthakv007",
+        "referral_code": "GS-QNA53D",
+        "referred_by": null,
+        "created_at": "2026-03-18T09:03:08.585Z",
+        "updated_at": "2026-03-18T09:03:08.585Z"
+      },
+      {
+        "id": "df0c5df9-e148-48c0-ac70-1f682b39a116",
+        "wallet": "0x30e0dc5605871cbad85e9ea957e83c2a59df2e7b26656b37c2e0a5dfd7637e70",
+        "github_handle": null,
+        "x_handle": "GediyaPoorvesh",
+        "display_name": "GediyaPoorvesh",
+        "referral_code": "GS-GN5HD2",
+        "referred_by": null,
+        "created_at": "2026-04-01T05:14:53.122Z",
+        "updated_at": "2026-04-01T05:14:53.122Z"
+      },
+      {
+        "id": "de55c828-66f9-4d1c-9513-52566c74897a",
+        "wallet": "0x3e5ed9dcfb3a7cb636e57980f1b016fd706ceed9155426758506e59de8b8445a",
+        "github_handle": "@Adityaakr",
+        "x_handle": "Adityakrx",
+        "display_name": "@Adityaakr",
+        "referral_code": "GS-4266RE",
+        "referred_by": null,
+        "created_at": "2026-03-18T15:26:38.749Z",
+        "updated_at": "2026-03-18T15:26:38.749Z"
+      },
+      {
+        "id": "d1cf4108-6914-42c0-a821-4c595cb96023",
+        "wallet": "0x1afb3b7f0ab889b44db7ad37d0653cb36528d19262e8f8c9966dc5c7bcb00c1e",
+        "github_handle": null,
+        "x_handle": "Shashwat_web3",
+        "display_name": "Shashwat_web3",
+        "referral_code": "GS-UZQPHW",
+        "referred_by": null,
+        "created_at": "2026-04-02T08:47:55.740Z",
+        "updated_at": "2026-04-02T08:47:55.740Z"
+      },
+      {
+        "id": "c988d333-a80f-4ee0-9427-6a51af4b022c",
+        "wallet": "<script>alert(1775757669)</script>",
+        "github_handle": "test-xss",
+        "x_handle": null,
+        "display_name": "test-xss",
+        "referral_code": "GS-2STM62",
+        "referred_by": null,
+        "created_at": "2026-04-09T18:01:09.596Z",
+        "updated_at": "2026-04-09T18:01:09.596Z"
+      },
+      {
+        "id": "c56ee07b-ba5b-43ff-bd05-d1dcd448dd53",
+        "wallet": "<script>alert(1777096876)</script>",
+        "github_handle": "test-xss",
+        "x_handle": null,
+        "display_name": "test-xss",
+        "referral_code": "GS-NZZHYU",
+        "referred_by": null,
+        "created_at": "2026-04-25T06:01:16.267Z",
+        "updated_at": "2026-04-25T06:01:16.267Z"
+      },
+      {
+        "id": "c4d5c082-b198-4621-a96b-f801ef629424",
+        "wallet": "0xE2E_BETA_1773747970",
+        "github_handle": "e2e_beta_gh",
+        "x_handle": "e2e_beta_x",
+        "display_name": "e2e_beta_gh",
+        "referral_code": "GS-K73QC7",
+        "referred_by": "ea2d23ed-6ffa-4e70-8c05-e4f20b0df7cb",
+        "created_at": "2026-03-17T11:49:28.137Z",
+        "updated_at": "2026-03-17T11:49:28.137Z"
+      },
+      {
+        "id": "c31d009a-2600-483f-a8a3-9bf458a4d759",
+        "wallet": "0xdabf5669c365c8f1ead6d4fb61297fbd83f3220cc63bdaffb3a3bd9edebf9109",
+        "github_handle": null,
+        "x_handle": "emreyakmaz55",
+        "display_name": "emreyakmaz55",
+        "referral_code": "GS-6356JJ",
+        "referred_by": null,
+        "created_at": "2026-03-26T03:18:43.431Z",
+        "updated_at": "2026-03-26T03:18:43.431Z"
+      }
+    ]
+  },
+  "referrals": {
+    "count": 2,
+    "sample": [
+      {
+        "id": "d5614537-f573-4d15-940a-2a7b4638df16",
+        "referrer_user_id": "f366bafc-cef4-4940-b712-2d5d39a100dd",
+        "referred_user_id": "7aa9dc8a-554f-4907-9ef6-ed6380f4fb92",
+        "created_at": "2026-03-16T12:51:47.409Z"
+      },
+      {
+        "id": "44cb429a-dd42-4d37-a96f-211ecb4437d9",
+        "referrer_user_id": "ea2d23ed-6ffa-4e70-8c05-e4f20b0df7cb",
+        "referred_user_id": "c4d5c082-b198-4621-a96b-f801ef629424",
+        "created_at": "2026-03-17T11:49:28.140Z"
+      }
+    ]
+  },
+  "stream_events": {
+    "count": 20,
+    "sample": [
+      {
+        "id": 20,
+        "stream_id": "unknown",
+        "event_type": "created",
+        "sender": null,
+        "receiver": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "flow_rate": "1000",
+        "amount": "3600000",
+        "block_hash": "0x9c8ea990d60d91fe976fa9ffb9b2f77bb08ffb3c05b7df55c98e3d47b011bde7",
+        "metadata": {
+          "flowRateInterval": "second"
+        },
+        "created_at": "2026-06-13T10:08:19.949Z"
+      },
+      {
+        "id": 19,
+        "stream_id": "unknown",
+        "event_type": "created",
+        "sender": null,
+        "receiver": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "flow_rate": "1000",
+        "amount": "3600000",
+        "block_hash": "0xd38ed81ee05dfca197a6cc06f00d3a5393855453d289c12ef820b8e34f2ea87f",
+        "metadata": {
+          "flowRateInterval": "second"
+        },
+        "created_at": "2026-06-13T10:01:43.513Z"
+      },
+      {
+        "id": 18,
+        "stream_id": "7",
+        "event_type": "stopped",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": null,
+        "block_hash": "0x6a9d1fe92fd1dfb5e96433af7b4c812abd39873e227c046c1851683493304cc3",
+        "metadata": null,
+        "created_at": "2026-06-13T08:48:34.964Z"
+      },
+      {
+        "id": 17,
+        "stream_id": "7",
+        "event_type": "updated",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": "2000",
+        "amount": null,
+        "block_hash": "0x352b567c777b1398ea27ff3996c05f31288d704d3fc1b7003f33eb13c210c3e7",
+        "metadata": null,
+        "created_at": "2026-06-13T08:48:22.424Z"
+      },
+      {
+        "id": 16,
+        "stream_id": "7",
+        "event_type": "deposit",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": "1000000",
+        "block_hash": "0xf7ee868d53c05706c5c9e887843072ee5141a9844ba336c19266e4306ada8227",
+        "metadata": null,
+        "created_at": "2026-06-13T08:48:16.298Z"
+      },
+      {
+        "id": 15,
+        "stream_id": "7",
+        "event_type": "resumed",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": null,
+        "block_hash": "0x5e22502aa01945acc817292b88f8cb53e346779656135e5b5b4b15f154ef733d",
+        "metadata": null,
+        "created_at": "2026-06-13T08:48:10.403Z"
+      },
+      {
+        "id": 14,
+        "stream_id": "7",
+        "event_type": "paused",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": null,
+        "block_hash": "0x0d2f8eb628b5b75f2664c6be9951705b518cb9e764a5cf7dc8fdeac0653b820c",
+        "metadata": null,
+        "created_at": "2026-06-13T08:48:04.320Z"
+      },
+      {
+        "id": 13,
+        "stream_id": "unknown",
+        "event_type": "created",
+        "sender": null,
+        "receiver": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "flow_rate": "1000",
+        "amount": "3600000",
+        "block_hash": "0x3db6bcd0dc125a51a849c8045cb142bf6a861d3d555842d2991fc99b68e31d1e",
+        "metadata": {
+          "flowRateInterval": "second"
+        },
+        "created_at": "2026-06-13T08:47:52.448Z"
+      },
+      {
+        "id": 12,
+        "stream_id": "7",
+        "event_type": "stopped",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": null,
+        "block_hash": "0xf920a80ccd346988c6f1d7808946eed11f64855fbf477215c0b6f257aaa31727",
+        "metadata": null,
+        "created_at": "2026-06-13T08:46:04.600Z"
+      },
+      {
+        "id": 11,
+        "stream_id": "7",
+        "event_type": "updated",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": "2000",
+        "amount": null,
+        "block_hash": "0x7fd3e54280d23885d33a245080cc01e3fb615b9da35ec27d8606b92c80bff880",
+        "metadata": null,
+        "created_at": "2026-06-13T08:45:49.301Z"
+      },
+      {
+        "id": 10,
+        "stream_id": "7",
+        "event_type": "deposit",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": "1000000",
+        "block_hash": "0x4aade80b3ac11832555339078449242195723d16dea765fe825d63a040212142",
+        "metadata": null,
+        "created_at": "2026-06-13T08:45:43.320Z"
+      },
+      {
+        "id": 9,
+        "stream_id": "7",
+        "event_type": "resumed",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": null,
+        "block_hash": "0x0954d1719b5a32e618b2208846a199907f59cb36d4e455d9197a8679aa0beca8",
+        "metadata": null,
+        "created_at": "2026-06-13T08:45:37.623Z"
+      },
+      {
+        "id": 8,
+        "stream_id": "7",
+        "event_type": "paused",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": null,
+        "block_hash": "0x05c1314dd5870096f906c2a556d0ad81890a8435f04e1e4b3e42e928b27cef70",
+        "metadata": null,
+        "created_at": "2026-06-13T08:45:31.468Z"
+      },
+      {
+        "id": 7,
+        "stream_id": "unknown",
+        "event_type": "created",
+        "sender": null,
+        "receiver": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "flow_rate": "1000",
+        "amount": "3600000",
+        "block_hash": "0x4f13766604b993ad353799749cadcf9769d197baad9202fef506f194508479f2",
+        "metadata": {
+          "flowRateInterval": "second"
+        },
+        "created_at": "2026-06-13T08:45:19.426Z"
+      },
+      {
+        "id": 6,
+        "stream_id": "7",
+        "event_type": "stopped",
+        "sender": null,
+        "receiver": null,
+        "token_address": null,
+        "token_symbol": null,
+        "flow_rate": null,
+        "amount": null,
+        "block_hash": "0x8b3a1869b83c6279bfc8865e819ed264b0fa7c32cdad33b07d6b9f93580fe398",
+        "metadata": null,
+        "created_at": "2026-06-13T08:43:46.431Z"
+      }
+    ]
+  },
+  "vault_events": {
+    "count": 9,
+    "sample": [
+      {
+        "id": 9,
+        "wallet": "0xUSER_ALPHA",
+        "event_type": "deposit",
+        "token_address": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
+        "token_symbol": "wVARA",
+        "amount": "100000000000000",
+        "amount_display": "100",
+        "stream_id": null,
+        "block_hash": "0xc59a19eee2991e6683867d911a0567a92cb205dca5c2cd0c67afc23d097a46e7",
+        "metadata": null,
+        "created_at": "2026-06-18T16:48:24.236Z"
+      },
+      {
+        "id": 8,
+        "wallet": "unknown",
+        "event_type": "deposit",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount": "100",
+        "amount_display": "100",
+        "stream_id": null,
+        "block_hash": "0x52d49f5a4effb95837c0bb51b826ef45f4471967aa11901b17dd0a33caf887e7",
+        "metadata": null,
+        "created_at": "2026-06-13T10:09:19.726Z"
+      },
+      {
+        "id": 7,
+        "wallet": "unknown",
+        "event_type": "deposit",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount": "5000000",
+        "amount_display": "5000000",
+        "stream_id": null,
+        "block_hash": "0x8d5dc04db399fa13e83a20e662913204e5dfb0f6e2df9690f9e05cae22ca59c4",
+        "metadata": null,
+        "created_at": "2026-06-13T10:08:58.354Z"
+      },
+      {
+        "id": 6,
+        "wallet": "unknown",
+        "event_type": "deposit",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount": "100",
+        "amount_display": "100",
+        "stream_id": null,
+        "block_hash": "0x94cfe31cf437afb91889528b2db23bf7511854c1044320b012dc3d7d432c3069",
+        "metadata": null,
+        "created_at": "2026-06-13T10:02:34.464Z"
+      },
+      {
+        "id": 5,
+        "wallet": "unknown",
+        "event_type": "deposit",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount": "5000000",
+        "amount_display": "5000000",
+        "stream_id": null,
+        "block_hash": "0xc38f0b304f39980e3aa7bc0dbcc5e03d356ef651d059207fb5a96afac74785e6",
+        "metadata": null,
+        "created_at": "2026-06-13T10:02:19.406Z"
+      },
+      {
+        "id": 4,
+        "wallet": "unknown",
+        "event_type": "deposit",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount": "100",
+        "amount_display": "100",
+        "stream_id": null,
+        "block_hash": "0xfd676cd26301cef078630901c3322ae3370c10443db64dd33a974f1bbc175740",
+        "metadata": null,
+        "created_at": "2026-06-13T08:49:04.310Z"
+      },
+      {
+        "id": 3,
+        "wallet": "unknown",
+        "event_type": "deposit",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount": "5000000",
+        "amount_display": "5000000",
+        "stream_id": null,
+        "block_hash": "0xaa491e4a93a2d3d7f714289bd21e98d470bfe8e3fc641808a4e989e816ac3828",
+        "metadata": null,
+        "created_at": "2026-06-13T08:48:46.367Z"
+      },
+      {
+        "id": 2,
+        "wallet": "unknown",
+        "event_type": "deposit",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount": "100",
+        "amount_display": "100",
+        "stream_id": null,
+        "block_hash": "0xb2a693768f117c81b825a53d58505df3b0fea16f8804d67d334b646cb414df2a",
+        "metadata": null,
+        "created_at": "2026-06-13T08:46:34.299Z"
+      },
+      {
+        "id": 1,
+        "wallet": "unknown",
+        "event_type": "deposit",
+        "token_address": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "amount": "5000000",
+        "amount_display": "5000000",
+        "stream_id": null,
+        "block_hash": "0x0a9a4110f1c45323f7e0dfe80c6ca97d82d24878ef207f4421406dea53a03a0f",
+        "metadata": null,
+        "created_at": "2026-06-13T08:46:16.295Z"
+      }
+    ]
+  },
+  "bridge_transactions": {
+    "count": 0,
+    "sample": []
+  },
+  "analytics_protocol_snapshots": {
+    "count": 6,
+    "sample": [
+      {
+        "id": "6",
+        "snapped_at": "2026-06-18T17:00:02.904Z",
+        "estimated_tvl_usd": "0.000000",
+        "estimated_stablecoin_tvl_usd": "0.000000",
+        "total_streams": 2,
+        "active_streams": 2,
+        "observed_stream_event_count": 20,
+        "observed_vault_event_count": 9,
+        "observed_unique_wallets": 3,
+        "observed_withdraw_volume_usd": "100.000000",
+        "observed_window_days": 30,
+        "observed_volume_source": "backend_command_logs_fallback",
+        "volume_24h_usd": "100.000000",
+        "volume_7d_usd": "100.000000",
+        "volume_30d_usd": "100.000000",
+        "dau": 1,
+        "total_transactions": 29,
+        "unique_wallets_all_time": 3,
+        "last_activity_at": "2026-06-18T16:48:24.236Z",
+        "last_updated_at": "2026-06-18T16:48:24.236Z"
+      },
+      {
+        "id": "5",
+        "snapped_at": "2026-06-18T13:00:03.550Z",
+        "estimated_tvl_usd": "0.000000",
+        "estimated_stablecoin_tvl_usd": "0.000000",
+        "total_streams": 2,
+        "active_streams": 2,
+        "observed_stream_event_count": 20,
+        "observed_vault_event_count": 8,
+        "observed_unique_wallets": 2,
+        "observed_withdraw_volume_usd": "0.000000",
+        "observed_window_days": 30,
+        "observed_volume_source": "backend_command_logs_fallback",
+        "volume_24h_usd": "0.000000",
+        "volume_7d_usd": "0.000000",
+        "volume_30d_usd": "0.000000",
+        "dau": 0,
+        "total_transactions": 28,
+        "unique_wallets_all_time": 2,
+        "last_activity_at": "2026-06-13T10:09:19.726Z",
+        "last_updated_at": "2026-06-18T12:00:02.783Z"
+      },
+      {
+        "id": "4",
+        "snapped_at": "2026-06-18T12:00:02.783Z",
+        "estimated_tvl_usd": "0.000000",
+        "estimated_stablecoin_tvl_usd": "0.000000",
+        "total_streams": 2,
+        "active_streams": 2,
+        "observed_stream_event_count": 20,
+        "observed_vault_event_count": 8,
+        "observed_unique_wallets": 2,
+        "observed_withdraw_volume_usd": "0.000000",
+        "observed_window_days": 30,
+        "observed_volume_source": "backend_command_logs_fallback",
+        "volume_24h_usd": "0.000000",
+        "volume_7d_usd": "0.000000",
+        "volume_30d_usd": "0.000000",
+        "dau": 0,
+        "total_transactions": 28,
+        "unique_wallets_all_time": 2,
+        "last_activity_at": "2026-06-13T10:09:19.726Z",
+        "last_updated_at": "2026-06-18T11:00:03.111Z"
+      },
+      {
+        "id": "3",
+        "snapped_at": "2026-06-18T11:00:03.111Z",
+        "estimated_tvl_usd": "0.000000",
+        "estimated_stablecoin_tvl_usd": "0.000000",
+        "total_streams": 2,
+        "active_streams": 2,
+        "observed_stream_event_count": 20,
+        "observed_vault_event_count": 8,
+        "observed_unique_wallets": 2,
+        "observed_withdraw_volume_usd": "0.000000",
+        "observed_window_days": 30,
+        "observed_volume_source": "backend_command_logs_fallback",
+        "volume_24h_usd": "0.000000",
+        "volume_7d_usd": "0.000000",
+        "volume_30d_usd": "0.000000",
+        "dau": 0,
+        "total_transactions": 28,
+        "unique_wallets_all_time": 2,
+        "last_activity_at": "2026-06-13T10:09:19.726Z",
+        "last_updated_at": "2026-06-18T10:00:03.140Z"
+      },
+      {
+        "id": "2",
+        "snapped_at": "2026-06-18T10:00:03.140Z",
+        "estimated_tvl_usd": "0.000000",
+        "estimated_stablecoin_tvl_usd": "0.000000",
+        "total_streams": 2,
+        "active_streams": 2,
+        "observed_stream_event_count": 20,
+        "observed_vault_event_count": 8,
+        "observed_unique_wallets": 2,
+        "observed_withdraw_volume_usd": "0.000000",
+        "observed_window_days": 30,
+        "observed_volume_source": "on_chain_event_indexer",
+        "volume_24h_usd": "0.000000",
+        "volume_7d_usd": "0.000000",
+        "volume_30d_usd": "0.000000",
+        "dau": 0,
+        "total_transactions": 0,
+        "unique_wallets_all_time": 0,
+        "last_activity_at": null,
+        "last_updated_at": null
+      },
+      {
+        "id": "1",
+        "snapped_at": "2026-06-18T08:38:13.032Z",
+        "estimated_tvl_usd": "0.000000",
+        "estimated_stablecoin_tvl_usd": "0.000000",
+        "total_streams": 2,
+        "active_streams": 2,
+        "observed_stream_event_count": 20,
+        "observed_vault_event_count": 8,
+        "observed_unique_wallets": 2,
+        "observed_withdraw_volume_usd": "0.000000",
+        "observed_window_days": 30,
+        "observed_volume_source": "api_event_logs_only",
+        "volume_24h_usd": "0.000000",
+        "volume_7d_usd": "0.000000",
+        "volume_30d_usd": "0.000000",
+        "dau": 0,
+        "total_transactions": 0,
+        "unique_wallets_all_time": 0,
+        "last_activity_at": null,
+        "last_updated_at": null
+      }
+    ]
+  },
+  "analytics_tvl_snapshots": {
+    "count": 42,
+    "sample": [
+      {
+        "id": "42",
+        "snapped_at": "2026-06-18T17:00:02.904Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "VARA",
+        "token_symbol": "VARA",
+        "token_address": "native",
+        "balance_raw": "155000000000000",
+        "balance_display": "155",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "41",
+        "snapped_at": "2026-06-18T17:00:02.904Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WTVARA",
+        "token_symbol": "wVARA",
+        "token_address": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
+        "balance_raw": "189801937500022",
+        "balance_display": "189.801937500022",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "40",
+        "snapped_at": "2026-06-18T17:00:02.904Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "GROW",
+        "token_symbol": "GROW",
+        "token_address": "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "39",
+        "snapped_at": "2026-06-18T17:00:02.904Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WBTC",
+        "token_symbol": "WBTC",
+        "token_address": "0xc1ec06d99efcffd863f9c2ad2bc76f656aff861acf06f438046c64e5b41e3fd9",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "38",
+        "snapped_at": "2026-06-18T17:00:02.904Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WETH",
+        "token_symbol": "WETH",
+        "token_address": "0xba764e2836b28806be10fe6f674d89d1e0c86898d25728f776588f03bddc6f58",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "37",
+        "snapped_at": "2026-06-18T17:00:02.904Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WUSDT",
+        "token_symbol": "USDT",
+        "token_address": "0x464511231a1afe9108a689ed3dbbb047ca308d6f5dfb86453e4df5612a2d668a",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": true
+      },
+      {
+        "id": "36",
+        "snapped_at": "2026-06-18T17:00:02.904Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WUSDC",
+        "token_symbol": "USDC",
+        "token_address": "0x9f332e61589e0850dce6d8e6070ea5618de33d9f134a4a35d6d1164dc9002f48",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": true
+      },
+      {
+        "id": "35",
+        "snapped_at": "2026-06-18T13:00:03.550Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "VARA",
+        "token_symbol": "VARA",
+        "token_address": "native",
+        "balance_raw": "55000000000000",
+        "balance_display": "55",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "34",
+        "snapped_at": "2026-06-18T13:00:03.550Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WTVARA",
+        "token_symbol": "wVARA",
+        "token_address": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
+        "balance_raw": "89801937500022",
+        "balance_display": "89.801937500022",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "33",
+        "snapped_at": "2026-06-18T13:00:03.550Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "GROW",
+        "token_symbol": "GROW",
+        "token_address": "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "32",
+        "snapped_at": "2026-06-18T13:00:03.550Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WBTC",
+        "token_symbol": "WBTC",
+        "token_address": "0xc1ec06d99efcffd863f9c2ad2bc76f656aff861acf06f438046c64e5b41e3fd9",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "31",
+        "snapped_at": "2026-06-18T13:00:03.550Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WETH",
+        "token_symbol": "WETH",
+        "token_address": "0xba764e2836b28806be10fe6f674d89d1e0c86898d25728f776588f03bddc6f58",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      },
+      {
+        "id": "30",
+        "snapped_at": "2026-06-18T13:00:03.550Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WUSDT",
+        "token_symbol": "USDT",
+        "token_address": "0x464511231a1afe9108a689ed3dbbb047ca308d6f5dfb86453e4df5612a2d668a",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": true
+      },
+      {
+        "id": "29",
+        "snapped_at": "2026-06-18T13:00:03.550Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "WUSDC",
+        "token_symbol": "USDC",
+        "token_address": "0x9f332e61589e0850dce6d8e6070ea5618de33d9f134a4a35d6d1164dc9002f48",
+        "balance_raw": "0",
+        "balance_display": "0",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": true
+      },
+      {
+        "id": "28",
+        "snapped_at": "2026-06-18T12:00:02.783Z",
+        "vault_address": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+        "token_key": "VARA",
+        "token_symbol": "VARA",
+        "token_address": "native",
+        "balance_raw": "55000000000000",
+        "balance_display": "55",
+        "estimated_usd": null,
+        "pricing_source": null,
+        "is_stablecoin": false
+      }
+    ]
+  },
+  "quest_invites": {
+    "count": 6213,
+    "sample": [
+      {
+        "id": 6213,
+        "code": "GS-U4VV-LXJQ",
+        "created_by": "SYSTEM",
+        "used_by_wallet": "0x7a5fa84c272736073ff07d4e2e009770931be0df4edfa205facd123c41489154",
+        "max_uses": 1,
+        "current_uses": 1,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6212,
+        "code": "GS-TDCD-UHXM",
+        "created_by": "SYSTEM",
+        "used_by_wallet": "0xce94a8bde2914fa69fcfd0a3cfc2a243a59de828b34f78cfbd2e7c9fabb31c3b",
+        "max_uses": 1,
+        "current_uses": 1,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6211,
+        "code": "GS-DPCJ-2H9G",
+        "created_by": "SYSTEM",
+        "used_by_wallet": "0x5cbbef74417a2d7dac349e328af91bda2582ffe8ea59512b447d5a41055bc50b",
+        "max_uses": 1,
+        "current_uses": 1,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6210,
+        "code": "GS-W8T8-T86L",
+        "created_by": "SYSTEM",
+        "used_by_wallet": "0x3e33faa067182cf958efc0f902829c266b8fc3051e488301d08c4d2b1485d31b",
+        "max_uses": 1,
+        "current_uses": 1,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6209,
+        "code": "GS-AGQJ-NMVB",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6208,
+        "code": "GS-8A3T-TMG4",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6207,
+        "code": "GS-GXKS-LT2U",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6206,
+        "code": "GS-3G9H-SAE6",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6205,
+        "code": "GS-2KJC-XL44",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6204,
+        "code": "GS-GJ2A-RM6X",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6203,
+        "code": "GS-U8G2-2Q6R",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6202,
+        "code": "GS-B9T8-9ABG",
+        "created_by": "SYSTEM",
+        "used_by_wallet": "0x3a0e6e21ce101869cd48f42b7bede83c28d847c227afd796fa07556d1ab7cb19",
+        "max_uses": 1,
+        "current_uses": 1,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6201,
+        "code": "GS-YCLY-UD8Y",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6200,
+        "code": "GS-A46R-JGGE",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      },
+      {
+        "id": 6199,
+        "code": "GS-L72P-CMUW",
+        "created_by": "SYSTEM",
+        "used_by_wallet": null,
+        "max_uses": 1,
+        "current_uses": 0,
+        "expires_at": null,
+        "created_at": "2026-05-14T14:33:50.677Z"
+      }
+    ]
+  },
+  "quest_registrations": {
+    "count": 1791,
+    "sample": [
+      {
+        "id": 1791,
+        "wallet": "0x7a0526763fb9cb25ae0ae19610784b64d22dfbdbf10860234e56e3743af5e304",
+        "email": "aden.ragilnasrulloh@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-RPKS-PGX5",
+        "verified": false,
+        "registered_at": "2026-06-18T16:41:57.787Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "Eaglee",
+        "referral_code": "GSR-TE5EAB",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1790,
+        "wallet": "0xe43e48ea78c43372a56ed2fd2277a22304f695b6a40e6c8e78d6ab4e08e0e362",
+        "email": "fzaynn15@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-TA7U-YUF4",
+        "verified": false,
+        "registered_at": "2026-06-18T15:56:31.370Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "fzn15",
+        "referral_code": "GSR-KN77ER",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1789,
+        "wallet": "0x6c52b45766e671b3bc0ceeb7df41a9a240680934f9241a603a1cb13b498a4c3b",
+        "email": "huthmanolakunle@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-7HK6-DKVG",
+        "verified": false,
+        "registered_at": "2026-06-17T01:49:23.370Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "Sultanives",
+        "referral_code": "GSR-6P5Q7L",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1788,
+        "wallet": "0x90477a3dda03fe8eb92dab610d641915e447b3fc9f6749cc0a1c109611bba251",
+        "email": "aziluna65@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-6R8H-HBZE",
+        "verified": false,
+        "registered_at": "2026-06-15T07:45:41.552Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "someone",
+        "referral_code": "GSR-MFST3Z",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1787,
+        "wallet": "0xee02208ed3cd08a91c62806c6b8932fe2c8aeb65a791a419f278fb7c5a1c555f",
+        "email": "supri.supri7392@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-VK78-49G5",
+        "verified": false,
+        "registered_at": "2026-06-14T17:35:20.306Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "Rayyan velo",
+        "referral_code": "GSR-CFL5K2",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1786,
+        "wallet": "0x569eeb3f4cf95a1c7d3c02ad80edbe29fff3c8ed5ee649afa8202a78228f2d57",
+        "email": "amugodwin10@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-AA83-US28",
+        "verified": false,
+        "registered_at": "2026-06-13T06:11:21.923Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "Godam1",
+        "referral_code": "GSR-7B4T5J",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1785,
+        "wallet": "0xaa9755b0df40ce7d7994d158d36ae3ba55607279899b4faa48afff168be1d67b",
+        "email": "doriissuryanto92@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-2GHQ-JEDC",
+        "verified": false,
+        "registered_at": "2026-06-10T02:51:13.113Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "Xiaories9",
+        "referral_code": "GSR-K9K38Y",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1784,
+        "wallet": "0x986684764bcf8f94e6cd196adf63a0fbee2ff7ddc158cd5d17618a58b1a2cf55",
+        "email": "tadenekan123@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-C8G2-BDAL",
+        "verified": false,
+        "registered_at": "2026-06-09T23:34:57.406Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "Miles",
+        "referral_code": "GSR-H5Q5U4",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1783,
+        "wallet": "0x7c6a8f7d771851241bb303870b8ddf99aca39e8667c13a582b7eaf9c472e9f49",
+        "email": "viniiicyus@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-6BGB-NK5W",
+        "verified": false,
+        "registered_at": "2026-06-09T19:57:57.284Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "Vinicius Melo",
+        "referral_code": "GSR-MNKBH9",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1782,
+        "wallet": "0xa4b0289ad179d3f64a8f6831bd95f1bd176885ef87c20baf174df6a3c9d4b306",
+        "email": "dikdikahmad2@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-V6ND-SF4Y",
+        "verified": false,
+        "registered_at": "2026-06-09T17:43:07.444Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "acung",
+        "referral_code": "GSR-EXVDSH",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1781,
+        "wallet": "0xa0c42bf8011ed13be40b1f09c463d2318781c0d388ee1489e79aae403023eb2c",
+        "email": "esacanoealviank@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-HAH6-UPKP",
+        "verified": false,
+        "registered_at": "2026-06-09T17:13:55.644Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "siroyobowo",
+        "referral_code": "GSR-JSGXLU",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1780,
+        "wallet": "0xec4d17f83dec0b6eec2c81b843040c4c96f514c9b1b4f4f861faed208fa7c15c",
+        "email": "olleriah123@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-LAIT-YU3Q",
+        "verified": false,
+        "registered_at": "2026-06-09T13:35:34.033Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "balmon",
+        "referral_code": "GSR-7DCQ7D",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1779,
+        "wallet": "0x3c9f3178022fae00fa7843229bfced7e87aec4598445fb62bed8bb12787e7404",
+        "email": "feyahmad85@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-3MAS-EYAV",
+        "verified": false,
+        "registered_at": "2026-06-09T03:46:46.775Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "pey",
+        "referral_code": "GSR-R4PGF5",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1778,
+        "wallet": "0xc08ac2cfddcd695d48b2f01e5a44273e35f5665ad10236e62a3cbbd8fe5e3d71",
+        "email": "athacrm@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-XU5B-4QHM",
+        "verified": false,
+        "registered_at": "2026-06-07T20:02:36.670Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "attacktitans",
+        "referral_code": "GSR-6KCDUP",
+        "referred_by_wallet": null
+      },
+      {
+        "id": 1777,
+        "wallet": "0x86782cdc09831e462a62416d07bb6849be30bff94e3d40d99e9549103a9b4b25",
+        "email": "fandiimam457@gmail.com",
+        "x_username": null,
+        "github_username": null,
+        "x_user_id": null,
+        "invite_code": "GS-BVXB-3S7T",
+        "verified": false,
+        "registered_at": "2026-06-07T14:46:52.992Z",
+        "evm_address": null,
+        "wallet_type": "substrate",
+        "display_name": "ombosd",
+        "referral_code": "GSR-A9SBMU",
+        "referred_by_wallet": null
+      }
+    ]
+  },
+  "quest_campaigns": {
+    "count": 10,
+    "sample": [
+      {
+        "id": 340,
+        "slug": "securerob",
+        "title": "SecureRob",
+        "description": "An autonomous security workforce powered by AI agents, intelligent cameras, humanoid robotics, and on-chain verification. Explore how SecureRob is building the future of physical security through automation, transparency, and AI-driven operations.",
+        "partner": null,
+        "banner_url": "https://pbs.twimg.com/profile_banners/2063320469886099456/1780812791/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ACTIVE",
+        "reward_summary": "100,000 VARA Tokens ",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 1,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/2064053807454281728/Oaxlf3lB_400x400.jpg"
+        },
+        "created_at": "2026-06-09T12:52:11.051Z",
+        "views": 937,
+        "likes": 32
+      },
+      {
+        "id": 338,
+        "slug": "virtuals-protocol",
+        "title": "Virtuals Protocol",
+        "description": "Discover Virtuals Protocol  the Society of AI Agents, Explore how Virtuals is shaping the future of AI-powered economies and digital interactions.",
+        "partner": "Virtuals",
+        "banner_url": "https://pbs.twimg.com/profile_banners/1438365197505232902/1733210290/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ENDED",
+        "reward_summary": "100,000 VARA Tokens ",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 1,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/2009228951621914626/U6ZpmYq3_400x400.jpg"
+        },
+        "created_at": "2026-06-06T08:57:39.999Z",
+        "views": 403,
+        "likes": 17
+      },
+      {
+        "id": 275,
+        "slug": "webytes",
+        "title": "Webytes",
+        "description": "Discover WeBytes  a growing coding community focused on building, learning, and creating through code. Connect with passionate developers, explore innovative projects, and be part of a community where ideas turn into reality.",
+        "partner": "Webytes",
+        "banner_url": "https://pbs.twimg.com/profile_banners/1783233509655547904/1713992503/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ENDED",
+        "reward_summary": "100,000 VARA Tokens and Exclusive Merchandise",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 2,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/2054226731272409088/WeRUDDg__400x400.jpg"
+        },
+        "created_at": "2026-05-24T22:15:40.037Z",
+        "views": 2895,
+        "likes": 52
+      },
+      {
+        "id": 201,
+        "slug": "edel-finance",
+        "title": "Edel Finance",
+        "description": "Discover Edel Finance a platform designed to unlock the full potential of your equities through lending, borrowing, trading, and yield opportunities within a modern decentralized finance ecosystem.",
+        "partner": null,
+        "banner_url": "https://pbs.twimg.com/profile_banners/1957326471997075456/1764829044/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ENDED",
+        "reward_summary": "Earn 500 XP + Chance to Win Vara Tokens as Reward",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 1,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/2034934489294540801/7oDIpu33_400x400.jpg"
+        },
+        "created_at": "2026-05-19T16:48:28.731Z",
+        "views": 2713,
+        "likes": 58
+      },
+      {
+        "id": 199,
+        "slug": "clawxlabs",
+        "title": "ClawXLabs",
+        "description": "Discover ClawX :-an agentic prediction market built on Avalanche, designed to bring intelligent forecasting, market insights, and decentralized participation into the future of on-chain prediction ecosystems",
+        "partner": "Claw",
+        "banner_url": "https://pbs.twimg.com/profile_banners/2054984616482844672/1778784506/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ENDED",
+        "reward_summary": "Earn 500XP + Chance to Win Vara Tokens as Reward",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 2,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/2054996778848800768/p-GA2gpI_400x400.jpg"
+        },
+        "created_at": "2026-05-18T18:22:01.298Z",
+        "views": 3671,
+        "likes": 53
+      },
+      {
+        "id": 193,
+        "slug": "bae4u",
+        "title": "Bae4u",
+        "description": "Bae4U blends romance, creator culture, and socialfi into one chaotic pink universe.",
+        "partner": "Bae4u",
+        "banner_url": "https://pbs.twimg.com/profile_banners/2055737873530486784/1779011457/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ENDED",
+        "reward_summary": "Earn 300XP +  Chance to Win Vara Tokens as Reward",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 2,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/2055952411286773760/8Nc-xlh5_400x400.jpg"
+        },
+        "created_at": "2026-05-17T10:07:02.820Z",
+        "views": 5316,
+        "likes": 79
+      },
+      {
+        "id": 165,
+        "slug": "oneswap-first-canton-dex",
+        "title": "OneSwap-First Canton DEX ",
+        "description": "Discover OneSwap — the first Canton DEX and permissionless AMM built to unlock seamless on-chain trading opportunities. Explore the ecosystem and learn how OneSwap is powering the future of decentralized liquidity.",
+        "partner": "OneSwap",
+        "banner_url": "https://pbs.twimg.com/profile_banners/2014336121753255936/1770105303/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ENDED",
+        "reward_summary": "Earn 350 XP + Chance to Win Vara Tokens as Reward",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 2,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/2018594006897143808/1s-BKmH0_400x400.png"
+        },
+        "created_at": "2026-05-16T08:07:53.863Z",
+        "views": 2237,
+        "likes": 40
+      },
+      {
+        "id": 150,
+        "slug": "compliledger",
+        "title": "Compliledger",
+        "description": "Discover Compiledger — a privacy-preserving and provable blockchain platform powered by Agentic AI. Explore how it helps businesses achieve audit readiness, compliance, and secure infrastructure for the future of decentralized technology.",
+        "partner": null,
+        "banner_url": null,
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ENDED",
+        "reward_summary": null,
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 1,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/1952183922621648896/B3nTzYzH_400x400.jpg"
+        },
+        "created_at": "2026-05-15T06:01:19.755Z",
+        "views": 0,
+        "likes": 0
+      },
+      {
+        "id": 128,
+        "slug": "1mb-install-browse-earn-pay",
+        "title": "1MB - Install. Browse. Earn. Pay.",
+        "description": "Join the 1MB movement and explore a smarter way to browse, earn, and reclaim the value of your data.\n\nComplete the quests below to engage with the 1MB ecosystem, support the community, and unlock rewards through GrowStreams",
+        "partner": "1MB",
+        "banner_url": "https://pbs.twimg.com/profile_banners/1979400477918863360/1760798027/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ENDED",
+        "reward_summary": "Earn XP + Chance to Win Vara Tokens as Reward",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 4,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/1979553839410728960/xcN1bydd_400x400.jpg"
+        },
+        "created_at": "2026-05-14T13:23:35.605Z",
+        "views": 2356,
+        "likes": 42
+      },
+      {
+        "id": 53,
+        "slug": "ginie",
+        "title": "Ginie",
+        "description": "Build with Ginie on GrowStreams & Win from a 100,000 VARA Reward Pool! 🚀",
+        "partner": "Ginie",
+        "banner_url": "https://pbs.twimg.com/profile_banners/1969708186359013376/1775230462/1500x500",
+        "badge_label": null,
+        "difficulty": "EASY",
+        "status": "ACTIVE",
+        "reward_summary": "100,000 VARA Tokens ",
+        "bonus_xp": 0,
+        "start_date": null,
+        "end_date": null,
+        "sort_order": 1,
+        "meta": {
+          "logo_url": "https://pbs.twimg.com/profile_images/2041579553232187393/63sdMe0J_400x400.jpg"
+        },
+        "created_at": "2026-05-12T12:35:49.644Z",
+        "views": 7817,
+        "likes": 93
+      }
+    ]
+  },
+  "quests": {
+    "count": 41,
+    "sample": [
+      {
+        "id": 2475,
+        "slug": "follow-ginie-xyz-on-instagram",
+        "title": "Follow @ginie.xyz on Instagram",
+        "description": "Follow @ginie.xyz on Instagram to stay updated on the latest announcements, community highlights, product updates, and opportunities within the Ginie ecosystem.",
+        "quest_type": "X_FOLLOW",
+        "seeds_reward": 100,
+        "icon": null,
+        "repeatable": false,
+        "active": true,
+        "sort_order": 99,
+        "created_at": "2026-06-16T05:21:40.663Z",
+        "campaign_id": 53,
+        "meta": {}
+      },
+      {
+        "id": 2474,
+        "slug": "post-your-idea-on-ideahub",
+        "title": "Post Your Idea on IDEAHUB",
+        "description": "Share your innovative idea on IDEAHUB and explore how it can be built on the Canton Network. Connect with a community of builders",
+        "quest_type": "VISIT_URL",
+        "seeds_reward": 200,
+        "icon": null,
+        "repeatable": false,
+        "active": true,
+        "sort_order": 99,
+        "created_at": "2026-06-16T05:19:35.829Z",
+        "campaign_id": 53,
+        "meta": {
+          "url": "https://canton.ginie.xyz/ideahub"
+        }
+      },
+      {
+        "id": 2433,
+        "slug": "onchain-stream-eth",
+        "title": "Create a Stream on Vara.eth",
+        "description": "Create a real token stream on Vara.eth (Hoodi testnet) using the StreamEscrow contract. Earn Seeds for bridging to Ethereum!",
+        "quest_type": "ONCHAIN_STREAM_ETH",
+        "seeds_reward": 150,
+        "icon": null,
+        "repeatable": false,
+        "active": true,
+        "sort_order": 20,
+        "created_at": "2026-06-15T21:16:04.731Z",
+        "campaign_id": null,
+        "meta": {
+          "network": "vara-eth-hoodi",
+          "contract": "StreamEscrow"
+        }
+      },
+      {
+        "id": 2203,
+        "slug": "follow-secure-rob-on-x",
+        "title": "Follow @secure_rob on X",
+        "description": "Follow SecureRob on X to stay updated on the latest advancements in AI-powered security, autonomous agents and humanoid robotics.",
+        "quest_type": "X_FOLLOW",
+        "seeds_reward": 150,
+        "icon": null,
+        "repeatable": false,
+        "active": true,
+        "sort_order": 99,
+        "created_at": "2026-06-09T13:10:27.634Z",
+        "campaign_id": 340,
+        "meta": {
+          "target_handle": "@secure_rob"
+        }
+      },
+      {
+        "id": 2202,
+        "slug": "tweet-your-vision-for-the-future-of-security",
+        "title": "Tweet Your Vision for the Future of Security",
+        "description": "Share your vision for the future of physical security and mention @secure_rob in your tweet. Tell the world how AI agents, intelligent cameras, robotics, and on-chain verification can transform security operations in the years ahead.",
+        "quest_type": "X_MENTION",
+        "seeds_reward": 250,
+        "icon": null,
+        "repeatable": false,
+        "active": true,
+        "sort_order": 99,
+        "created_at": "2026-06-09T12:54:58.874Z",
+        "campaign_id": 340,
+        "meta": {
+          "required_mention": "secure_rob"
+        }
+      },
+      {
+        "id": 2162,
+        "slug": "rsvp-the-event",
+        "title": "RSVP the EVENT ",
+        "description": "Reserve your spot for the exclusive EconomyOS Builder Workshop hosted by Virtuals Protocol. Learn how to build and launch AI agents with access to infrastructure, compute resources, onboarding support, and distribution opportunities—all designed to help builders go from idea to product faster.",
+        "quest_type": "VISIT_URL",
+        "seeds_reward": 300,
+        "icon": null,
+        "repeatable": false,
+        "active": true,
+        "sort_order": 99,
+        "created_at": "2026-06-06T09:01:23.420Z",
+        "campaign_id": 338,
+        "meta": {
+          "url": "https://luma.com/h1k75jvg?tk=A5JJ8H"
+        }
+      },
+      {
+        "id": 2161,
+        "slug": "join-the-telegram-group",
+        "title": "Join the Telegram Group",
+        "description": "Join the Virtuals Protocol Telegram community to connect with AI enthusiasts, builders, and ecosystem participants, stay updated on the latest announcements, and engage with the growing Society of AI Agents.",
+        "quest_type": "TELEGRAM_JOIN",
+        "seeds_reward": 150,
+        "icon": null,
+        "repeatable": false,
+        "active": true,
+        "sort_order": 99,
+        "created_at": "2026-06-06T08:59:30.233Z",
+        "campaign_id": 338,
+        "meta": {
+          "invite_url": "https://t.me/economyOS"
+        }
+      },
+      {
+        "id": 2154,
+        "slug": "refer-a-friend",
+        "title": "Refer a Friend to GrowStreams",
+        "description": "Share your personal referral code. Every time someone registers with it, you earn 200 Seeds. No weekly cap — every referral counts, forever.",
+        "quest_type": "REFERRAL",
+        "seeds_reward": 200,
+        "icon": "users",
+        "repeatable": true,
+        "active": false,
+        "sort_order": 12,
+        "created_at": "2026-05-30T11:52:43.540Z",
+        "campaign_id": null,
+        "meta": {}
+      },
+      {
+        "id": 2152,
+        "slug": "visit-platform",
+        "title": "Visit GrowStreams and explore the platform",
+        "description": "Head over to growstreams.xyz, explore the dashboard and streams. Click Claim once done.",
+        "quest_type": "VISIT_URL",
+        "seeds_reward": 15,
+        "icon": "globe",
+        "repeatable": false,
+        "active": false,
+        "sort_order": 10,
+        "created_at": "2026-05-30T11:52:43.540Z",
+        "campaign_id": null,
+        "meta": {
+          "url": "https://growstreams.xyz"
+        }
+      },
+      {
+        "id": 2151,
+        "slug": "tweet-build-growstreams",
+        "title": "Tweet what you want to build with GrowStreams",
+        "description": "Write an original public tweet (min 30 chars) mentioning @GrowStreams with the word \"build\". Paste your tweet URL to submit.",
+        "quest_type": "X_TWEET_KEYWORD",
+        "seeds_reward": 300,
+        "icon": "edit",
+        "repeatable": false,
+        "active": false,
+        "sort_order": 9,
+        "created_at": "2026-05-30T11:52:43.540Z",
+        "campaign_id": null,
+        "meta": {
+          "min_length": 30,
+          "required_keyword": "build",
+          "required_mention": "@GrowStreams"
+        }
+      },
+      {
+        "id": 2150,
+        "slug": "retweet-campaign",
+        "title": "Retweet + Like the GrowStreams campaign post",
+        "description": "Retweet and like the official GrowStreams campaign announcement. Paste the URL of your retweet to verify.",
+        "quest_type": "X_RETWEET",
+        "seeds_reward": 150,
+        "icon": "repeat",
+        "repeatable": false,
+        "active": false,
+        "sort_order": 8,
+        "created_at": "2026-05-30T11:52:43.540Z",
+        "campaign_id": null,
+        "meta": {}
+      },
+      {
+        "id": 2148,
+        "slug": "raise-pr",
+        "title": "Raise a PR on GrowStreams repo",
+        "description": "Open a pull request on the GrowStreams GitHub repository. Refreshes weekly.",
+        "quest_type": "GITHUB_PR",
+        "seeds_reward": 200,
+        "icon": "git-pull-request",
+        "repeatable": true,
+        "active": false,
+        "sort_order": 6,
+        "created_at": "2026-05-30T11:52:43.540Z",
+        "campaign_id": null,
+        "meta": {}
+      },
+      {
+        "id": 2147,
+        "slug": "star-repo",
+        "title": "Star the GrowStreams repo",
+        "description": "Star the GrowStreams repository on GitHub. Refreshes weekly.",
+        "quest_type": "GITHUB_STAR",
+        "seeds_reward": 100,
+        "icon": "star",
+        "repeatable": true,
+        "active": false,
+        "sort_order": 5,
+        "created_at": "2026-05-30T11:52:43.540Z",
+        "campaign_id": null,
+        "meta": {}
+      },
+      {
+        "id": 2146,
+        "slug": "mention-x-ginie",
+        "title": "Post about Ginie",
+        "description": "Post a tweet mentioning @giniedev with your wallet address, then paste the tweet URL for admin review. Refreshes weekly.",
+        "quest_type": "X_MENTION",
+        "seeds_reward": 200,
+        "icon": "megaphone",
+        "repeatable": true,
+        "active": false,
+        "sort_order": 4,
+        "created_at": "2026-05-30T11:52:43.540Z",
+        "campaign_id": null,
+        "meta": {}
+      },
+      {
+        "id": 2145,
+        "slug": "follow-x-ginie",
+        "title": "Follow @giniedev on X",
+        "description": "Follow our partner @giniedev on X to stay updated on the GrowStreams x Ginie collab.",
+        "quest_type": "X_FOLLOW",
+        "seeds_reward": 100,
+        "icon": "twitter",
+        "repeatable": false,
+        "active": false,
+        "sort_order": 3,
+        "created_at": "2026-05-30T11:52:43.540Z",
+        "campaign_id": null,
+        "meta": {
+          "target_handle": "giniedev"
+        }
+      }
+    ]
+  },
+  "quest_completions": {
+    "count": 8082,
+    "sample": [
+      {
+        "id": 12208,
+        "wallet": "0x7a0526763fb9cb25ae0ae19610784b64d22dfbdbf10860234e56e3743af5e304",
+        "quest_id": 2475,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "x_username": "ArkanaKen68"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T16:42:30.553Z",
+        "season_id": 2
+      },
+      {
+        "id": 12207,
+        "wallet": "0x7a0526763fb9cb25ae0ae19610784b64d22dfbdbf10860234e56e3743af5e304",
+        "quest_id": 2474,
+        "status": "VERIFIED",
+        "proof": {
+          "source": "self-reported"
+        },
+        "seeds_awarded": 200,
+        "tx_hash": "0xa25face0cac5ab652115bb8349b142ae19fa05d6525f328170e06800e98d75f5",
+        "verified_at": "2026-06-18T16:42:16.636Z",
+        "created_at": "2026-06-18T16:42:16.636Z",
+        "season_id": 2
+      },
+      {
+        "id": 12206,
+        "wallet": "0xe81fa5efb227f214cd23006ec280d0e511cd3adb95ee074e44ff3c631576935f",
+        "quest_id": 2474,
+        "status": "VERIFIED",
+        "proof": {
+          "source": "self-reported"
+        },
+        "seeds_awarded": 200,
+        "tx_hash": "0x324aaded26b5249e955bbc186a84ba745a3ac74f95f03fad3512cdad53905fcf",
+        "verified_at": "2026-06-18T12:42:29.126Z",
+        "created_at": "2026-06-18T12:42:29.126Z",
+        "season_id": 2
+      },
+      {
+        "id": 12205,
+        "wallet": "0xe81fa5efb227f214cd23006ec280d0e511cd3adb95ee074e44ff3c631576935f",
+        "quest_id": 2475,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "x_username": "Support4you9917"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T12:39:34.190Z",
+        "season_id": 2
+      },
+      {
+        "id": 12204,
+        "wallet": "0x525029ab1a738f6df4bbe505d6c9f34f2a7232ee1f410d97b2ac36e7cb9ace6e",
+        "quest_id": 2475,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "x_username": "AlphaGenie974"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T11:31:56.002Z",
+        "season_id": 2
+      },
+      {
+        "id": 12203,
+        "wallet": "0x285f93232c6787e2029e174b45f0c9a5bc8c939efeaae6265a21e88bb7ab417d",
+        "quest_id": 2202,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "tweet_url": "https://x.com/HamadaAfna90490/status/2067548212345688457?s=20"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T10:01:32.734Z",
+        "season_id": 2
+      },
+      {
+        "id": 12202,
+        "wallet": "0x285f93232c6787e2029e174b45f0c9a5bc8c939efeaae6265a21e88bb7ab417d",
+        "quest_id": 2203,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "x_username": "hamadaafna90490"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T09:52:51.808Z",
+        "season_id": 2
+      },
+      {
+        "id": 12201,
+        "wallet": "0x285f93232c6787e2029e174b45f0c9a5bc8c939efeaae6265a21e88bb7ab417d",
+        "quest_id": 2475,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "x_username": "hamadaafna90490"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T09:52:05.955Z",
+        "season_id": 2
+      },
+      {
+        "id": 12200,
+        "wallet": "0x285f93232c6787e2029e174b45f0c9a5bc8c939efeaae6265a21e88bb7ab417d",
+        "quest_id": 2474,
+        "status": "VERIFIED",
+        "proof": {
+          "source": "self-reported"
+        },
+        "seeds_awarded": 200,
+        "tx_hash": "0x9c60b0e90c27503a01dc0f840288ea5e3c325c0037e60c4c200e410e1e49e2da",
+        "verified_at": "2026-06-18T09:51:45.486Z",
+        "created_at": "2026-06-18T09:51:45.486Z",
+        "season_id": 2
+      },
+      {
+        "id": 12199,
+        "wallet": "0xf489700fad7f7d01b0a76d761474797637fddea1b5e2d6a942ed51fc896c6259",
+        "quest_id": 2474,
+        "status": "VERIFIED",
+        "proof": {
+          "source": "self-reported"
+        },
+        "seeds_awarded": 200,
+        "tx_hash": "0xd05a5c128819b8c14780ad23f5ead3d0176607ee144c6ec7ce9b637acee5f8a9",
+        "verified_at": "2026-06-18T06:25:16.201Z",
+        "created_at": "2026-06-18T06:25:16.201Z",
+        "season_id": 2
+      },
+      {
+        "id": 12198,
+        "wallet": "0x303f3a4fa88af04c2da1164c62c6e53a4235eeafb04b7d796116c1ac2bcb5754",
+        "quest_id": 2203,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "x_username": "IbrahimFak69920"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T05:28:15.478Z",
+        "season_id": 2
+      },
+      {
+        "id": 12197,
+        "wallet": "0x3097be50b89f2fa55085ddeeec2203feb682afd578a5d92ce8f5e1663ab4bd52",
+        "quest_id": 2475,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "x_username": "SajidahNaziah"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T03:46:34.275Z",
+        "season_id": 2
+      },
+      {
+        "id": 12196,
+        "wallet": "0x3097be50b89f2fa55085ddeeec2203feb682afd578a5d92ce8f5e1663ab4bd52",
+        "quest_id": 2474,
+        "status": "VERIFIED",
+        "proof": {
+          "source": "self-reported"
+        },
+        "seeds_awarded": 200,
+        "tx_hash": "0x9b95911ae852df298e4c5422445964821a3317534b77ffe00b16d4343de1e55f",
+        "verified_at": "2026-06-18T03:46:32.753Z",
+        "created_at": "2026-06-18T03:46:32.753Z",
+        "season_id": 2
+      },
+      {
+        "id": 12195,
+        "wallet": "0xf4885be8d3bc8fd8ffd2596cf79520c6f40fd17a28fefdc595ed73cf5c98462f",
+        "quest_id": 2475,
+        "status": "PENDING",
+        "proof": {
+          "source": "manual-review",
+          "x_username": "perokoktua77"
+        },
+        "seeds_awarded": 0,
+        "tx_hash": null,
+        "verified_at": null,
+        "created_at": "2026-06-18T01:18:54.492Z",
+        "season_id": 2
+      },
+      {
+        "id": 12194,
+        "wallet": "0xf4885be8d3bc8fd8ffd2596cf79520c6f40fd17a28fefdc595ed73cf5c98462f",
+        "quest_id": 2474,
+        "status": "VERIFIED",
+        "proof": {
+          "source": "self-reported"
+        },
+        "seeds_awarded": 200,
+        "tx_hash": "0xdeecad95e36b71ba8aa1c1a90fd00fdf4d9191aeafb18770d668bc8671612888",
+        "verified_at": "2026-06-18T01:18:41.746Z",
+        "created_at": "2026-06-18T01:18:41.746Z",
+        "season_id": 2
+      }
+    ]
+  },
+  "seeds_ledger": {
+    "count": 8026,
+    "sample": [
+      {
+        "id": 11373,
+        "wallet": "0x7a0526763fb9cb25ae0ae19610784b64d22dfbdbf10860234e56e3743af5e304",
+        "delta": 200,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2474,
+        "tx_hash": "0xa25face0cac5ab652115bb8349b142ae19fa05d6525f328170e06800e98d75f5",
+        "created_at": "2026-06-18T16:42:16.645Z",
+        "season_id": 2
+      },
+      {
+        "id": 11372,
+        "wallet": "0xfe33fff7f5293dba65790d32410a1a0fc8bbe72537b9b9f68db247aa4fcfb85d",
+        "delta": 100,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2475,
+        "tx_hash": "0xaa138481111cef9bdf048a3b41cb88eb29b63a1d1d35c76332862579fc419125",
+        "created_at": "2026-06-18T16:21:10.441Z",
+        "season_id": 2
+      },
+      {
+        "id": 11371,
+        "wallet": "0x9c9db3efe5de22fa099dd7ed062e500dd2f4f7f12484a6ad126c2817c4d7b90a",
+        "delta": 100,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2475,
+        "tx_hash": "0xdc42f86f87ee48bf115813a362d07d04eaf8107a076913ad5e1a83112f0ceb41",
+        "created_at": "2026-06-18T16:21:06.960Z",
+        "season_id": 2
+      },
+      {
+        "id": 11370,
+        "wallet": "0x1801ff0b680c70725928c5aac6623816922719015aa7248681650d074710931b",
+        "delta": 100,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2475,
+        "tx_hash": "0xbcf9442331d6b328736efce8a0cf16f701711dbbc08765036ea6b1f53afc4127",
+        "created_at": "2026-06-18T16:21:05.058Z",
+        "season_id": 2
+      },
+      {
+        "id": 11369,
+        "wallet": "0xe81fa5efb227f214cd23006ec280d0e511cd3adb95ee074e44ff3c631576935f",
+        "delta": 200,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2474,
+        "tx_hash": "0x324aaded26b5249e955bbc186a84ba745a3ac74f95f03fad3512cdad53905fcf",
+        "created_at": "2026-06-18T12:42:29.134Z",
+        "season_id": 2
+      },
+      {
+        "id": 11368,
+        "wallet": "0x285f93232c6787e2029e174b45f0c9a5bc8c939efeaae6265a21e88bb7ab417d",
+        "delta": 200,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2474,
+        "tx_hash": "0x9c60b0e90c27503a01dc0f840288ea5e3c325c0037e60c4c200e410e1e49e2da",
+        "created_at": "2026-06-18T09:51:45.492Z",
+        "season_id": 2
+      },
+      {
+        "id": 11367,
+        "wallet": "0xf489700fad7f7d01b0a76d761474797637fddea1b5e2d6a942ed51fc896c6259",
+        "delta": 200,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2474,
+        "tx_hash": "0xd05a5c128819b8c14780ad23f5ead3d0176607ee144c6ec7ce9b637acee5f8a9",
+        "created_at": "2026-06-18T06:25:16.207Z",
+        "season_id": 2
+      },
+      {
+        "id": 11366,
+        "wallet": "0x3097be50b89f2fa55085ddeeec2203feb682afd578a5d92ce8f5e1663ab4bd52",
+        "delta": 200,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2474,
+        "tx_hash": "0x9b95911ae852df298e4c5422445964821a3317534b77ffe00b16d4343de1e55f",
+        "created_at": "2026-06-18T03:46:32.760Z",
+        "season_id": 2
+      },
+      {
+        "id": 11365,
+        "wallet": "0xf4885be8d3bc8fd8ffd2596cf79520c6f40fd17a28fefdc595ed73cf5c98462f",
+        "delta": 200,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2474,
+        "tx_hash": "0xdeecad95e36b71ba8aa1c1a90fd00fdf4d9191aeafb18770d668bc8671612888",
+        "created_at": "2026-06-18T01:18:41.753Z",
+        "season_id": 2
+      },
+      {
+        "id": 11364,
+        "wallet": "0x868111d85b4c429dbf5f2d54111c580cd9bc12a53ac377760d89bfe2813e7410",
+        "delta": 100,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 1994,
+        "tx_hash": "0x9a5edd54ae9f4508c0f8ac46f5356c7e5102ffa59c80369637b065d5af5f0a16",
+        "created_at": "2026-06-17T21:00:00.932Z",
+        "season_id": 2
+      },
+      {
+        "id": 11363,
+        "wallet": "0x281e43f82bc2b68f3f1dcf4dbb9da9917ce4cb12300eadfd6a090c902453ae5a",
+        "delta": 200,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2474,
+        "tx_hash": "0xe32620987042b9bc98d309793f7e914457bc9d1f6996e2c477bf5784c7844cfd",
+        "created_at": "2026-06-17T20:04:48.037Z",
+        "season_id": 2
+      },
+      {
+        "id": 11362,
+        "wallet": "0x1801ff0b680c70725928c5aac6623816922719015aa7248681650d074710931b",
+        "delta": 150,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2203,
+        "tx_hash": "0xadfb41bcc0a3d149edb4eadf708fe20fe8084a27a80bb0d62f81ea4a21f0514a",
+        "created_at": "2026-06-17T19:30:32.297Z",
+        "season_id": 2
+      },
+      {
+        "id": 11361,
+        "wallet": "0x761841cad5aa9d8b5fe6bdb22375e8f1930e6d732d1434435f5ff6635f293d45",
+        "delta": 100,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2475,
+        "tx_hash": "0x8132fa56a1d54c30bb900420f882afd09c9f51599aabbbb8d816cce8172746c6",
+        "created_at": "2026-06-17T19:30:29.984Z",
+        "season_id": 2
+      },
+      {
+        "id": 11360,
+        "wallet": "0x8c97c2241fd73e741d8f443d32f66f5dae0cf1954503428b793cf3a63368a76c",
+        "delta": 100,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2475,
+        "tx_hash": "0xe9c4b3d311db18fcffd796330971f46abb510d2be832a106066ceb28d7f4b664",
+        "created_at": "2026-06-17T19:29:23.935Z",
+        "season_id": 2
+      },
+      {
+        "id": 11359,
+        "wallet": "0xf2305db7c2c973adf3f04858c36358e4c9563d085d255018a7efdd59e105044d",
+        "delta": 100,
+        "reason": "QUEST_COMPLETE",
+        "quest_id": 2475,
+        "tx_hash": "0x4be40ab930fd03455ee520d2d79b69a3911d69575edaedd37ce0ccf2603feee0",
+        "created_at": "2026-06-17T19:29:22.996Z",
+        "season_id": 2
+      }
+    ]
+  },
+  "ginie_invite_codes": {
+    "count": 1000,
+    "sample": [
+      {
+        "id": 1000,
+        "code": "GS-LUML-MG9L",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 999,
+        "code": "GS-VK72-P4I3",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 998,
+        "code": "GS-EIV1-3VPP",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 997,
+        "code": "GS-GRKC-A1JU",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 996,
+        "code": "GS-SM4U-8QM8",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 995,
+        "code": "GS-1EJC-FMB3",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 994,
+        "code": "GS-ITZV-51V5",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 993,
+        "code": "GS-BV80-2L3I",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 992,
+        "code": "GS-CY9R-RJKE",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 991,
+        "code": "GS-GVP8-72GG",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 990,
+        "code": "GS-4MON-9XRZ",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 989,
+        "code": "GS-WAKV-0A5L",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 988,
+        "code": "GS-AVNT-A6IX",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 987,
+        "code": "GS-EJ2Q-0R5W",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      },
+      {
+        "id": 986,
+        "code": "GS-SVPW-3MG7",
+        "claimed_by": null,
+        "claimed_at": null,
+        "created_at": "2026-05-13T15:05:56.071Z"
+      }
+    ]
+  },
+  "campaigns": {
+    "count": 1,
+    "sample": [
+      {
+        "id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "creator_wallet": "PLATFORM",
+        "title": "GrowStreams Launch Campaign",
+        "description": "The original GrowStreams launch campaign — $100 USDC pool for OSS and content contributors.",
+        "pool_amount": "100.000000",
+        "pool_remaining": "1.350000",
+        "token": "WUSDC",
+        "status": "SETTLING",
+        "track_type": "BOTH",
+        "start_date": "2026-04-01T00:00:00.000Z",
+        "end_date": "2026-05-01T00:00:00.000Z",
+        "ended_at": "2026-05-01T00:00:00.772Z",
+        "funding_tx_hash": null,
+        "required_hashtags": [
+          "#GrowStreams",
+          "#VaraNetwork"
+        ],
+        "required_mentions": [
+          "@GrowwStreams"
+        ],
+        "github_repo_url": "https://github.com/BlockXAI/GrowStreams_Backend",
+        "github_issue_labels": [
+          "stream-bounty"
+        ],
+        "max_oss_contributions": 3,
+        "max_content_contributions": 10,
+        "score_threshold": 70,
+        "created_at": "2026-04-25T07:48:23.607Z",
+        "updated_at": "2026-05-01T00:00:00.873Z"
+      }
+    ]
+  },
+  "campaign_participants": {
+    "count": 27,
+    "sample": [
+      {
+        "id": "fdd34de2-bc8a-4b46-adbc-1965db7e567e",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "ee6f8fad-1223-4d81-8def-d3931e0c8b2e",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x30e0dc5605871cbad85e9ea957e83c2a59df2e7b26656b37c2e0a5dfd7637e70",
+        "campaign_xp": 780,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "eb7ec2b4-38b5-4dd3-9f28-324888664908",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xfaae01cfdfe4d0e5be8039227d9e1d20834c92b9ac858d0d66c03183835de93a",
+        "campaign_xp": 825,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "e0b6ac55-b20e-4719-add9-c48426848aa1",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x064c4fb187267f2a3d47070351da5382610c6725803961d471bc16183677c56c",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "d8fb1333-3d6b-403d-bee5-7104ec2f9145",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xdabf5669c365c8f1ead6d4fb61297fbd83f3220cc63bdaffb3a3bd9edebf9109",
+        "campaign_xp": 510,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "d4bd134d-4fba-4834-af8c-8a86725d6571",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xdc5a12707c1aee2f762fa8d2d2526857dd761be350e7556d7978aa9db19d1115",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "ccebaf46-d21c-441d-a0eb-b4291014f883",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xae55fee14bdd7ac7e7a1aebb519a05fce58d6dd1ae8fce3ea1109aa18c174c1f",
+        "campaign_xp": 360,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "ca53c22c-b7e3-4075-9bbe-c5d646d20d47",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x22b1e62d12f48e506ac0d81d9c9100c0310456e555f95144bea8850a001ff84a",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "c6d5dfdf-4a67-41ad-b0c2-48b62c2f7522",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x8c41fe99914b68aa378e497f33e8fd9395138ab9b0e6c0b04f1846e7f7da5355",
+        "campaign_xp": 0,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "bcc08009-ea84-4596-b15c-ad455d186892",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x08bf362b59c274da506c1fbbc910eba23deb1dcf204f671f32a627d4b98fcb73",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "b88dda05-5fb5-4565-a18c-a450e7c0a747",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xb6b3e720679a2e2d29cf7eb5f80b3a1b5b88ccad6dda70b0bfc6195b462a5b45",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "a0971279-6c67-46b1-8eb1-c85ca2a40a6d",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xe0db7e4bce1ba77c99e8a2e0e41ea492bc11f1ad0ffe42959b17b1b60ee90875",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "7bce4fc2-1706-4a81-bc1f-85799ca2ef68",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "<script>alert(1)</script>",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "6ca233f7-4313-41ab-9bfa-ef63517bd12c",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "campaign_xp": 4710,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      },
+      {
+        "id": "6692708d-3e0f-42aa-bd56-a04972ff5c84",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x4eaa74b8716fffeecf7cfb08b03a9599ad2816d120781ced0adee14fc55cf949",
+        "campaign_xp": 10,
+        "enrolled_at": "2026-04-25T07:48:23.607Z"
+      }
+    ]
+  },
+  "campaign_payouts": {
+    "count": 25,
+    "sample": [
+      {
+        "id": "ee658161-09ef-45a9-9a26-c9b8f888d3c1",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "<script>alert(1775691196)</script>",
+        "xp_earned": 10,
+        "xp_share": "0.000845",
+        "usdc_amount": "0.080000",
+        "status": "BELOW_MINIMUM",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.848Z"
+      },
+      {
+        "id": "ed2b001d-5875-4ade-b6b0-46b84152fd03",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x48bd1bd87e0e9b91e299d8e73c15d5c2f7c7dbbdf5861eade87d7513b25da522",
+        "xp_earned": 10,
+        "xp_share": "0.000845",
+        "usdc_amount": "0.080000",
+        "status": "BELOW_MINIMUM",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.841Z"
+      },
+      {
+        "id": "e69a82f8-f3bb-4ab8-b791-3ea6be468659",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xae55fee14bdd7ac7e7a1aebb519a05fce58d6dd1ae8fce3ea1109aa18c174c1f",
+        "xp_earned": 360,
+        "xp_share": "0.030418",
+        "usdc_amount": "3.040000",
+        "status": "PENDING",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.839Z"
+      },
+      {
+        "id": "e3e1b02c-f365-4522-98a2-0e9fcb2e8b28",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xdc5a12707c1aee2f762fa8d2d2526857dd761be350e7556d7978aa9db19d1115",
+        "xp_earned": 10,
+        "xp_share": "0.000845",
+        "usdc_amount": "0.080000",
+        "status": "BELOW_MINIMUM",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.864Z"
+      },
+      {
+        "id": "d44e277b-f3e2-4da7-9245-270c1139c477",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x38ccb07653bb68fb18c5cc9838afb38c1cfa88ef6b9761215e925ab75e62d25a",
+        "xp_earned": 1510,
+        "xp_share": "0.127588",
+        "usdc_amount": "12.760000",
+        "status": "PENDING",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.822Z"
+      },
+      {
+        "id": "d1faf2c4-05f9-44bd-95b1-0f7d357d71fa",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x4eaa74b8716fffeecf7cfb08b03a9599ad2816d120781ced0adee14fc55cf949",
+        "xp_earned": 10,
+        "xp_share": "0.000845",
+        "usdc_amount": "0.080000",
+        "status": "BELOW_MINIMUM",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.854Z"
+      },
+      {
+        "id": "cb8f091d-3314-43c8-b16b-b138f178e180",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x64b7b601fdcd1b5d7643faa6d4f0f1f1ce672356057038af8397dda5dd96962b",
+        "xp_earned": 4710,
+        "xp_share": "0.397972",
+        "usdc_amount": "39.800000",
+        "status": "PENDING",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.817Z"
+      },
+      {
+        "id": "b1e3d5e2-fab8-4342-bb1d-a0cccda17520",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x064c4fb187267f2a3d47070351da5382610c6725803961d471bc16183677c56c",
+        "xp_earned": 10,
+        "xp_share": "0.000845",
+        "usdc_amount": "0.080000",
+        "status": "BELOW_MINIMUM",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.850Z"
+      },
+      {
+        "id": "a6e170f8-bf1b-4272-a998-9fbeebc59218",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x30e0dc5605871cbad85e9ea957e83c2a59df2e7b26656b37c2e0a5dfd7637e70",
+        "xp_earned": 780,
+        "xp_share": "0.065906",
+        "usdc_amount": "6.590000",
+        "status": "PENDING",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.832Z"
+      },
+      {
+        "id": "a0a30e11-9ac4-495b-864e-06ebddbe82d7",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0x1afb3b7f0ab889b44db7ad37d0653cb36528d19262e8f8c9966dc5c7bcb00c1e",
+        "xp_earned": 510,
+        "xp_share": "0.043093",
+        "usdc_amount": "4.310000",
+        "status": "PENDING",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.835Z"
+      },
+      {
+        "id": "90ab67a8-f106-424a-9a96-ccd66d5ebfde",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "<script>alert(1)</script>",
+        "xp_earned": 10,
+        "xp_share": "0.000845",
+        "usdc_amount": "0.080000",
+        "status": "BELOW_MINIMUM",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.845Z"
+      },
+      {
+        "id": "8af368ba-c1fc-4ddf-a0b3-9cac7ea1624c",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xe0db7e4bce1ba77c99e8a2e0e41ea492bc11f1ad0ffe42959b17b1b60ee90875",
+        "xp_earned": 10,
+        "xp_share": "0.000845",
+        "usdc_amount": "0.080000",
+        "status": "BELOW_MINIMUM",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.860Z"
+      },
+      {
+        "id": "8a4a431b-5fe8-4104-a6dc-2c9820bb35d9",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xe8492c70af5aec707076d1c4d0f02cded226adf7b4fab995fbc5b4105d2e4901",
+        "xp_earned": 1460,
+        "xp_share": "0.123363",
+        "usdc_amount": "12.340000",
+        "status": "PENDING",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.825Z"
+      },
+      {
+        "id": "87212699-2f60-4b00-a9c0-7d9d22c37435",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xb6b3e720679a2e2d29cf7eb5f80b3a1b5b88ccad6dda70b0bfc6195b462a5b45",
+        "xp_earned": 10,
+        "xp_share": "0.000845",
+        "usdc_amount": "0.080000",
+        "status": "BELOW_MINIMUM",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.862Z"
+      },
+      {
+        "id": "80423389-62bb-4481-b526-be2176a5b33f",
+        "campaign_id": "76d926b3-829b-4e6a-9141-451ee07b7e1d",
+        "wallet": "0xb8ece92a20f1d9cd5be8a8278851114f619d5543b542d72830a5a2156e9ba151",
+        "xp_earned": 1010,
+        "xp_share": "0.085340",
+        "usdc_amount": "8.530000",
+        "status": "PENDING",
+        "tx_hash": null,
+        "executed_at": null,
+        "created_at": "2026-05-01T00:00:00.828Z"
+      }
+    ]
+  },
+  "seasons": {
+    "count": 2,
+    "sample": [
+      {
+        "id": 2,
+        "name": "Season 2",
+        "slug": "season-2",
+        "status": "ACTIVE",
+        "start_at": "2026-05-24T11:20:00.000Z",
+        "end_at": null,
+        "description": "Season 2 of GrowStreams quests. Fresh start — all builders begin at 0 XP.",
+        "meta": {
+          "prize_pool": "TBD",
+          "distribution": "TBD"
+        },
+        "created_at": "2026-05-24T11:40:13.394Z"
+      },
+      {
+        "id": 1,
+        "name": "Season 1",
+        "slug": "season-1",
+        "status": "ENDED",
+        "start_at": "2026-01-01T00:00:00.000Z",
+        "end_at": "2026-05-24T11:20:00.000Z",
+        "description": "The inaugural GrowStreams quest season. All XP earned before Season 2 launch.",
+        "meta": {
+          "prize_pool": "100000 VARA",
+          "distribution": "TBD"
+        },
+        "created_at": "2026-05-24T11:40:13.392Z"
+      }
+    ]
+  },
+  "evm_streams": {
+    "count": 1,
+    "sample": [
+      {
+        "id": 1,
+        "message_id": null,
+        "stream_id": null,
+        "sender": "",
+        "receiver": "0x3a909afa5e38479b60eadb98df956a663c329b2f",
+        "flow_rate": "166666",
+        "amount": "10000000",
+        "token": "0x61ffd23e5b553da8b3d42f8d072cb0263396d14b",
+        "escrow_address": "0xd807159630609366585117181a6ab1127bb09838",
+        "approve_tx": "0xa86761692475d1a27668404e3cc41ba2cb32b8a0516a4ab7e75d2cda19386d30",
+        "deposit_tx": "0x608e08d74911728915508b35307f4090033d0ffefc37f66ab9f1c873f3ca1f6e",
+        "block_number": "3040690",
+        "status": "PENDING",
+        "network": "vara-eth-hoodi",
+        "created_at": "2026-06-18T11:53:03.422Z",
+        "updated_at": "2026-06-18T11:53:03.422Z"
+      }
+    ]
+  },
+  "vouchers": {
+    "count": 79,
+    "sample": [
+      {
+        "id": 79,
+        "wallet": "0xcc5722561601d59f733886d78619fc33cde0827a213ec3cfa7237535ddbfec38",
+        "voucher_id": "0x12fd0231b2922a73e38338e063d8ee0b3ef2244238f9ea27bfdc51de03fa384f",
+        "program_ids": [
+          "0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-06-17T01:05:57.819Z",
+        "expires_at": "2026-06-24T01:05:57.816Z",
+        "status": "ACTIVE"
+      },
+      {
+        "id": 78,
+        "wallet": "0x868111d85b4c429dbf5f2d54111c580cd9bc12a53ac377760d89bfe2813e7410",
+        "voucher_id": "0x2ea67415f40c063e33bfcf39f99b755f7c7a62446bd6d73d338f1261a0a55034",
+        "program_ids": [
+          "0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-06-16T14:14:42.803Z",
+        "expires_at": "2026-06-23T14:14:42.801Z",
+        "status": "ACTIVE"
+      },
+      {
+        "id": 77,
+        "wallet": "0xd4a5fb8326bb9d4dd6fa34e60fc5c2f18e8b677b39908e78907df89b0948bd67",
+        "voucher_id": "0xaf13e3e7c4bff3d881178d39e0158c874de51dc8f27a55aa4c4895d71c878bc8",
+        "program_ids": [
+          "0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-06-13T08:53:21.868Z",
+        "expires_at": "2026-06-20T08:53:21.867Z",
+        "status": "ACTIVE"
+      },
+      {
+        "id": 76,
+        "wallet": "0x285f93232c6787e2029e174b45f0c9a5bc8c939efeaae6265a21e88bb7ab417d",
+        "voucher_id": "0x150c40df323f83e0ddd11ca93c53d32a5e09d746b75acd71d08474751a4e39a3",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-06-09T21:05:30.819Z",
+        "expires_at": "2026-06-16T21:05:30.817Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 75,
+        "wallet": "0x1640228651c2e9950a02666b5c6713dffa8fbd1097837ff576189e86d929fb2a",
+        "voucher_id": "0x2e42b9401788bbefc4db95143e726372f5001a5b2ac1671d91cba6ca5c0a388b",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-26T11:32:42.941Z",
+        "expires_at": "2026-06-02T11:32:42.941Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 74,
+        "wallet": "0x285f93232c6787e2029e174b45f0c9a5bc8c939efeaae6265a21e88bb7ab417d",
+        "voucher_id": "0xde4586fde7f09cf56f51e9890fe1c68f7ba309af222fc394b5b6ba1692bbabe6",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-26T03:43:19.121Z",
+        "expires_at": "2026-06-02T03:43:19.121Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 73,
+        "wallet": "0x381c40a97c90c3c40dfad517f47b47dc031c07cda29b9c5e29aa2d828a9d9c26",
+        "voucher_id": "0x27d3d26e40873d2022e0836b9fda76c554d448e16c91b3ab4872f978b8ba72ff",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-25T14:52:27.873Z",
+        "expires_at": "2026-06-01T14:52:27.872Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 72,
+        "wallet": "0xca287bf3fbd8581e42a8d40dc9c86d1149c242e7c48b874bbe641b9dbc525b79",
+        "voucher_id": "0x1986d61365198daa7623e3c6d23142b400d1b017a77e6cbaccec3a9f9ebb0d39",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-25T14:48:27.946Z",
+        "expires_at": "2026-06-01T14:48:27.945Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 71,
+        "wallet": "0xa21a345d736293f2b277cd5443b66c234bc0e9b4dd5e79760a26b4e096dd9a62",
+        "voucher_id": "0x02bc5be7b8a04cfbc8fce6b0ec0d47c4c85fa0db65dcb8153e61ad4bd14635da",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-25T09:56:18.863Z",
+        "expires_at": "2026-06-01T09:56:18.861Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 70,
+        "wallet": "0xda988c70253663bc24bf42543aa6404089842f17d6c2f13c137789af3a76ff7d",
+        "voucher_id": "0xcee7b06ed7764fa3a7b437b68ce4cd30863cc1c3153f1a481d4143e5f25898c2",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d",
+          "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-25T08:25:42.907Z",
+        "expires_at": "2026-06-01T08:25:42.905Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 69,
+        "wallet": "0xaa59600bfd03789b28d64cd932146981e41c1b8ad0934beeb842c68c349cec7b",
+        "voucher_id": "0x6e635a710e146102b993221c28731039996fd10029f658e2ca9e23c49252d93f",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-23T14:43:12.865Z",
+        "expires_at": "2026-05-30T14:43:12.864Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 68,
+        "wallet": "0x868111d85b4c429dbf5f2d54111c580cd9bc12a53ac377760d89bfe2813e7410",
+        "voucher_id": "0x1beac5ee1c78eb8b0e037952f5b425f684ff75c7a1e7a04115e0b501de3ad018",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-23T14:02:48.858Z",
+        "expires_at": "2026-05-30T14:02:48.857Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 67,
+        "wallet": "0x9c9db3efe5de22fa099dd7ed062e500dd2f4f7f12484a6ad126c2817c4d7b90a",
+        "voucher_id": "0x9dcaa11bc2ba9215564a8330342f7daac3ca08c575e0f1392e3aea568f0aee8c",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-22T19:45:21.859Z",
+        "expires_at": "2026-05-29T19:45:21.858Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 66,
+        "wallet": "0xbea8b1a29e47f3cc0ccf0a99891cf1752f9cea0a1c11bd8739f8ac9dc488c706",
+        "voucher_id": "0x840b1d5a81b39386c7726147552158804a8c76f72b407243f785a82af65f52bb",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-20T20:53:52.472Z",
+        "expires_at": "2026-05-27T20:53:52.470Z",
+        "status": "EXPIRED"
+      },
+      {
+        "id": 65,
+        "wallet": "0x6e26d8c4592a78c634eb9806d06b023b66e7d04cf9555a5c9b23946e78c40b4f",
+        "voucher_id": "0xbb5196c37665c1c7d9c5cb62a70f5381f075c0da035a68ec68a341dd10c81fb4",
+        "program_ids": [
+          "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+          "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+          "0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45",
+          "0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581",
+          "0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f",
+          "0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29",
+          "0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163",
+          "0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d"
+        ],
+        "amount": "20000000000000",
+        "duration": 201600,
+        "issued_at": "2026-05-20T07:03:21.927Z",
+        "expires_at": "2026-05-27T07:03:21.926Z",
+        "status": "EXPIRED"
+      }
+    ]
+  }
+}
