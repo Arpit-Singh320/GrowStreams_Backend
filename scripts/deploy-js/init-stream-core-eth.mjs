@@ -77,18 +77,20 @@ const ABI_INITIALIZE = [
   },
 ];
 
-const hoodiChain = {
+const networkName = process.env.VARA_ETH_NETWORK_NAME || (chainId === 1 ? 'Ethereum Mainnet' : `Vara.eth chain ${chainId}`);
+
+const targetChain = {
   id: chainId,
-  name: 'Vara.eth Hoodi Testnet',
-  nativeCurrency: { name: 'Hoodi ETH', symbol: 'ETH', decimals: 18 },
+  name: networkName,
+  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [VARA_ETH_RPC] } },
 };
 
 const account = privateKeyToAccount(
   ETH_PRIVATE_KEY.startsWith('0x') ? ETH_PRIVATE_KEY : `0x${ETH_PRIVATE_KEY}`
 );
-const publicClient = createPublicClient({ chain: hoodiChain, transport: http(VARA_ETH_RPC) });
-const walletClient = createWalletClient({ account, chain: hoodiChain, transport: http(VARA_ETH_RPC) });
+const publicClient = createPublicClient({ chain: targetChain, transport: http(VARA_ETH_RPC) });
+const walletClient = createWalletClient({ account, chain: targetChain, transport: http(VARA_ETH_RPC) });
 
 console.log('=== Initialize stream-core-eth via ABI contract ===');
 console.log('ABI contract     :', STREAM_CORE_ETH_ABI);
