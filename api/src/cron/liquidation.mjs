@@ -102,7 +102,7 @@ async function processRiskyStream(risk) {
     // ---- Super Token path: use liquidation-manager ----
     try {
       const superTokenHex = toActorId(superTokenAddr);
-      const { blockHash } = await command(
+      const { blockHash, txHash } = await command(
         'liquidationManager',
         'LiquidateStream',
         streamId,
@@ -120,6 +120,7 @@ async function processRiskyStream(risk) {
         tokenAddress: risk.token,
         tokenSymbol: risk.token_symbol,
         blockHash,
+        extrinsicHash: txHash,
         metadata: {
           path: 'super-token',
           health_factor: risk.health_factor,
@@ -139,7 +140,7 @@ async function processRiskyStream(risk) {
 }
 
 async function legacyLiquidate(streamId, risk) {
-  const { blockHash } = await command('streamCore', 'Liquidate', streamId);
+  const { blockHash, txHash } = await command('streamCore', 'Liquidate', streamId);
   console.log(
     `[liquidation-keeper] Liquidated (legacy path) stream ${risk.stream_id} ` +
     `sender=${risk.sender} health=${risk.health_factor} block=${blockHash}`
@@ -151,6 +152,7 @@ async function legacyLiquidate(streamId, risk) {
     tokenAddress: risk.token,
     tokenSymbol: risk.token_symbol,
     blockHash,
+    extrinsicHash: txHash,
     metadata: {
       path: 'legacy',
       health_factor: risk.health_factor,

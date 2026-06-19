@@ -9,6 +9,7 @@ import { syncOnchainMints } from '../services/quest-service.mjs';
 import { revokeExpiredVouchers } from '../services/voucher-service.mjs';
 import { runLiquidationKeeper } from './liquidation.mjs';
 import { runEvmStreamCheck } from './quest-evm-stream-monitor.mjs';
+import { runAnalyticsSnapshot } from './analytics-snapshots.mjs';
 
 export function initCrons() {
   // Daily XP accumulation — midnight UTC
@@ -116,6 +117,15 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
+  // KPI analytics snapshots — hourly, using on-chain TVL + observed activity window
+  cron.schedule('0 * * * *', async () => {
+    try {
+      await runAnalyticsSnapshot();
+    } catch (err) {
+      console.error(`[cron] analytics-snapshot failed: ${err.message}`);
+    }
+  }, { timezone: 'UTC' });
+
   console.log('[cron] All cron jobs scheduled:');
   console.log('[cron]   daily-xp:         0 0 * * *      (midnight UTC)');
   console.log('[cron]   snapshot:         5 0 * * *      (00:05 UTC)');
@@ -128,5 +138,6 @@ export function initCrons() {
   console.log('[cron]   liquidation:      */5 * * * *    (every 5m, solvency enforcement)');
   console.log('[cron]   evm-stream:      */10 * * * *   (every 10m, Vara.eth stream confirm)');
   console.log('[cron]   voucher-reclaim:  30 */6 * * *   (every 6h, reclaims VARA)');
+  console.log('[cron]   analytics:        0 * * * *      (hourly KPI snapshots)');
   console.log('[cron] Phase 4 Vara.eth crons active.');
 }

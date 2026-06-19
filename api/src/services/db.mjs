@@ -162,6 +162,7 @@ export async function migrate() {
       flow_rate     TEXT,
       amount        TEXT,
       block_hash    TEXT,
+      extrinsic_hash TEXT,
       metadata      JSONB,
       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -179,6 +180,7 @@ export async function migrate() {
       amount_display TEXT,
       stream_id     TEXT,
       block_hash    TEXT,
+      extrinsic_hash TEXT,
       metadata      JSONB,
       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -213,6 +215,56 @@ export async function migrate() {
       updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       completed_at      TIMESTAMPTZ
     );
+  `);
+
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS analytics_protocol_snapshots (
+      id                           BIGSERIAL PRIMARY KEY,
+      snapped_at                   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      estimated_tvl_usd            NUMERIC(20, 6) NOT NULL DEFAULT 0,
+      estimated_stablecoin_tvl_usd NUMERIC(20, 6) NOT NULL DEFAULT 0,
+      total_streams                INTEGER NOT NULL DEFAULT 0,
+      active_streams               INTEGER NOT NULL DEFAULT 0,
+      observed_stream_event_count  INTEGER NOT NULL DEFAULT 0,
+      observed_vault_event_count   INTEGER NOT NULL DEFAULT 0,
+      observed_unique_wallets      INTEGER NOT NULL DEFAULT 0,
+      observed_withdraw_volume_usd NUMERIC(20, 6) NOT NULL DEFAULT 0,
+      observed_window_days         INTEGER NOT NULL DEFAULT 30,
+      observed_volume_source       TEXT NOT NULL DEFAULT 'api_event_logs_only',
+      volume_24h_usd               NUMERIC(20, 6) NOT NULL DEFAULT 0,
+      volume_7d_usd                NUMERIC(20, 6) NOT NULL DEFAULT 0,
+      volume_30d_usd               NUMERIC(20, 6) NOT NULL DEFAULT 0,
+      dau                          INTEGER NOT NULL DEFAULT 0,
+      total_transactions           INTEGER NOT NULL DEFAULT 0,
+      unique_wallets_all_time      INTEGER NOT NULL DEFAULT 0,
+      last_activity_at             TIMESTAMPTZ,
+      last_updated_at              TIMESTAMPTZ
+    );
+
+    CREATE TABLE IF NOT EXISTS analytics_tvl_snapshots (
+      id             BIGSERIAL PRIMARY KEY,
+      snapped_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      vault_address  TEXT NOT NULL,
+      token_key      TEXT NOT NULL,
+      token_symbol   TEXT NOT NULL,
+      token_address  TEXT,
+      balance_raw    TEXT NOT NULL,
+      balance_display TEXT NOT NULL,
+      estimated_usd  NUMERIC(20, 6),
+      pricing_source TEXT,
+      is_stablecoin  BOOLEAN NOT NULL DEFAULT FALSE
+    );
+  `);
+
+  await p.query(`
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS volume_24h_usd NUMERIC(20, 6) NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS volume_7d_usd NUMERIC(20, 6) NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS volume_30d_usd NUMERIC(20, 6) NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS dau INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS total_transactions INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS unique_wallets_all_time INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMPTZ;
   `);
 
   // Add user_id column to participants if it does not exist
@@ -471,6 +523,10 @@ export async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_bridge_tx_dest ON bridge_transactions(destination_tx_hash);
     CREATE INDEX IF NOT EXISTS idx_bridge_tx_token ON bridge_transactions(token_key);
     CREATE INDEX IF NOT EXISTS idx_bridge_tx_created ON bridge_transactions(created_at);
+    CREATE INDEX IF NOT EXISTS idx_analytics_protocol_snapshots_snapped_at ON analytics_protocol_snapshots(snapped_at);
+    CREATE INDEX IF NOT EXISTS idx_analytics_protocol_snapshots_last_updated_at ON analytics_protocol_snapshots(last_updated_at);
+    CREATE INDEX IF NOT EXISTS idx_analytics_tvl_snapshots_snapped_at ON analytics_tvl_snapshots(snapped_at);
+    CREATE INDEX IF NOT EXISTS idx_analytics_tvl_snapshots_token_key ON analytics_tvl_snapshots(token_key);
   `);
 
   // -----------------------------------------------------------------------
