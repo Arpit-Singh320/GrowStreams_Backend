@@ -28,17 +28,17 @@ function toStringValue(value) {
   return String(value);
 }
 
-function roundNumber(value, decimals = 6) {
+export function roundNumber(value, decimals = 6) {
   return Math.round(value * (10 ** decimals)) / (10 ** decimals);
 }
 
-function clampInt(value, min, max, fallback) {
+export function clampInt(value, min, max, fallback) {
   const parsed = Number.parseInt(String(value ?? ''), 10);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
 }
 
-function toNumberValue(value) {
+export function toNumberValue(value) {
   const parsed = Number.parseFloat(String(value ?? '0'));
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -119,7 +119,7 @@ function resolveToken(row) {
   return byAddress || bySymbol;
 }
 
-function bucketVolume(windowStartMs, eventAtMs, usdValue, volume) {
+export function bucketVolume(windowStartMs, eventAtMs, usdValue, volume) {
   if (eventAtMs >= windowStartMs.last24h) volume.last24hUsd += usdValue;
   if (eventAtMs >= windowStartMs.last7d) volume.last7dUsd += usdValue;
   if (eventAtMs >= windowStartMs.last30d) volume.last30dUsd += usdValue;
@@ -451,19 +451,40 @@ export async function getObservedActivity(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
   const startOfToday = startOfUtcDay().toISOString();
 
+  // A wallet "transacts" when it appears as a stream sender/receiver, a vault
+  // wallet, or a bridge wallet. We build a UNION of those identities so that
+  // unique-wallet and DAU counts reflect on-chain/observed activity — NOT the
+  // size of the users table (which counts registrations, including users who
+  // never transacted).
+  const streamWalletsSql = `
+    SELECT sender AS wallet, created_at FROM stream_events
+      WHERE ${eventSourceMode.streamConditionSql} AND sender IS NOT NULL AND sender <> 'unknown'
+    UNION ALL
+    SELECT receiver AS wallet, created_at FROM stream_events
+      WHERE ${eventSourceMode.streamConditionSql} AND receiver IS NOT NULL AND receiver <> 'unknown'
+  `;
+  const vaultWalletsSql = `
+    SELECT wallet, created_at FROM vault_events
+      WHERE ${eventSourceMode.vaultConditionSql} AND wallet IS NOT NULL AND wallet <> 'unknown'
+  `;
+  const bridgeWalletsSql = `
+    SELECT wallet, COALESCE(completed_at, created_at) AS created_at FROM bridge_transactions
+      WHERE wallet IS NOT NULL AND wallet <> 'unknown'
+  `;
+  const allWalletsSql = `${streamWalletsSql} UNION ALL ${vaultWalletsSql} UNION ALL ${bridgeWalletsSql}`;
+
   const [
     streamCountRow,
     vaultCountRow,
     bridgeCountRow,
     latestRow,
-    uniqueWalletsRow,
+    windowUniqueWalletsRow,
     totalStreamCountRow,
     totalVaultCountRow,
     totalBridgeCountRow,
     allTimeUniqueWalletsRow,
     dauRow,
     volume,
-    totalUsersRow,
   ] = await Promise.all([
     queryOne(`SELECT COUNT(*)::bigint AS count FROM stream_events WHERE ${eventSourceMode.streamConditionSql} AND created_at >= $1`, [since]),
     queryOne(`SELECT COUNT(*)::bigint AS count FROM vault_events WHERE ${eventSourceMode.vaultConditionSql} AND created_at >= $1`, [since]),
@@ -478,12 +499,15 @@ export async function getObservedActivity(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
         SELECT COALESCE(completed_at, created_at) AS created_at FROM bridge_transactions WHERE created_at >= $1
       ) observed
     `, [since]),
-    queryOne(`SELECT COUNT(*)::bigint AS count FROM users WHERE created_at >= $1`, [since]),
+    // Unique transacting wallets within the activity window
+    queryOne(`SELECT COUNT(DISTINCT wallet)::bigint AS count FROM (${allWalletsSql}) w WHERE created_at >= $1`, [since]),
     queryOne(`SELECT COUNT(*)::bigint AS count FROM stream_events WHERE ${eventSourceMode.streamConditionSql}`),
     queryOne(`SELECT COUNT(*)::bigint AS count FROM vault_events WHERE ${eventSourceMode.vaultConditionSql}`),
     queryOne(`SELECT COUNT(*)::bigint AS count FROM bridge_transactions`),
-    queryOne(`SELECT COUNT(*)::bigint AS count FROM users`),
-    queryOne(`SELECT COUNT(*)::bigint AS count FROM users WHERE created_at >= $1`, [startOfToday]),
+    // Unique transacting wallets all-time
+    queryOne(`SELECT COUNT(DISTINCT wallet)::bigint AS count FROM (${allWalletsSql}) w`),
+    // DAU = unique wallets that transacted since the start of the current UTC day
+    queryOne(`SELECT COUNT(DISTINCT wallet)::bigint AS count FROM (${allWalletsSql}) w WHERE created_at >= $1`, [startOfToday]),
     getVolumeMetrics(windowDays),
   ]);
 
@@ -504,7 +528,8 @@ export async function getObservedActivity(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     streamEventCount,
     vaultEventCount,
     bridgeTransactionCount,
-    uniqueWallets: Number.parseInt(allTimeUniqueWalletsRow?.count || '0', 10),
+    // Unique wallets that transacted within the activity window
+    uniqueWallets: Number.parseInt(windowUniqueWalletsRow?.count || '0', 10),
     observedWithdrawVolumeUsd: volume.last30dUsd,
     volumeUsd: {
       last24h: volume.last24hUsd,
