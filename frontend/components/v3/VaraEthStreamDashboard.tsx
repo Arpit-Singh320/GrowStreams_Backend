@@ -485,30 +485,24 @@ export default function VaraEthStreamDashboard({ evmAddress }: { evmAddress?: st
 
       {/* Balances row */}
       {evmAddress && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
             {
-              label: 'Token Balance',
-              value: tokenBal ? fmtUnits(tokenBal.balance, tokenBal.decimals) : '—',
-              sub: 'mUSDC',
-              color: 'text-emerald-400',
-            },
-            {
               label: 'wVARA Balance',
-              value: wvaraBal ? fmtUnits(wvaraBal.balance, 12) : '—',
-              sub: 'wVARA',
-              color: 'text-blue-400',
+              value: tokenBal ? fmtUnits(tokenBal.balance, tokenBal.decimals) : '—',
+              sub: 'Streaming Token',
+              color: 'text-emerald-400',
             },
             {
               label: 'Active Streams',
               value: String(activeCount),
               sub: pendingCount > 0 ? `${pendingCount} pending` : 'streams',
-              color: 'text-emerald-400',
+              color: 'text-blue-400',
             },
             {
               label: 'Claimable Refund',
               value: claimable !== '0' ? fmtUnits(claimable, tokenDecimals) : '0',
-              sub: 'tokens',
+              sub: 'wVARA',
               color: claimable !== '0' ? 'text-yellow-400' : 'text-provn-muted',
             },
           ].map(({ label, value, sub, color }) => (
