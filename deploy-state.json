@@ -63,22 +63,22 @@
     "node": "wss://rpc.vara.network"
   },
   "stream-core-eth-abi": {
-    "address": "0x7f11e270b10944da1c492497b5cff5f59ba33bb7",
-    "network": "vara-eth-hoodi",
-    "deployedAt": "2026-06-15T12:55:38.352Z",
-    "txHash": "0x0464e414d77c955e59f24d9468db3bcdb274e5a8467cb4efc42f3c4fef4001eb"
+    "address": "0x5208a32bc4589b4d2f8b3026f3f3487d6be20680",
+    "network": "ethereum-mainnet",
+    "deployedAt": "2026-06-18T20:58:28.421Z",
+    "txHash": "0x1f3af6e83197d1b5fe4357c79704d6dc9859c1b46c551d7a240b7af66c9b6ba3"
   },
   "stream-core-eth": {
-    "programId": "0xd3CB10206785Db691d60CF829859044e8c05b9FB",
-    "mirror": "0xd3CB10206785Db691d60CF829859044e8c05b9FB",
-    "abiContract": "0x7f11e270b10944da1c492497b5cff5f59ba33bb7",
-    "salt": "0x728cf48ba7502841963ff87dd3c7d6cab68bd860234e5a8175b98ed7c779b76b",
-    "network": "vara-eth-hoodi",
-    "createdAt": "2026-06-15T18:35:15.899Z",
-    "createTxHash": "0x92de7b3da41d5e73c6439289ea71119181b29a1b3828d2785f00fe58e52f95d8",
-    "initializedAt": "2026-06-15T20:46:07.200Z",
-    "initTxHash": "0x4cc9455697dbcf1ab8ef134171492980bc0c00fb8f7dd4e6649ec6a3e01549f6",
-    "admin": "0x20344A08608da16f46275c291E1e54339485fE8C",
+    "programId": "0xF27D0A03Bcc3DF5EeEA5ABa34b06d73D19045De9",
+    "mirror": "0xF27D0A03Bcc3DF5EeEA5ABa34b06d73D19045De9",
+    "abiContract": "0x5208a32bc4589b4d2f8b3026f3f3487d6be20680",
+    "salt": "0x5194ba20864b95c3e7bd5f9304b7f33a7363ad730f29bf3c7a705b0dfb674710",
+    "network": "ethereum-mainnet",
+    "createdAt": "2026-06-19T05:56:38.785Z",
+    "createTxHash": "0x32c404086e5c2b077a1d50d4dd985c17937ece01f1d8fff1116f18ded40b7535",
+    "initializedAt": "2026-06-19T05:58:04.485Z",
+    "initTxHash": "0x97fa770a657ad4c73ba278f8c07b5d278d3ac56569d256238ff068772c3f5a65",
+    "admin": "0x679E88bC9518b70619F69ef630f7734C126c4913",
     "minBufferSeconds": "3600"
   },
   "mock-usdc": {
@@ -88,12 +88,12 @@
     "deployTxHash": "0x15821777eb3f1f488da79e1328e1a91e6a5a3c8d5ec7cc3fba112d59aee8997b"
   },
   "stream-escrow": {
-    "address": "0xd807159630609366585117181a6ab1127bb09838",
-    "token": "0x61ffd23e5b553da8b3d42f8d072cb0263396d14b",
-    "abiContract": "0x7f11e270b10944da1c492497b5cff5f59ba33bb7",
-    "network": "vara-eth-hoodi",
-    "deployedAt": "2026-06-15T20:46:26.833Z",
-    "txHash": "0x7c8fb744af19dba6ee1262b5f92227e37e4e4e2fee3485f0192f877306aa52a9"
+    "address": "0x3d257a6417eadc2a412d65d177c49b1e5a552847",
+    "token": "0xB67010F2246814e5c39593ac23A925D9e9d7E5aD",
+    "abiContract": "0x5208a32bc4589b4d2f8b3026f3f3487d6be20680",
+    "network": "ethereum-mainnet",
+    "deployedAt": "2026-06-19T05:58:28.798Z",
+    "txHash": "0xcf2280fc23f2e87d8de088c55da6901254086013da78a60221b762cc2bddd041"
   },
   "gvara-token": {
     "programId": "0x71de1ef1f4dec1a4fe862aa6c92747c8499bbf1af128625749027392709f4a72",

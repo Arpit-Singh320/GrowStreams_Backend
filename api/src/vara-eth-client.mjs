@@ -5,8 +5,8 @@
  * Network reference: varaeth-extension-notes.md (Hoodi testnet)
  *
  * Required env vars:
- *   VARA_ETH_RPC             — Vara.eth JSON-RPC endpoint (default: Hoodi testnet)
- *   VARA_ETH_CHAIN_ID        — Chain ID as integer (default: 560048 for Hoodi)
+ *   VARA_ETH_RPC             — Vara.eth JSON-RPC endpoint (default: Ethereum mainnet)
+ *   VARA_ETH_CHAIN_ID        — Chain ID as integer (default: 1 for Ethereum mainnet)
  *   ETH_PRIVATE_KEY          — Private key (0x...) for the relayer/admin wallet
  *   STREAM_CORE_ETH_MIRROR   — Mirror address of the stream-core-eth Vara.eth program
  *   STREAM_ESCROW_ADDRESS    — Deployed StreamEscrow.sol address (set after deploy-eth.mjs)
@@ -17,20 +17,21 @@ import { createPublicClient, createWalletClient, http, defineChain } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts';
 
 // ---------------------------------------------------------------------------
-// Vara.eth Hoodi testnet chain definition
+// Vara.eth chain definition (Ethereum Mainnet)
 // ---------------------------------------------------------------------------
-const VARA_ETH_RPC = process.env.VARA_ETH_RPC || 'https://hoodi-reth-rpc.gear-tech.io';
-const VARA_ETH_CHAIN_ID = parseInt(process.env.VARA_ETH_CHAIN_ID || '560048', 10);
+const VARA_ETH_RPC = process.env.VARA_ETH_RPC || 'https://mainnet-reth-rpc.gear-tech.io';
+const VARA_ETH_CHAIN_ID = parseInt(process.env.VARA_ETH_CHAIN_ID || '1', 10);
+const VARA_ETH_NETWORK_NAME = process.env.VARA_ETH_NETWORK_NAME || (VARA_ETH_CHAIN_ID === 1 ? 'Ethereum Mainnet' : `Vara.eth chain ${VARA_ETH_CHAIN_ID}`);
 
 const varaEthChain = defineChain({
   id: VARA_ETH_CHAIN_ID,
-  name: 'Vara.eth Hoodi',
-  nativeCurrency: { name: 'Hoodi Ether', symbol: 'ETH', decimals: 18 },
+  name: VARA_ETH_NETWORK_NAME,
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: { http: [VARA_ETH_RPC] },
   },
   blockExplorers: {
-    default: { name: 'Hoodi Etherscan', url: 'https://hoodi.etherscan.io' },
+    default: { name: 'Etherscan', url: 'https://etherscan.io' },
   },
 });
 
@@ -412,7 +413,7 @@ export async function getEscrowInfo() {
     mirror:      process.env.STREAM_CORE_ETH_MIRROR,
     chainId:     VARA_ETH_CHAIN_ID,
     rpc:         VARA_ETH_RPC,
-    network:     'vara-eth-hoodi',
+    network:     VARA_ETH_CHAIN_ID === 1 ? 'ethereum-mainnet' : `vara-eth-${VARA_ETH_CHAIN_ID}`,
   };
 }
 
