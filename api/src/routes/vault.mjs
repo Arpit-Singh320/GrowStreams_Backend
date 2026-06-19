@@ -4,6 +4,7 @@ import { getToken, getTokenByVaraAddress, resolveVaraAddress, listTokens } from 
 import { toBaseUnits, toDisplayUnits } from '../utils/decimals.mjs';
 import { logVaultEvent, getVaultHistory } from '../services/stream-history.mjs';
 import { validateWalletParam } from '../middleware/validate-wallet.mjs';
+import { requireAuth } from '../middleware/auth.mjs';
 import { toActorId } from '../utils/actor-id.mjs';
 
 const router = Router();
@@ -162,7 +163,7 @@ router.get('/allocation/:streamId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/deposit', async (req, res, next) => {
+router.post('/deposit', requireAuth, async (req, res, next) => {
   try {
     const { token, amount, amountRaw, mode } = req.body;
     if (!token || (!amount && !amountRaw)) return res.status(400).json({ error: 'Missing: token, amount (or amountRaw)' });
@@ -191,16 +192,17 @@ router.post('/deposit', async (req, res, next) => {
         },
       });
     }
-    const { result, blockHash } = await command(C, 'DepositTokens', varaAddr, baseAmount);
+    const { result, blockHash, txHash } = await command(C, 'DepositTokens', varaAddr, baseAmount);
 
     logVaultEvent({
-      wallet: req.body.wallet || 'unknown',
+      wallet: req.user.wallet,
       eventType: 'deposit',
       tokenAddress: varaAddr,
       tokenSymbol: tokMeta?.symbol || token,
       amount: baseAmount.toString(),
       amountDisplay: tokMeta ? toDisplayUnits(baseAmount, tokMeta.decimals) : amount,
       blockHash,
+      extrinsicHash: txHash,
     });
 
     res.status(201).json({
@@ -213,7 +215,7 @@ router.post('/deposit', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/withdraw', async (req, res, next) => {
+router.post('/withdraw', requireAuth, async (req, res, next) => {
   try {
     const { token, amount, amountRaw, mode } = req.body;
     if (!token || (!amount && !amountRaw)) return res.status(400).json({ error: 'Missing: token, amount (or amountRaw)' });
@@ -241,16 +243,17 @@ router.post('/withdraw', async (req, res, next) => {
         },
       });
     }
-    const { result, blockHash } = await command(C, 'WithdrawTokens', varaAddr, baseAmount);
+    const { result, blockHash, txHash } = await command(C, 'WithdrawTokens', varaAddr, baseAmount);
 
     logVaultEvent({
-      wallet: req.body.wallet || 'unknown',
+      wallet: req.user.wallet,
       eventType: 'withdraw',
       tokenAddress: varaAddr,
       tokenSymbol: tokMeta?.symbol || token,
       amount: baseAmount.toString(),
       amountDisplay: tokMeta ? toDisplayUnits(baseAmount, tokMeta.decimals) : amount,
       blockHash,
+      extrinsicHash: txHash,
     });
 
     res.json({
@@ -274,8 +277,8 @@ router.post('/allocate', async (req, res, next) => {
     if (mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'AllocateToStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'AllocateToStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId));
-    logVaultEvent({ wallet: owner, eventType: 'allocate', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
+    const { result, blockHash, txHash } = await command(C, 'AllocateToStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId));
+    logVaultEvent({ wallet: owner, eventType: 'allocate', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash, extrinsicHash: txHash });
     res.json({ streamId, amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -291,8 +294,8 @@ router.post('/release', async (req, res, next) => {
     if (mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'ReleaseFromStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'ReleaseFromStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId));
-    logVaultEvent({ wallet: owner, eventType: 'release', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
+    const { result, blockHash, txHash } = await command(C, 'ReleaseFromStream', ownerHex, tokenAddr, BigInt(amount), BigInt(streamId));
+    logVaultEvent({ wallet: owner, eventType: 'release', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash, extrinsicHash: txHash });
     res.json({ streamId, amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -308,34 +311,34 @@ router.post('/transfer', async (req, res, next) => {
     if (mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'TransferToReceiver', tokenAddr, receiverHex, BigInt(amount), BigInt(streamId)) });
     }
-    const { result, blockHash } = await command(C, 'TransferToReceiver', tokenAddr, receiverHex, BigInt(amount), BigInt(streamId));
-    logVaultEvent({ wallet: receiver, eventType: 'transfer', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash });
+    const { result, blockHash, txHash } = await command(C, 'TransferToReceiver', tokenAddr, receiverHex, BigInt(amount), BigInt(streamId));
+    logVaultEvent({ wallet: receiver, eventType: 'transfer', tokenAddress: token, amount: String(amount), streamId: String(streamId), blockHash, extrinsicHash: txHash });
     res.json({ streamId, receiver, amount, blockHash });
   } catch (err) { next(err); }
 });
 
-router.post('/deposit-native', async (req, res, next) => {
+router.post('/deposit-native', requireAuth, async (req, res, next) => {
   try {
     const { amount, mode } = req.body;
     if (!amount) return res.status(400).json({ error: 'Missing: amount' });
     if (mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'DepositNative'), value: amount });
     }
-    const { result, blockHash } = await command(C, 'DepositNative');
-    logVaultEvent({ wallet: req.body.wallet || 'unknown', eventType: 'deposit_native', amount: String(amount), blockHash });
+    const { result, blockHash, txHash } = await command(C, 'DepositNative');
+    logVaultEvent({ wallet: req.user.wallet, eventType: 'deposit_native', amount: String(amount), blockHash, extrinsicHash: txHash });
     res.status(201).json({ amount, blockHash });
   } catch (err) { next(err); }
 });
 
-router.post('/withdraw-native', async (req, res, next) => {
+router.post('/withdraw-native', requireAuth, async (req, res, next) => {
   try {
     const { amount, mode } = req.body;
     if (!amount) return res.status(400).json({ error: 'Missing: amount' });
     if (mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'WithdrawNative', BigInt(amount)) });
     }
-    const { result, blockHash } = await command(C, 'WithdrawNative', BigInt(amount));
-    logVaultEvent({ wallet: req.body.wallet || 'unknown', eventType: 'withdraw_native', amount: String(amount), blockHash });
+    const { result, blockHash, txHash } = await command(C, 'WithdrawNative', BigInt(amount));
+    logVaultEvent({ wallet: req.user.wallet, eventType: 'withdraw_native', amount: String(amount), blockHash, extrinsicHash: txHash });
     res.json({ amount, blockHash });
   } catch (err) { next(err); }
 });
