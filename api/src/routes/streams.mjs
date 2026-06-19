@@ -4,6 +4,7 @@ import { getToken, getTokenByVaraAddress, resolveVaraAddress } from '../config/t
 import { toBaseUnits, toDisplayUnits, flowRateFromInterval, flowRatePerInterval } from '../utils/decimals.mjs';
 import { logStreamEvent, getStreamHistory, getStreamEvents, getStreamStats } from '../services/stream-history.mjs';
 import { validateWalletParam } from '../middleware/validate-wallet.mjs';
+import { requireAuth } from '../middleware/auth.mjs';
 import { toActorId } from '../utils/actor-id.mjs';
 
 const router = Router();
@@ -206,7 +207,7 @@ async function createStreamHandler(req, res, next) {
         },
       });
     }
-    let { result, blockHash } = await command(C, 'CreateStream', receiverHex, varaAddress, flowRateBase, depositBase);
+    let { result, blockHash, txHash } = await command(C, 'CreateStream', receiverHex, varaAddress, flowRateBase, depositBase);
 
     // If result is null (decode warning), try to find the new stream ID via sender query
     if (result == null && req.body.sender) {
@@ -221,13 +222,14 @@ async function createStreamHandler(req, res, next) {
     logStreamEvent({
       streamId: result != null ? String(result) : 'unknown',
       eventType: 'created',
-      sender: req.body.sender || null,
+      sender: req.user.wallet,
       receiver,
       tokenAddress: varaAddress,
       tokenSymbol: tokMeta?.symbol || token,
       flowRate: flowRateBase.toString(),
       amount: depositBase.toString(),
       blockHash,
+      extrinsicHash: txHash,
       metadata: { flowRateInterval: flowRateInterval || 'second' },
     });
 
@@ -244,8 +246,8 @@ async function createStreamHandler(req, res, next) {
   } catch (err) { next(err); }
 }
 
-router.post('/', createStreamHandler);
-router.post('/create', createStreamHandler);
+router.post('/', requireAuth, createStreamHandler);
+router.post('/create', requireAuth, createStreamHandler);
 
 router.put('/:id', async (req, res, next) => {
   try {
@@ -256,8 +258,8 @@ router.put('/:id', async (req, res, next) => {
       const payload = encodePayload(C, 'UpdateStream', id, BigInt(flowRate));
       return res.json({ payload });
     }
-    const { result, blockHash } = await command(C, 'UpdateStream', id, BigInt(flowRate));
-    logStreamEvent({ streamId: String(id), eventType: 'updated', flowRate: String(flowRate), blockHash });
+    const { result, blockHash, txHash } = await command(C, 'UpdateStream', id, BigInt(flowRate));
+    logStreamEvent({ streamId: String(id), eventType: 'updated', flowRate: String(flowRate), blockHash, extrinsicHash: txHash });
     res.json({ streamId: Number(id), blockHash });
   } catch (err) { next(err); }
 });
@@ -268,8 +270,8 @@ router.post('/:id/pause', async (req, res, next) => {
     if (req.body?.mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'PauseStream', id) });
     }
-    const { result, blockHash } = await command(C, 'PauseStream', id);
-    logStreamEvent({ streamId: String(id), eventType: 'paused', blockHash });
+    const { result, blockHash, txHash } = await command(C, 'PauseStream', id);
+    logStreamEvent({ streamId: String(id), eventType: 'paused', blockHash, extrinsicHash: txHash });
     res.json({ streamId: Number(id), status: 'paused', blockHash });
   } catch (err) { next(err); }
 });
@@ -280,8 +282,8 @@ router.post('/:id/resume', async (req, res, next) => {
     if (req.body?.mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'ResumeStream', id) });
     }
-    const { result, blockHash } = await command(C, 'ResumeStream', id);
-    logStreamEvent({ streamId: String(id), eventType: 'resumed', blockHash });
+    const { result, blockHash, txHash } = await command(C, 'ResumeStream', id);
+    logStreamEvent({ streamId: String(id), eventType: 'resumed', blockHash, extrinsicHash: txHash });
     res.json({ streamId: Number(id), status: 'active', blockHash });
   } catch (err) { next(err); }
 });
@@ -294,8 +296,8 @@ router.post('/:id/deposit', async (req, res, next) => {
     if (mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'Deposit', id, BigInt(amount)) });
     }
-    const { result, blockHash } = await command(C, 'Deposit', id, BigInt(amount));
-    logStreamEvent({ streamId: String(id), eventType: 'deposit', amount: String(amount), blockHash });
+    const { result, blockHash, txHash } = await command(C, 'Deposit', id, BigInt(amount));
+    logStreamEvent({ streamId: String(id), eventType: 'deposit', amount: String(amount), blockHash, extrinsicHash: txHash });
     res.json({ streamId: Number(id), deposited: amount, blockHash });
   } catch (err) { next(err); }
 });
@@ -306,8 +308,8 @@ router.post('/:id/withdraw', async (req, res, next) => {
     if (req.body?.mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'Withdraw', id) });
     }
-    const { result, blockHash } = await command(C, 'Withdraw', id);
-    logStreamEvent({ streamId: String(id), eventType: 'withdraw', amount: toBigIntStr(result), blockHash });
+    const { result, blockHash, txHash } = await command(C, 'Withdraw', id);
+    logStreamEvent({ streamId: String(id), eventType: 'withdraw', amount: toBigIntStr(result), blockHash, extrinsicHash: txHash });
     res.json({ streamId: Number(id), withdrawn: toBigIntStr(result), blockHash });
   } catch (err) { next(err); }
 });
@@ -318,8 +320,8 @@ router.post('/:id/stop', async (req, res, next) => {
     if (req.body?.mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'StopStream', id) });
     }
-    const { result, blockHash } = await command(C, 'StopStream', id);
-    logStreamEvent({ streamId: String(id), eventType: 'stopped', blockHash });
+    const { result, blockHash, txHash } = await command(C, 'StopStream', id);
+    logStreamEvent({ streamId: String(id), eventType: 'stopped', blockHash, extrinsicHash: txHash });
     res.json({ streamId: Number(id), status: 'stopped', blockHash });
   } catch (err) { next(err); }
 });
@@ -330,8 +332,8 @@ router.post('/:id/liquidate', async (req, res, next) => {
     if (req.body?.mode === 'payload') {
       return res.json({ payload: encodePayload(C, 'Liquidate', id) });
     }
-    const { result, blockHash } = await command(C, 'Liquidate', id);
-    logStreamEvent({ streamId: String(id), eventType: 'liquidated', blockHash });
+    const { result, blockHash, txHash } = await command(C, 'Liquidate', id);
+    logStreamEvent({ streamId: String(id), eventType: 'liquidated', blockHash, extrinsicHash: txHash });
     res.json({ streamId: Number(id), status: 'liquidated', blockHash });
   } catch (err) { next(err); }
 });

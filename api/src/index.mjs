@@ -3,8 +3,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from 'dotenv';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 config();
+config({ path: resolve(__dirname, '../../.env.local'), override: true });
 
 import { connect } from './sails-client.mjs';
 import { migrate } from './services/db.mjs';
@@ -20,6 +25,7 @@ import campaignRouter from './routes/campaign.mjs';
 import webhooksRouter from './routes/webhooks.mjs';
 import leaderboardRouter from './routes/leaderboard.mjs';
 import usersRouter from './routes/users.mjs';
+import analyticsRouter from './routes/analytics.mjs';
 import tokensRouter from './routes/tokens.mjs';
 import bridgeRouter from './routes/bridge.mjs';
 import campaignsRouter from './routes/campaigns.mjs';
@@ -36,9 +42,10 @@ import { ensureVoucherTable } from './services/voucher-service.mjs';
 import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
 import { REWARDS_FROZEN } from './services/reward-freeze.mjs';
+import { startEventIndexer } from './services/event-indexer.mjs';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 1337;
 
 app.use(helmet());
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'growstreams.xyz,vercel.app,railway.app,localhost,127.0.0.1').split(',');
@@ -72,6 +79,7 @@ app.use('/api/campaign', campaignRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/analytics', analyticsRouter);
 app.use('/api/tokens', tokensRouter);
 app.use('/api/bridge', bridgeRouter);
 app.use('/api/campaigns', campaignsRouter);
@@ -195,6 +203,16 @@ app.get('/', (req, res) => {
         profile: 'GET /api/users/:wallet',
         referrals: 'GET /api/users/:wallet/referrals',
         campaigns: 'GET /api/users/:wallet/campaigns',
+      },
+      analytics: {
+        summary: 'GET /api/analytics/summary?days=30',
+        tvl: 'GET /api/analytics/tvl',
+        activity: 'GET /api/analytics/activity?days=30',
+        history: 'GET /api/analytics/history?hours=168',
+        contracts: 'GET /api/analytics/contracts',
+        explorerLinks: 'GET /api/analytics/explorer-links',
+        tvlHistory: 'GET /api/analytics/tvl-history?days=30',
+        volumeHistory: 'GET /api/analytics/volume-history?days=30',
       },
       campaign: {
         register: 'POST /api/campaign/register { wallet, github_handle?, x_handle?, track }',
@@ -356,6 +374,13 @@ async function start() {
         await startXStream();
       } catch (err) {
         console.warn(`[x-agent] Failed to start: ${err.message}`);
+      }
+
+      // Start event indexer for authoritative KPI metrics (non-blocking)
+      try {
+        await startEventIndexer();
+      } catch (err) {
+        console.warn(`[event-indexer] Failed to start: ${err.message}`);
       }
     });
   } catch (err) {

@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // In-memory OTP store: email -> { code, expiresAt }
 // For production this should be Redis/DB, but works fine for low-volume
@@ -17,6 +17,10 @@ function generateOtp() {
  * Returns { sent: true } or throws.
  */
 export async function sendOtp(email) {
+  if (!resend) {
+    throw Object.assign(new Error('Email service not configured. Please set RESEND_API_KEY.'), { status: 503 });
+  }
+
   const code = generateOtp();
   const expiresAt = Date.now() + OTP_TTL_MS;
   otpStore.set(email.toLowerCase(), { code, expiresAt });

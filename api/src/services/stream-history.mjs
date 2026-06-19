@@ -19,14 +19,15 @@ import { toDisplayUnits, flowRatePerInterval } from '../utils/decimals.mjs';
  * @param {string} [event.flowRate]
  * @param {string} [event.amount]
  * @param {string} [event.blockHash]
+ * @param {string} [event.extrinsicHash] - transaction hash for explorer links
  * @param {Object} [event.metadata]
  */
 export async function logStreamEvent(event) {
   try {
     await dbQuery(
       `INSERT INTO stream_events
-        (stream_id, event_type, sender, receiver, token_address, token_symbol, flow_rate, amount, block_hash, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        (stream_id, event_type, sender, receiver, token_address, token_symbol, flow_rate, amount, block_hash, extrinsic_hash, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [
         String(event.streamId),
         event.eventType,
@@ -37,6 +38,7 @@ export async function logStreamEvent(event) {
         event.flowRate ? String(event.flowRate) : null,
         event.amount ? String(event.amount) : null,
         event.blockHash || null,
+        event.extrinsicHash || null,
         event.metadata ? JSON.stringify(event.metadata) : null,
       ]
     );
@@ -59,14 +61,15 @@ export async function logStreamEvent(event) {
  * @param {string} [event.amountDisplay]
  * @param {string} [event.streamId]
  * @param {string} [event.blockHash]
+ * @param {string} [event.extrinsicHash] - transaction hash for explorer links
  * @param {Object} [event.metadata]
  */
 export async function logVaultEvent(event) {
   try {
     await dbQuery(
       `INSERT INTO vault_events
-        (wallet, event_type, token_address, token_symbol, amount, amount_display, stream_id, block_hash, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        (wallet, event_type, token_address, token_symbol, amount, amount_display, stream_id, block_hash, extrinsic_hash, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         event.wallet,
         event.eventType,
@@ -76,6 +79,7 @@ export async function logVaultEvent(event) {
         event.amountDisplay || null,
         event.streamId ? String(event.streamId) : null,
         event.blockHash || null,
+        event.extrinsicHash || null,
         event.metadata ? JSON.stringify(event.metadata) : null,
       ]
     );
