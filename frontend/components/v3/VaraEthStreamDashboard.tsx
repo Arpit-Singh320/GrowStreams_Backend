@@ -17,7 +17,7 @@ import type { EvmStream } from '@/lib/vara-eth-api';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const HOODI_EXPLORER = 'https://blockscout.hoodi.gear-tech.io';
+const ETHERSCAN_EXPLORER = 'https://etherscan.io';
 
 function truncAddr(a: string, chars = 6) {
   if (!a) return '';
@@ -116,7 +116,7 @@ function CreateStreamForm({
       if (res.depositTxHash) {
         toast(
           <a
-            href={`${HOODI_EXPLORER}/tx/${res.depositTxHash}`}
+            href={`${ETHERSCAN_EXPLORER}/tx/${res.depositTxHash}`}
             target="_blank" rel="noopener noreferrer"
             className="underline text-emerald-400 text-xs"
           >
@@ -148,7 +148,7 @@ function CreateStreamForm({
           <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg flex gap-2 text-xs text-blue-300">
             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>
-              Stream created via the GrowStreams relayer on Vara.eth (Hoodi). Token:{' '}
+              Stream created via the GrowStreams relayer on Vara.eth (Ethereum Mainnet). Token:{' '}
               <span className="font-mono">{info?.token ? truncAddr(info.token) : '…'}</span>
             </span>
           </div>
@@ -326,7 +326,7 @@ function StreamCard({
           <div className="space-y-1">
             {stream.deposit_tx && (
               <a
-                href={`${HOODI_EXPLORER}/tx/${stream.deposit_tx}`}
+                href={`${ETHERSCAN_EXPLORER}/tx/${stream.deposit_tx}`}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs text-provn-muted hover:text-emerald-400 transition-colors"
               >
@@ -335,7 +335,7 @@ function StreamCard({
             )}
             {stream.approve_tx && (
               <a
-                href={`${HOODI_EXPLORER}/tx/${stream.approve_tx}`}
+                href={`${ETHERSCAN_EXPLORER}/tx/${stream.approve_tx}`}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-xs text-provn-muted hover:text-emerald-400 transition-colors"
               >
@@ -457,7 +457,7 @@ export default function VaraEthStreamDashboard({ evmAddress }: { evmAddress?: st
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold flex items-center gap-2 text-sm">
             <Zap className="w-4 h-4 text-emerald-400" />
-            Vara.eth — Hoodi Testnet
+            Vara.eth — Ethereum Mainnet
           </h2>
           <button
             onClick={refresh}
