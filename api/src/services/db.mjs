@@ -407,6 +407,31 @@ export async function migrate() {
       pricing_source TEXT,
       is_stablecoin  BOOLEAN NOT NULL DEFAULT FALSE
     );
+
+    -- Per-stream on-chain state, persisted by the state-polling indexer so
+    -- analytics can aggregate from the DB instead of enumerating every stream
+    -- via RPC on each request. The streamed column holds the LIVE value at
+    -- observation (settled + accrued), so summing it gives streaming volume.
+    CREATE TABLE IF NOT EXISTS stream_state (
+      stream_id      BIGINT PRIMARY KEY,
+      sender         TEXT,
+      receiver       TEXT,
+      token_address  TEXT,
+      token_symbol   TEXT,
+      flow_rate      NUMERIC,
+      deposited      NUMERIC,
+      withdrawn      NUMERIC,
+      streamed       NUMERIC,
+      start_time     TIMESTAMPTZ,
+      last_update    TIMESTAMPTZ,
+      status         TEXT,
+      first_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      observed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_stream_state_start ON stream_state(start_time);
+    CREATE INDEX IF NOT EXISTS idx_stream_state_update ON stream_state(last_update);
+    CREATE INDEX IF NOT EXISTS idx_stream_state_status ON stream_state(status);
+    CREATE INDEX IF NOT EXISTS idx_stream_state_token ON stream_state(token_symbol);
   `);
 
   await p.query(`
@@ -418,6 +443,13 @@ export async function migrate() {
     ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS unique_wallets_all_time INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ;
     ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMPTZ;
+    -- New on-chain metrics (from getOnchainStreamMetrics) for historical graphs.
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS onchain_volume_usd NUMERIC(20, 6) NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS onchain_unique_wallets INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS onchain_dau INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS onchain_mau INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS seeds_active_wallets INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS stream_wallets INTEGER NOT NULL DEFAULT 0;
   `);
 
   // Add user_id column to participants if it does not exist

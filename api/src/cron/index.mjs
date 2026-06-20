@@ -10,6 +10,7 @@ import { revokeExpiredVouchers } from '../services/voucher-service.mjs';
 import { runLiquidationKeeper } from './liquidation.mjs';
 import { runEvmStreamCheck } from './quest-evm-stream-monitor.mjs';
 import { runAnalyticsSnapshot } from './analytics-snapshots.mjs';
+import { pollStreamState } from '../services/state-indexer.mjs';
 
 export function initCrons() {
   // Daily XP accumulation — midnight UTC
@@ -87,8 +88,12 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
-  // Liquidation keeper — every 5 minutes, scan and liquidate insolvent super token streams
-  cron.schedule('*/5 * * * *', async () => {
+  // Liquidation keeper — every minute, scan and liquidate insolvent super token
+  // streams. With the buffered super-token model the buffer already caps receiver
+  // accrual on-chain, so this is now cleanup (formally stop + refund unspent
+  // buffer to the sender) rather than the primary insolvency guard. Running it
+  // frequently minimises buffer wasted on already-dry streams.
+  cron.schedule('* * * * *', async () => {
     try {
       await runLiquidationKeeper();
     } catch (err) {
@@ -126,6 +131,27 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
+  // On-chain stream state polling — every 5 minutes. Persists per-stream state
+  // (new + active streams) to stream_state so analytics aggregate from the DB
+  // instead of enumerating all streams over RPC on each request.
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const r = await pollStreamState();
+      if (!r.skipped) {
+        console.log(`[cron] state-poll: total=${r.total} new=${r.newCount} reReadActive=${r.reReadActive} upserted=${r.upserted} errors=${r.errors}`);
+      }
+    } catch (err) {
+      console.error(`[cron] state-poll failed: ${err.message}`);
+    }
+  }, { timezone: 'UTC' });
+
+  // Run one poll shortly after boot so the table is warm.
+  setTimeout(() => {
+    pollStreamState()
+      .then((r) => { if (!r.skipped) console.log(`[cron] state-poll (boot): upserted=${r.upserted}`); })
+      .catch((err) => console.error(`[cron] state-poll (boot) failed: ${err.message}`));
+  }, 15_000);
+
   console.log('[cron] All cron jobs scheduled:');
   console.log('[cron]   daily-xp:         0 0 * * *      (midnight UTC)');
   console.log('[cron]   snapshot:         5 0 * * *      (00:05 UTC)');
@@ -135,9 +161,10 @@ export function initCrons() {
   console.log('[cron]   sync-onchain:     */30 * * * *   (every 30m)');
   console.log('[cron]   quest-x-follow:   0 */6 * * *    (every 6h)');
   console.log('[cron]   quest-x-mention:  0 1,7,13,19 * * * (every 6h offset)');
-  console.log('[cron]   liquidation:      */5 * * * *    (every 5m, solvency enforcement)');
+  console.log('[cron]   liquidation:      * * * * *      (every 1m, solvency cleanup)');
   console.log('[cron]   evm-stream:      */10 * * * *   (every 10m, Vara.eth stream confirm)');
   console.log('[cron]   voucher-reclaim:  30 */6 * * *   (every 6h, reclaims VARA)');
   console.log('[cron]   analytics:        0 * * * *      (hourly KPI snapshots)');
+  console.log('[cron]   state-poll:       */5 * * * *    (every 5m, stream_state indexer)');
   console.log('[cron] Phase 4 Vara.eth crons active.');
 }
