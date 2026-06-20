@@ -633,9 +633,13 @@ export const api = {
     contracts: () => localRequest<AnalyticsContracts>('/api/analytics/contracts'),
     explorerLinks: () => localRequest<{ links: AnalyticsExplorerLink[]; count: number }>('/api/analytics/explorer-links'),
     tvlHistory: (days = 30) => localRequest<{ available: boolean; lookbackDays: number; points: AnalyticsTvlHistoryPoint[] }>(`/api/analytics/tvl-history?days=${days}`),
+    activityHistory: (days = 30) => localRequest<{ available: boolean; lookbackDays: number; points: any[] }>(`/api/analytics/activity-history?days=${days}`),
     volumeHistory: (days = 30) => localRequest<{ available: boolean; lookbackDays: number; source: string; coverage: string; points: AnalyticsVolumeHistoryPoint[] }>(`/api/analytics/volume-history?days=${days}`),
-    transactions: (limit = 50) => localRequest<{ available: boolean; transactions: any[]; count: number }>(`/api/analytics/transactions?limit=${limit}`),
-    wallets: (limit = 50) => localRequest<{ available: boolean; wallets: any[]; count: number }>(`/api/analytics/wallets?limit=${limit}`),
+    onchainStreams: () => localRequest<any>('/api/analytics/onchain-streams'),
+    defillamaTvl: () => localRequest<any>('/api/analytics/defillama-tvl'),
+    defillamaVolume: () => localRequest<any>('/api/analytics/defillama-volume'),
+    transactions: (limit = 50, offset = 0) => localRequest<{ available: boolean; transactions: any[]; count: number; total: number; offset: number; hasMore: boolean }>(`/api/analytics/transactions?limit=${limit}&offset=${offset}`),
+    wallets: (limit = 50, offset = 0) => localRequest<{ available: boolean; wallets: any[]; count: number; total: number; offset: number; hasMore: boolean }>(`/api/analytics/wallets?limit=${limit}&offset=${offset}`),
   },
 
   tokens: {

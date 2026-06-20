@@ -6,8 +6,11 @@ import {
   getAnalyticsSummary,
   getCurrentTvl,
   getDefiLlamaTvl,
+  getDefiLlamaVolume,
+  getOnchainStreamMetrics,
   getObservedActivity,
   getTvlHistory,
+  getActivityHistory,
   getVolumeHistory,
   getRecentTransactions,
   getActiveWallets,
@@ -43,6 +46,21 @@ router.get('/defillama-tvl', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/onchain-streams', async (req, res, next) => {
+  try {
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const metrics = await getOnchainStreamMetrics({ force });
+    res.json(metrics);
+  } catch (err) { next(err); }
+});
+
+router.get('/defillama-volume', async (req, res, next) => {
+  try {
+    const volume = await getDefiLlamaVolume();
+    res.json(volume);
+  } catch (err) { next(err); }
+});
+
 router.get('/activity', async (req, res, next) => {
   try {
     const days = parsePositiveInt(req.query.days, 30, 1, 365);
@@ -63,6 +81,14 @@ router.get('/tvl-history', async (req, res, next) => {
   try {
     const days = parsePositiveInt(req.query.days, 30, 1, 365);
     const history = await getTvlHistory(days);
+    res.json(history);
+  } catch (err) { next(err); }
+});
+
+router.get('/activity-history', async (req, res, next) => {
+  try {
+    const days = parsePositiveInt(req.query.days, 30, 1, 365);
+    const history = await getActivityHistory(days);
     res.json(history);
   } catch (err) { next(err); }
 });
@@ -92,7 +118,8 @@ router.get('/explorer-links', async (req, res, next) => {
 router.get('/transactions', async (req, res, next) => {
   try {
     const limit = parsePositiveInt(req.query.limit, 50, 1, 500);
-    const result = await getRecentTransactions(limit);
+    const offset = parsePositiveInt(req.query.offset, 0, 0, 1_000_000);
+    const result = await getRecentTransactions(limit, offset);
     res.json(result);
   } catch (err) { next(err); }
 });
@@ -100,7 +127,8 @@ router.get('/transactions', async (req, res, next) => {
 router.get('/wallets', async (req, res, next) => {
   try {
     const limit = parsePositiveInt(req.query.limit, 50, 1, 500);
-    const result = await getActiveWallets(limit);
+    const offset = parsePositiveInt(req.query.offset, 0, 0, 1_000_000);
+    const result = await getActiveWallets(limit, offset);
     res.json(result);
   } catch (err) { next(err); }
 });

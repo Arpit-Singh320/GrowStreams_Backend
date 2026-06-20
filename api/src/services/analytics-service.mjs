@@ -780,6 +780,332 @@ export async function getDefiLlamaTvl() {
   };
 }
 
+// Short cache for the on-chain stream scan — protects the public RPC node from
+// per-request enumeration cost.
+const STREAM_METRICS_CACHE_TTL_MS = Number.parseInt(process.env.STREAM_METRICS_CACHE_TTL_MS || '', 10) || 60 * 1000;
+let streamMetricsCache = { data: null, at: 0 };
+
+export function clearStreamMetricsCache() {
+  streamMetricsCache = { data: null, at: 0 };
+}
+
+function parseStreamStatus(status) {
+  // Sails enums decode to { Active: null } | "Active" | etc.
+  if (status == null) return 'unknown';
+  if (typeof status === 'string') return status;
+  if (typeof status === 'object') return Object.keys(status)[0] || 'unknown';
+  return String(status);
+}
+
+// On-chain timestamps are Unix seconds. Returns ms or null.
+function onchainTsToMs(value) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n * 1000;
+}
+
+/**
+ * Reconstruct on-chain stream activity by POLLING the StreamCore contract state,
+ * since the contract does not emit events (see docs/BLOCKER-onchain-events-and-fees.md).
+ *
+ * Reads TotalStreams then enumerates GetStream(id) and aggregates:
+ *   - totalStreams / activeStreams (cumulative + active counts)
+ *   - totalVolume (Σ streamed) valued in USD per token
+ *   - uniqueWallets (distinct sender/receiver)
+ *   - dau / mau from on-chain start_time + last_update (real Unix-second timestamps)
+ *
+ * This is the authoritative on-chain activity source (`onchain_state_polling`),
+ * independent of the disabled event indexer. Read-only; cached briefly.
+ *
+ * NOTE (scale): enumerates every stream id. Fine for current volumes; Phase 2
+ * persists per-stream state and scans incrementally for large N.
+ */
+export async function getOnchainStreamMetrics({ force = false } = {}) {
+  if (!force && streamMetricsCache.data && (Date.now() - streamMetricsCache.at) < STREAM_METRICS_CACHE_TTL_MS) {
+    return streamMetricsCache.data;
+  }
+
+  const now = Date.now();
+  const startOfToday = startOfUtcDay().getTime();
+  const start30d = now - 30 * 24 * 60 * 60 * 1000;
+
+  let totalStreams = 0;
+  let activeStreams = 0;
+  try {
+    totalStreams = Number.parseInt(toStringValue(await contractQuery('streamCore', 'TotalStreams')), 10) || 0;
+    activeStreams = Number.parseInt(toStringValue(await contractQuery('streamCore', 'ActiveStreams')), 10) || 0;
+  } catch (err) {
+    return {
+      available: false,
+      source: 'onchain_state_polling',
+      error: `Failed to read stream counts: ${err.message}`,
+      totalStreams: 0,
+      activeStreams: 0,
+    };
+  }
+
+  const tokenStreamedRaw = {};          // symbol -> bigint Σ streamed (live)
+  const wallets = new Set();
+  let dauWallets = new Set();
+  let mauWallets = new Set();
+  let scanned = 0;
+  let scanErrors = 0;
+  let streamSource = 'stream_state_db';
+
+  const nowSec = BigInt(Math.floor(now / 1000));
+  const startOfTodayIso = new Date(startOfToday).toISOString();
+  const since30dIso = new Date(start30d).toISOString();
+
+  // Prefer the persisted stream_state table (populated by the state-indexer
+  // cron) — scales to many streams without per-request RPC enumeration. Fall
+  // back to live RPC enumeration only when the table is empty (e.g. first boot).
+  const stateCountRow = getPool()
+    ? await queryOne('SELECT COUNT(*)::int AS n FROM stream_state').catch(() => null)
+    : null;
+  const haveState = stateCountRow && stateCountRow.n > 0;
+
+  if (haveState) {
+    // Volume per token: for Active streams recompute live streamed; for
+    // non-active the stored value is final. Done in SQL for scale.
+    const volRows = await queryAll(`
+      SELECT token_symbol AS symbol,
+             SUM(
+               CASE WHEN status = 'Active'
+                 THEN LEAST(deposited, streamed + flow_rate * GREATEST(0, $1 - EXTRACT(EPOCH FROM last_update)))
+                 ELSE streamed END
+             )::numeric AS streamed_live
+      FROM stream_state
+      WHERE token_symbol IS NOT NULL
+      GROUP BY token_symbol
+    `, [Number(nowSec)]).catch(() => []);
+    for (const r of volRows) {
+      try { tokenStreamedRaw[r.symbol] = BigInt(Math.floor(Number(r.streamed_live || 0))); } catch { /* skip */ }
+    }
+
+    // Wallet sets (all-time + windows) from sender/receiver.
+    const walletRows = await queryAll(`
+      SELECT DISTINCT lower(wallet) AS wallet FROM (
+        SELECT sender AS wallet FROM stream_state WHERE sender IS NOT NULL
+        UNION SELECT receiver AS wallet FROM stream_state WHERE receiver IS NOT NULL
+      ) w
+    `).catch(() => []);
+    for (const r of walletRows) wallets.add(r.wallet);
+
+    const dauRows = await queryAll(`
+      SELECT DISTINCT lower(wallet) AS wallet FROM (
+        SELECT sender AS wallet, GREATEST(start_time, last_update) AS ts FROM stream_state
+        UNION ALL SELECT receiver AS wallet, GREATEST(start_time, last_update) AS ts FROM stream_state
+      ) w WHERE wallet IS NOT NULL AND ts >= $1
+    `, [startOfTodayIso]).catch(() => []);
+    for (const r of dauRows) dauWallets.add(r.wallet);
+
+    const mauRows = await queryAll(`
+      SELECT DISTINCT lower(wallet) AS wallet FROM (
+        SELECT sender AS wallet, GREATEST(start_time, last_update) AS ts FROM stream_state
+        UNION ALL SELECT receiver AS wallet, GREATEST(start_time, last_update) AS ts FROM stream_state
+      ) w WHERE wallet IS NOT NULL AND ts >= $1
+    `, [since30dIso]).catch(() => []);
+    for (const r of mauRows) mauWallets.add(r.wallet);
+
+    scanned = stateCountRow.n;
+  } else {
+    // Live fallback — enumerate streams directly (fine for small N / first boot).
+    streamSource = 'live_rpc_enumeration';
+    const CONCURRENCY = 8;
+    const ids = [];
+    for (let i = 1; i <= totalStreams; i++) ids.push(i);
+
+    async function readOne(id) {
+      try {
+        const s = await contractQuery('streamCore', 'GetStream', id);
+        if (!s) return;
+        scanned++;
+        const tok = s.token ? getTokenByVaraAddress(actorIdToHexLocal(s.token)) : null;
+        const symbol = tok?.symbol || 'UNKNOWN';
+        const stored = BigInt(toStringValue(s.streamed));
+        const deposited = BigInt(toStringValue(s.deposited));
+        const flowRate = BigInt(toStringValue(s.flow_rate));
+        const lastUpdate = BigInt(toStringValue(s.last_update));
+        const status = parseStreamStatus(s.status);
+        let live = stored;
+        if (status === 'Active' && nowSec > lastUpdate) {
+          live = stored + flowRate * (nowSec - lastUpdate);
+          if (live > deposited) live = deposited;
+        }
+        tokenStreamedRaw[symbol] = (tokenStreamedRaw[symbol] || 0n) + live;
+
+        const sender = s.sender ? actorIdToHexLocal(s.sender) : null;
+        const receiver = s.receiver ? actorIdToHexLocal(s.receiver) : null;
+        if (sender) wallets.add(sender);
+        if (receiver) wallets.add(receiver);
+        const lastActivity = Math.max(onchainTsToMs(s.start_time) || 0, onchainTsToMs(s.last_update) || 0);
+        if (lastActivity >= startOfToday) { if (sender) dauWallets.add(sender); if (receiver) dauWallets.add(receiver); }
+        if (lastActivity >= start30d) { if (sender) mauWallets.add(sender); if (receiver) mauWallets.add(receiver); }
+      } catch (err) {
+        scanErrors++;
+      }
+    }
+    for (let i = 0; i < ids.length; i += CONCURRENCY) {
+      await Promise.all(ids.slice(i, i + CONCURRENCY).map(readOne));
+    }
+  }
+
+  // Value Σ streamed per token in USD.
+  const symbols = Object.keys(tokenStreamedRaw);
+  const priced = symbols.length ? await getBatchPricesDetailed(symbols) : {};
+  let totalVolumeUsd = 0;
+  const byToken = [];
+  for (const symbol of symbols) {
+    const tok = getToken(symbol);
+    const decimals = tok?.decimals ?? 12;
+    const display = toDisplayUnits(tokenStreamedRaw[symbol].toString(), decimals);
+    const priceInfo = priced[symbol] || { price: tok?.fallbackPrice ?? null, source: 'unpriced' };
+    const usd = priceInfo.price != null ? roundNumber(Number.parseFloat(display) * priceInfo.price) : null;
+    if (usd) totalVolumeUsd += usd;
+    byToken.push({
+      symbol,
+      streamedRaw: tokenStreamedRaw[symbol].toString(),
+      streamedDisplay: display,
+      price: priceInfo.price,
+      pricingSource: priceInfo.source,
+      volumeUsd: usd,
+    });
+  }
+
+  // ── On-chain XP/seeds activity ──────────────────────────────────────────────
+  // XP minting happens on-chain via the quest-seeds contract (SeedsService.Mint);
+  // every mint is recorded in seeds_ledger with its on-chain tx_hash (verifiable
+  // on the explorer). This is real, on-chain, tx-hash-backed wallet activity, so
+  // it counts toward on-chain DAU/MAU and unique active wallets — distinct from
+  // the stricter "wallets that created/received streams" metric.
+  let seedsAllCount = 0, seedsDauCount = 0, seedsMauCount = 0;
+  // Union sets seeded with the stream wallets, so combined figures are EXACT
+  // (no double-counting wallets that both stream and mint).
+  const unionAll = new Set(wallets);
+  const unionDau = new Set(dauWallets);
+  const unionMau = new Set(mauWallets);
+  if (getPool()) {
+    try {
+      const startOfTodayIso = startOfUtcDay().toISOString();
+      const since30dIso = new Date(start30d).toISOString();
+      const [allW, dayW, monthW, allList, dayList, monthList] = await Promise.all([
+        queryOne('SELECT COUNT(DISTINCT wallet)::bigint AS n FROM seeds_ledger WHERE tx_hash IS NOT NULL AND wallet IS NOT NULL'),
+        queryOne('SELECT COUNT(DISTINCT wallet)::bigint AS n FROM seeds_ledger WHERE tx_hash IS NOT NULL AND wallet IS NOT NULL AND created_at >= $1', [startOfTodayIso]),
+        queryOne('SELECT COUNT(DISTINCT wallet)::bigint AS n FROM seeds_ledger WHERE tx_hash IS NOT NULL AND wallet IS NOT NULL AND created_at >= $1', [since30dIso]),
+        queryAll('SELECT DISTINCT wallet FROM seeds_ledger WHERE tx_hash IS NOT NULL AND wallet IS NOT NULL'),
+        queryAll('SELECT DISTINCT wallet FROM seeds_ledger WHERE tx_hash IS NOT NULL AND wallet IS NOT NULL AND created_at >= $1', [startOfTodayIso]),
+        queryAll('SELECT DISTINCT wallet FROM seeds_ledger WHERE tx_hash IS NOT NULL AND wallet IS NOT NULL AND created_at >= $1', [since30dIso]),
+      ]);
+      seedsAllCount = Number.parseInt(allW?.n || '0', 10);
+      seedsDauCount = Number.parseInt(dayW?.n || '0', 10);
+      seedsMauCount = Number.parseInt(monthW?.n || '0', 10);
+      for (const r of allList) unionAll.add(String(r.wallet).toLowerCase());
+      for (const r of dayList) unionDau.add(String(r.wallet).toLowerCase());
+      for (const r of monthList) unionMau.add(String(r.wallet).toLowerCase());
+    } catch (err) {
+      console.warn('[analytics] seeds activity query failed:', err.message);
+    }
+  }
+
+  // Stream-specific counts are kept exact and separate for the strict KPI.
+  const streamWalletCount = wallets.size;
+  const streamDau = dauWallets.size;
+  const streamMau = mauWallets.size;
+
+  const result = {
+    available: true,
+    source: 'onchain_state_polling',
+    note: 'On-chain activity from two verifiable sources: StreamCore state (streams/volume; contract emits no events so polled) and quest-seeds Mint txs (XP, recorded in seeds_ledger with on-chain tx_hash). Volume = sum of live per-stream `streamed`.',
+
+    streamDataSource: streamSource, // stream_state_db | live_rpc_enumeration
+
+    // Streaming-specific (exact; for the "wallets that created/received streams" KPI)
+    totalStreams,
+    activeStreams,
+    scannedStreams: scanned,
+    scanErrors,
+    streamWallets: streamWalletCount,
+    streamDau,
+    streamMau,
+    totalVolumeUsd: roundNumber(totalVolumeUsd),
+    byToken,
+
+    // On-chain XP/seeds activity (verifiable via seeds_ledger.tx_hash)
+    seedsActiveWalletsAllTime: seedsAllCount,
+    seedsDau: seedsDauCount,
+    seedsMau: seedsMauCount,
+
+    // Combined on-chain wallet activity = EXACT union of stream wallets and
+    // XP-mint wallets (deduped by wallet, so no double-counting).
+    dau: unionDau.size,
+    mau: unionMau.size,
+    uniqueWallets: unionAll.size,
+
+    asOf: new Date().toISOString(),
+  };
+
+  streamMetricsCache = { data: result, at: Date.now() };
+  return result;
+}
+
+// Local actor_id -> hex (avoids importing token-service's internal helper).
+function actorIdToHexLocal(actorId) {
+  if (actorId == null) return null;
+  if (typeof actorId === 'string') return actorId.startsWith('0x') ? actorId.toLowerCase() : actorId;
+  try {
+    if (actorId.value != null) return '0x' + Buffer.from(actorId.value).toString('hex');
+    if (Array.isArray(actorId)) return '0x' + Buffer.from(actorId).toString('hex');
+  } catch { /* fall through */ }
+  return String(actorId);
+}
+
+/**
+ * DeFiLlama-shaped streaming VOLUME. Cumulative value streamed through the
+ * GrowStreams protocol, keyed by CoinGecko asset id (raw token units, decimal-
+ * adjusted) so the DeFiLlama dimension adapter can price it with their own infra.
+ *
+ * Volume = Σ live `streamed` per token (the cumulative amount that has flowed
+ * through each stream). Reconstructed from StreamCore state (the contract emits
+ * no events). The adapter consuming this sets timetravel:false (live read).
+ */
+export async function getDefiLlamaVolume() {
+  const m = await getOnchainStreamMetrics();
+
+  const dailyVolume = {};   // coingecko:id -> cumulative streamed (token units, string)
+  const unpriced = [];      // tokens with streamed volume but no coingecko market
+
+  for (const t of m.byToken || []) {
+    const amount = t.streamedDisplay || '0';
+    if (Number.parseFloat(amount) <= 0) continue;
+    const coingeckoId = getCoingeckoId(t.symbol);
+    if (!coingeckoId) {
+      unpriced.push({ symbol: t.symbol, amount });
+      continue;
+    }
+    const key = `coingecko:${coingeckoId}`;
+    const prev = Number.parseFloat(dailyVolume[key] || '0');
+    dailyVolume[key] = String(prev + Number.parseFloat(amount));
+  }
+
+  return {
+    chain: 'vara',
+    // `totalVolume` is the cumulative streamed value to date; DeFiLlama dimension
+    // adapters typically report incremental volume, but GrowStreams streaming is
+    // continuous so the cumulative streamed total is the meaningful figure.
+    totalVolume: dailyVolume,
+    totalVolumeUsd: m.totalVolumeUsd,
+    unpriced,
+    streamCount: m.totalStreams,
+    methodology:
+      'Streaming volume is the cumulative value streamed through the GrowStreams protocol on Vara, ' +
+      'computed as the sum of each stream\'s live `streamed` amount (settled + accrued) read from ' +
+      'StreamCore state, keyed by CoinGecko asset id (gVARA/wVARA priced as VARA). The contract emits ' +
+      'no events, so values are reconstructed from on-chain contract state.',
+    timetravel: false,
+    asOf: m.asOf || new Date().toISOString(),
+  };
+}
+
 export async function getObservedActivity(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   const windowDays = clampInt(days, 1, 365, DEFAULT_ACTIVITY_WINDOW_DAYS);
   if (!getPool()) {
@@ -1170,14 +1496,13 @@ export async function getCampaignMetrics() {
 
 export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   const [
-    tvl, activity, totalStreams, activeStreams, contracts, explorerLinks, freshness,
+    tvl, activity, streamMetrics, contracts, explorerLinks, freshness,
     totalUsers, questMetrics, contributorMetrics, campaignMetrics,
     platformUsers, engagement, catalog, evmStreams, platformDau,
   ] = await Promise.all([
     getCurrentTvl(),
     getObservedActivity(days),
-    contractQuery('streamCore', 'TotalStreams'),
-    contractQuery('streamCore', 'ActiveStreams'),
+    getOnchainStreamMetrics(),
     getAnalyticsContracts(),
     getAnalyticsExplorerLinks(),
     getLatestFreshness(),
@@ -1193,26 +1518,48 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   ]);
 
   const protocol = {
-    totalStreams: Number.parseInt(toStringValue(totalStreams), 10),
-    activeStreams: Number.parseInt(toStringValue(activeStreams), 10),
+    totalStreams: streamMetrics.totalStreams,
+    activeStreams: streamMetrics.activeStreams,
   };
 
   // ── Two clearly-separated domains ──────────────────────────────────────────
   // onchain: DeFi / blockchain activity (source of truth = Vara chain).
   // platform: off-chain GrowStreams app activity (quests, XP, invites, campaigns).
+  //
+  // On-chain activity is reconstructed by POLLING StreamCore state (the contract
+  // emits no events — see docs/BLOCKER-onchain-events-and-fees.md). Volume, unique
+  // wallets, DAU and MAU come from real on-chain stream data + timestamps.
   const onchain = {
     tvl,
     streams: protocol,
     activity: {
-      source: activity.source,
-      capturesPayloadSignedTransactions: activity.capturesPayloadSignedTransactions,
-      transactionCount: activity.totalTransactions,
-      uniqueWallets: activity.uniqueWalletsAllTime,
-      dau: activity.dau,
-      volumeUsd: activity.volumeUsd,
-      note: activity.capturesPayloadSignedTransactions
-        ? 'On-chain activity captured via event indexer.'
-        : 'On-chain volume / DAU / unique-wallet counts await the chain event indexer (Task C); currently reflect backend-logged transactions only.',
+      source: streamMetrics.source, // 'onchain_state_polling'
+      // Combined on-chain wallet activity = streams ∪ XP-mint wallets (exact union).
+      uniqueWallets: streamMetrics.uniqueWallets,
+      dau: streamMetrics.dau,
+      mau: streamMetrics.mau,
+      // Volume (streaming).
+      totalStreams: streamMetrics.totalStreams,
+      activeStreams: streamMetrics.activeStreams,
+      volumeUsd: streamMetrics.totalVolumeUsd,
+      byToken: streamMetrics.byToken,
+      // Streaming-specific wallet counts (strict KPI: created/received streams).
+      streaming: {
+        wallets: streamMetrics.streamWallets,
+        dau: streamMetrics.streamDau,
+        mau: streamMetrics.streamMau,
+      },
+      // On-chain XP/seeds activity (verifiable via seeds_ledger.tx_hash).
+      xpSeeds: {
+        activeWalletsAllTime: streamMetrics.seedsActiveWalletsAllTime,
+        dau: streamMetrics.seedsDau,
+        mau: streamMetrics.seedsMau,
+      },
+      note: streamMetrics.note,
+      backendLogged: {
+        transactionCount: activity.totalTransactions,
+        source: activity.source,
+      },
     },
   };
 
@@ -1299,22 +1646,31 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
       available: campaignMetrics.available,
     },
     kpis: {
+      // ── On-chain protocol KPIs (Phase 2 grant targets) ──────────────────────
       tvlUsd: tvl.totals.estimatedUsd,
-      volumeUsd: {
-        last24h: activity.volumeUsd.last24h,
-        last7d: activity.volumeUsd.last7d,
-        last30d: activity.volumeUsd.last30d,
-      },
-      dau: activity.dau,
+      // Streaming volume (live per-stream `streamed`, summed, priced).
+      onchainVolumeUsd: streamMetrics.totalVolumeUsd,
+      totalStreams: streamMetrics.totalStreams,
+      activeStreams: streamMetrics.activeStreams,
+      // Strict KPI: wallets that created/received streams.
+      uniqueStreamWallets: streamMetrics.streamWallets,
+      // Broad on-chain activity (streams ∪ on-chain XP mints; all tx-verifiable).
+      onchainActiveWallets: streamMetrics.uniqueWallets,
+      onchainDau: streamMetrics.dau,
+      onchainMau: streamMetrics.mau,
+      // ── Off-chain platform KPIs ─────────────────────────────────────────────
       platformDau,
-      totalTransactions: activity.totalTransactions,
-      uniqueWalletsAllTime: activity.uniqueWalletsAllTime,
       totalRegisteredUsers: totalUsers.count,
       totalDistinctWallets: platformUsers.totalDistinctWallets,
       questParticipants: platformUsers.bySystem.questParticipants,
       questRegistrations: questMetrics.registrations,
       questCompletions: questMetrics.completions,
       contributorCount: contributorMetrics.participants,
+      backendLoggedVolumeUsd: {
+        last24h: activity.volumeUsd.last24h,
+        last7d: activity.volumeUsd.last7d,
+        last30d: activity.volumeUsd.last30d,
+      },
     },
     freshness: {
       ...freshness,
@@ -1323,7 +1679,8 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     coverage: {
       tvlSource: 'onchain_balanceof_live',
       streamCountsSource: 'onchain_stream_core_queries',
-      onchainActivitySource: activity.source,
+      onchainActivitySource: streamMetrics.source, // onchain_state_polling
+      onchainActivityNote: 'Streams/volume/wallets/DAU/MAU reconstructed by polling StreamCore state; the contract emits no events (see docs/BLOCKER-onchain-events-and-fees.md). Protocol-fee KPI still blocked (no fee logic on-chain).',
       platformUsersSource: 'users + quest_registrations + participants (deduped by wallet, test-excluded)',
       notes: [
         'Two domains are reported separately: onchain (DeFi / Vara chain) and platform (off-chain GrowStreams app).',
@@ -1351,11 +1708,10 @@ export async function persistAnalyticsSnapshot(days = DEFAULT_ACTIVITY_WINDOW_DA
     return { saved: false, reason: 'database_not_configured' };
   }
 
-  const [tvl, activity, totalStreams, activeStreams, freshness] = await Promise.all([
+  const [tvl, activity, streamMetrics, freshness] = await Promise.all([
     getCurrentTvl(),
     getObservedActivity(days),
-    contractQuery('streamCore', 'TotalStreams'),
-    contractQuery('streamCore', 'ActiveStreams'),
+    getOnchainStreamMetrics(),
     getLatestFreshness(),
   ]);
 
@@ -1385,15 +1741,21 @@ export async function persistAnalyticsSnapshot(days = DEFAULT_ACTIVITY_WINDOW_DA
           total_transactions,
           unique_wallets_all_time,
           last_activity_at,
-          last_updated_at
+          last_updated_at,
+          onchain_volume_usd,
+          onchain_unique_wallets,
+          onchain_dau,
+          onchain_mau,
+          seeds_active_wallets,
+          stream_wallets
         )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)`,
       [
         snappedAt,
         tvl.totals.estimatedUsd,
         tvl.totals.estimatedStablecoinUsd,
-        Number.parseInt(toStringValue(totalStreams), 10),
-        Number.parseInt(toStringValue(activeStreams), 10),
+        streamMetrics.totalStreams,
+        streamMetrics.activeStreams,
         activity.streamEventCount,
         activity.vaultEventCount,
         activity.uniqueWallets,
@@ -1408,6 +1770,12 @@ export async function persistAnalyticsSnapshot(days = DEFAULT_ACTIVITY_WINDOW_DA
         activity.uniqueWalletsAllTime,
         activity.lastObservedActivityAt,
         freshness.lastUpdatedAt,
+        streamMetrics.totalVolumeUsd,
+        streamMetrics.uniqueWallets,
+        streamMetrics.dau,
+        streamMetrics.mau,
+        streamMetrics.seedsActiveWalletsAllTime,
+        streamMetrics.streamWallets,
       ]
     );
 
@@ -1529,6 +1897,43 @@ export async function getTvlHistory(days = 30) {
   };
 }
 
+/**
+ * Historical on-chain activity series (one point per day) for dashboard graphs:
+ * volume, unique wallets, DAU, MAU, stream counts. Read from the hourly
+ * analytics_protocol_snapshots (newest snapshot per day).
+ */
+export async function getActivityHistory(days = 30) {
+  const lookbackDays = clampInt(days, 1, 365, 30);
+  if (!getPool()) {
+    return { available: false, lookbackDays, points: [] };
+  }
+
+  const points = await queryAll(
+    `SELECT DISTINCT ON (DATE(snapped_at))
+        DATE(snapped_at) AS date,
+        snapped_at,
+        estimated_tvl_usd AS tvl_usd,
+        onchain_volume_usd,
+        onchain_unique_wallets,
+        onchain_dau,
+        onchain_mau,
+        seeds_active_wallets,
+        stream_wallets,
+        total_streams,
+        active_streams
+      FROM analytics_protocol_snapshots
+      WHERE snapped_at >= NOW() - ($1 * INTERVAL '1 day')
+      ORDER BY DATE(snapped_at), snapped_at DESC`,
+    [lookbackDays]
+  );
+
+  return {
+    available: true,
+    lookbackDays,
+    points,
+  };
+}
+
 export async function getVolumeHistory(days = 30) {
   const lookbackDays = clampInt(days, 1, 365, 30);
   const volume = await getVolumeMetrics(lookbackDays);
@@ -1541,97 +1946,119 @@ export async function getVolumeHistory(days = 30) {
   };
 }
 
-export async function getRecentTransactions(limit = 50) {
+// Build a Vara extrinsic explorer URL from a tx hash.
+function extrinsicExplorerUrl(hash) {
+  return hash
+    ? `https://idea.gear-tech.io/extrinsics/${hash}?node=wss%3A%2F%2Frpc.vara.network`
+    : null;
+}
+
+/**
+ * Recent transactions feed across all sources, with on-chain explorer links and
+ * server-side pagination.
+ *
+ * Sources: stream_events, vault_events, bridge_transactions, AND seeds_ledger
+ * (on-chain XP mints — the dominant real on-chain activity, each with a verifiable
+ * tx_hash). Every row exposes explorerUrl when a hash is present so activity can
+ * be independently verified on idea.gear-tech.io.
+ *
+ * @param {number} limit  page size
+ * @param {number} offset rows to skip (server-side pagination)
+ */
+export async function getRecentTransactions(limit = 50, offset = 0) {
   if (!getPool()) {
-    return { available: false, transactions: [] };
+    return { available: false, transactions: [], count: 0, total: 0, limit, offset };
   }
 
-  const streamTx = await queryAll(
-    `SELECT
-      id,
-      created_at as timestamp,
-      event_type,
-      sender,
-      receiver,
-      amount,
-      token_symbol,
-      metadata,
-      block_hash,
-      extrinsic_hash
-     FROM stream_events
-     WHERE (sender IS NOT NULL AND sender != 'unknown')
-        OR (receiver IS NOT NULL AND receiver != 'unknown')
-     ORDER BY created_at DESC
-     LIMIT $1`,
-    [limit]
-  ).catch(() => []);
+  // We over-fetch (limit+offset) from each source, merge, sort, then page the
+  // combined set. Counts come from cheap COUNT queries for accurate `total`.
+  const fetchN = limit + offset;
 
-  const vaultTx = await queryAll(
-    `SELECT
-      id,
-      created_at as timestamp,
-      event_type,
-      wallet,
-      amount,
-      token_symbol,
-      metadata,
-      block_hash,
-      extrinsic_hash
-     FROM vault_events
-     WHERE wallet IS NOT NULL AND wallet != 'unknown'
-     ORDER BY created_at DESC
-     LIMIT $1`,
-    [limit]
-  ).catch(() => []);
+  const [streamTx, vaultTx, bridgeTx, xpTx, counts] = await Promise.all([
+    queryAll(
+      `SELECT id, created_at AS timestamp, event_type, sender, receiver, amount,
+              token_symbol, metadata, block_hash, extrinsic_hash
+       FROM stream_events
+       WHERE (sender IS NOT NULL AND sender != 'unknown')
+          OR (receiver IS NOT NULL AND receiver != 'unknown')
+       ORDER BY created_at DESC LIMIT $1`,
+      [fetchN]
+    ).catch(() => []),
+    queryAll(
+      `SELECT id, created_at AS timestamp, event_type, wallet, amount,
+              token_symbol, metadata, block_hash, extrinsic_hash
+       FROM vault_events
+       WHERE wallet IS NOT NULL AND wallet != 'unknown'
+       ORDER BY created_at DESC LIMIT $1`,
+      [fetchN]
+    ).catch(() => []),
+    queryAll(
+      `SELECT id, created_at AS timestamp, status, wallet, token_symbol AS token,
+              amount, direction, source_tx_hash, destination_tx_hash
+       FROM bridge_transactions
+       WHERE wallet IS NOT NULL AND wallet != 'unknown'
+       ORDER BY created_at DESC LIMIT $1`,
+      [fetchN]
+    ).catch(() => []),
+    // On-chain XP mints — verifiable via tx_hash.
+    queryAll(
+      `SELECT id, created_at AS timestamp, wallet, delta AS amount, reason, tx_hash, quest_id
+       FROM seeds_ledger
+       WHERE tx_hash IS NOT NULL AND wallet IS NOT NULL
+       ORDER BY created_at DESC LIMIT $1`,
+      [fetchN]
+    ).catch(() => []),
+    queryOne(`
+      SELECT
+        (SELECT COUNT(*) FROM stream_events WHERE (sender IS NOT NULL AND sender != 'unknown') OR (receiver IS NOT NULL AND receiver != 'unknown'))
+        + (SELECT COUNT(*) FROM vault_events WHERE wallet IS NOT NULL AND wallet != 'unknown')
+        + (SELECT COUNT(*) FROM bridge_transactions WHERE wallet IS NOT NULL AND wallet != 'unknown')
+        + (SELECT COUNT(*) FROM seeds_ledger WHERE tx_hash IS NOT NULL AND wallet IS NOT NULL)
+        AS total
+    `).catch(() => ({ total: 0 })),
+  ]);
 
-  const bridgeTx = await queryAll(
-    `SELECT
-      id,
-      created_at as timestamp,
-      status,
-      wallet,
-      token_symbol as token,
-      amount,
-      direction,
-      source_tx_hash,
-      destination_tx_hash
-     FROM bridge_transactions
-     WHERE wallet IS NOT NULL AND wallet != 'unknown'
-     ORDER BY created_at DESC
-     LIMIT $1`,
-    [limit]
-  ).catch(() => []);
+  const merged = [
+    ...streamTx.map((tx) => ({ ...tx, source: 'stream', explorerUrl: extrinsicExplorerUrl(tx.extrinsic_hash) })),
+    ...vaultTx.map((tx) => ({ ...tx, source: 'vault', explorerUrl: extrinsicExplorerUrl(tx.extrinsic_hash) })),
+    ...bridgeTx.map((tx) => ({ ...tx, source: 'bridge', explorerUrl: extrinsicExplorerUrl(tx.source_tx_hash) })),
+    ...xpTx.map((tx) => ({
+      id: tx.id,
+      timestamp: tx.timestamp,
+      event_type: 'mint',
+      wallet: tx.wallet,
+      amount: tx.amount,
+      token_symbol: 'SEEDS',
+      reason: tx.reason,
+      extrinsic_hash: tx.tx_hash,
+      source: 'xp_mint',
+      explorerUrl: extrinsicExplorerUrl(tx.tx_hash),
+    })),
+  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-  const allTransactions = [
-    ...streamTx.map(tx => ({
-      ...tx,
-      source: 'stream',
-      explorerUrl: tx.extrinsic_hash ? `https://idea.gear-tech.io/extrinsics/${tx.extrinsic_hash}?node=wss%3A%2F%2Frpc.vara.network` : null,
-    })),
-    ...vaultTx.map(tx => ({
-      ...tx,
-      source: 'vault',
-      explorerUrl: tx.extrinsic_hash ? `https://idea.gear-tech.io/extrinsics/${tx.extrinsic_hash}?node=wss%3A%2F%2Frpc.vara.network` : null,
-    })),
-    ...bridgeTx.map(tx => ({
-      ...tx,
-      source: 'bridge',
-      explorerUrl: tx.source_tx_hash ? `https://idea.gear-tech.io/extrinsics/${tx.source_tx_hash}?node=wss%3A%2F%2Frpc.vara.network` : null,
-    })),
-  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).slice(0, limit);
+  const page = merged.slice(offset, offset + limit);
+  const total = Number.parseInt(counts?.total || '0', 10);
 
   return {
     available: true,
-    transactions: allTransactions,
-    count: allTransactions.length,
-    note: 'Explorer links use extrinsic_hash (transaction hash). Existing transactions may not have extrinsic_hash populated - new transactions will have working explorer links.',
+    transactions: page,
+    count: page.length,
+    total,
+    limit,
+    offset,
+    hasMore: offset + page.length < total,
+    note: 'Includes on-chain XP mints (seeds_ledger) with verifiable explorer links. explorerUrl points to idea.gear-tech.io for any row with a transaction hash.',
   };
 }
 
-export async function getActiveWallets(limit = 50) {
+export async function getActiveWallets(limit = 50, offset = 0) {
   if (!getPool()) {
-    return { available: false, wallets: [] };
+    return { available: false, wallets: [], count: 0, total: 0, limit, offset };
   }
+
+  const totalRow = await queryOne(
+    `SELECT COUNT(*)::bigint AS total FROM users WHERE ${USERS_EXCLUDE_TEST_SQL}`
+  ).catch(() => ({ total: 0 }));
 
   const users = await queryAll(
     `SELECT
@@ -1643,8 +2070,8 @@ export async function getActiveWallets(limit = 50) {
      FROM users
      WHERE ${USERS_EXCLUDE_TEST_SQL}
      ORDER BY created_at DESC
-     LIMIT $1`,
-    [limit]
+     LIMIT $1 OFFSET $2`,
+    [limit, offset]
   ).catch(() => []);
 
   const streamWallets = await queryAll(
@@ -1730,9 +2157,14 @@ export async function getActiveWallets(limit = 50) {
     };
   }).sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity));
 
+  const total = Number.parseInt(totalRow?.total || '0', 10);
   return {
     available: true,
     wallets,
     count: wallets.length,
+    total,
+    limit,
+    offset,
+    hasMore: offset + wallets.length < total,
   };
 }
