@@ -8,6 +8,7 @@ import { EvmWalletProvider } from '@/contexts/EvmWalletContext';
 import { WalletConnectProvider } from '@/contexts/WalletConnectContext';
 import { NetworkModeProvider } from '@/contexts/NetworkModeContext';
 import { hydrateProgramIds } from '@/lib/program-ids';
+import { ApiWalletSync } from '@/components/ApiWalletSync';
 
 const VaraProviders = dynamic(
   () => import('@/contexts/VaraContext').then((mod) => mod.VaraProviders),
@@ -46,6 +47,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         <EvmWalletProvider>
           <VaraProviders>
             <WalletConnectProvider>
+              <ApiWalletSync />
               {children}
               <Toaster position="top-right" richColors />
             </WalletConnectProvider>

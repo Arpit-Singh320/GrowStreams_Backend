@@ -1,9 +1,28 @@
 ﻿const API_BASE = (process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'https://growstreams-api-v3-production.up.railway.app').replace(/\/$/, '');
 
+// ---------------------------------------------------------------------------
+// Connected-wallet holder.
+//
+// Routes guarded by `requireAuth` on the backend need the caller's wallet, sent
+// either in the body or as an `x-wallet` header. Rather than thread the wallet
+// through every authed call site, we keep the connected wallet here and inject
+// it as `x-wallet` on every request. `setApiWallet()` is called whenever the
+// wallet connection changes (see ApiWalletSync in components/providers.tsx).
+// ---------------------------------------------------------------------------
+let currentWallet: string | null = null;
+
+export function setApiWallet(wallet: string | null): void {
+  currentWallet = wallet && wallet.startsWith('0x') ? wallet : null;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(currentWallet ? { 'x-wallet': currentWallet } : {}),
+      ...options?.headers,
+    },
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -1087,6 +1106,16 @@ export const api = {
       post<{ payload: string; value: string }>('/api/gvara/wrap-native', params as unknown as Record<string, unknown>),
     unwrapNative: (params: { amount?: string; amountRaw?: string; mode?: string }) =>
       post<{ payload: string } | TxResult>('/api/gvara/unwrap-native', params as unknown as Record<string, unknown>),
+  },
+
+  // ─── Users (auth/registration) ─────────────────────────────────────────────
+  users: {
+    register: (params: { wallet: string; github_handle?: string; x_handle?: string; referral_code?: string }) =>
+      post<{ user: Record<string, unknown>; referral_code: string; message: string }>(
+        '/api/users/register',
+        params as unknown as Record<string, unknown>,
+      ),
+    get: (wallet: string) => get<Record<string, unknown>>(`/api/users/${wallet}`),
   },
 
   // ─── Client config (authoritative on-chain program IDs) ────────────────────
