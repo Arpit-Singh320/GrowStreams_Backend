@@ -7,6 +7,7 @@ import { Toaster } from 'sonner';
 import { EvmWalletProvider } from '@/contexts/EvmWalletContext';
 import { WalletConnectProvider } from '@/contexts/WalletConnectContext';
 import { NetworkModeProvider } from '@/contexts/NetworkModeContext';
+import { hydrateProgramIds } from '@/lib/program-ids';
 
 const VaraProviders = dynamic(
   () => import('@/contexts/VaraContext').then((mod) => mod.VaraProviders),
@@ -19,6 +20,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
+    // Pull authoritative program IDs from the backend so a contract redeploy
+    // never silently desyncs the frontend's hardcoded fallbacks.
+    hydrateProgramIds();
   }, []);
 
   if (!mounted) {

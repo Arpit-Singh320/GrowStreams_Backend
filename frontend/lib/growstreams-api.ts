@@ -1088,4 +1088,10 @@ export const api = {
     unwrapNative: (params: { amount?: string; amountRaw?: string; mode?: string }) =>
       post<{ payload: string } | TxResult>('/api/gvara/unwrap-native', params as unknown as Record<string, unknown>),
   },
+
+  // ─── Client config (authoritative on-chain program IDs) ────────────────────
+  config: {
+    programIds: () =>
+      get<{ programIds: Record<string, string>; timestamp: string }>('/api/config/program-ids'),
+  },
 };

@@ -7,18 +7,11 @@ const getExtensionDapp = () => import('@polkadot/extension-dapp');
 import { decodeAddress } from '@gear-js/api';
 import { api as gsApi, type PayloadResult, type TxResult } from '@/lib/growstreams-api';
 
-export const PROGRAM_IDS: Record<string, string> = {
-  streamCore: '0xe84917a47826e945e62b267560905c840643f1aacdf0536be520d954a5d0ef7d',
-  tokenVault: '0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef',
-  growToken: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
-  splitsRouter: '0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45',
-  permissionManager: '0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581',
-  bountyAdapter: '0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f',
-  identityRegistry: '0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29',
-  questSeeds: '0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d',
-  wvara: '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d',
-  gvaraToken: '0x1edcac5125401f93a1b08be8464c84ad94f24af7d4a31efa32237d0738991af7',
-};
+// Program IDs are owned by the backend and hydrated at app startup from
+// /api/config/program-ids. Imported for local use and re-exported so existing
+// imports (`from '@/hooks/useGrowStreams'`) keep working unchanged.
+import { PROGRAM_IDS, hydrateProgramIds } from '@/lib/program-ids';
+export { PROGRAM_IDS, hydrateProgramIds };
 
 interface SendResult {
   blockHash: string;
