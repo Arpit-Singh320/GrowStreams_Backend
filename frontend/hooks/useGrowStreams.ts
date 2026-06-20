@@ -7,18 +7,11 @@ const getExtensionDapp = () => import('@polkadot/extension-dapp');
 import { decodeAddress } from '@gear-js/api';
 import { api as gsApi, type PayloadResult, type TxResult } from '@/lib/growstreams-api';
 
-export const PROGRAM_IDS: Record<string, string> = {
-  streamCore: '0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4',
-  tokenVault: '0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef',
-  growToken: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
-  splitsRouter: '0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45',
-  permissionManager: '0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581',
-  bountyAdapter: '0x7697bb2e8655e6cd7294389a0289355f48fd5459914d2a735c9966dad548bd4f',
-  identityRegistry: '0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29',
-  questSeeds: '0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d',
-  wvara: '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d',
-  gvaraToken: '0x71de1ef1f4dec1a4fe862aa6c92747c8499bbf1af128625749027392709f4a72',
-};
+// Program IDs are owned by the backend and hydrated at app startup from
+// /api/config/program-ids. Imported for local use and re-exported so existing
+// imports (`from '@/hooks/useGrowStreams'`) keep working unchanged.
+import { PROGRAM_IDS, hydrateProgramIds } from '@/lib/program-ids';
+export { PROGRAM_IDS, hydrateProgramIds };
 
 interface SendResult {
   blockHash: string;
@@ -43,6 +36,31 @@ function toHex(address: string): string {
   } catch {
     return address;
   }
+}
+
+// Decode the real reason out of a System.ExtrinsicFailed event so the user sees
+// e.g. "On-chain error: balances.InsufficientBalance — ..." instead of a generic
+// "Check contract parameters". The dispatchError is the first event argument.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function decodeDispatchError(api: any, failedEvent: any): string {
+  try {
+    const dispatchError = failedEvent?.event?.data?.[0] ?? failedEvent?.event?.data?.dispatchError;
+    if (dispatchError?.isModule) {
+      const decoded = api.registry.findMetaError(dispatchError.asModule);
+      const { section, name, docs } = decoded;
+      const doc = Array.isArray(docs) ? docs.join(' ').trim() : '';
+      return `On-chain error: ${section}.${name}${doc ? ` — ${doc}` : ''}`;
+    }
+    if (dispatchError?.isToken) {
+      return `On-chain token error: ${dispatchError.asToken.type}`;
+    }
+    if (dispatchError) {
+      return `Transaction failed on-chain: ${dispatchError.toString()}`;
+    }
+  } catch {
+    // fall through to generic message
+  }
+  return 'Transaction failed on-chain. Check contract parameters.';
 }
 
 export function useGearSign() {
@@ -150,11 +168,11 @@ export function useGearSign() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           tx.signAndSend(account.address, { signer: injector.signer as any }, ({ status, events }: any) => {
             if (status.isInBlock) {
-              const failed = events?.some((e: any) =>
+              const failedEvent = events?.find((e: any) =>
                 api.events.system.ExtrinsicFailed.is(e.event)
               );
-              if (failed) {
-                reject(new Error('Transaction failed on-chain. Check contract parameters.'));
+              if (failedEvent) {
+                reject(new Error(decodeDispatchError(api, failedEvent)));
               } else {
                 resolve({ blockHash: status.asInBlock.toHex(), success: true });
               }

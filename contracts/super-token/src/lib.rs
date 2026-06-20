@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 
 //! Super Token — Superfluid-style streaming VFT for GrowStreams on Vara.
 //!
@@ -6,12 +6,26 @@
 //! adds real-time balance accounting so that `balance_of(account)` reflects
 //! ongoing streams without any per-second transactions.
 //!
-//! Real-time balance formula (per account):
-//!   balance(t) = static_balance
-//!              + net_flow_rate_signed × (t - flow_updated_at)
+//! ## Conservation model (buffered, flow-aware)
 //!
-//! Where `net_flow_rate_signed` is the sum of all incoming flow rates
-//! minus all outgoing flow rates (in base units per second), stored as i128.
+//! Earlier versions tracked only a per-account signed `net_flow_rate`, which
+//! let a receiver's balance grow **without bound** — it ignored whether the
+//! sender had any funds left. That minted tokens out of nothing
+//! (`Σ balance_of > total_supply`).
+//!
+//! This version is **flow-aware**. Every stream is an explicit
+//! `Flow { rate, buffer, last_update }` keyed by `(sender, receiver)`:
+//!
+//!  * On `start_flow`, the stream's full `buffer` (== stream-core `deposited`)
+//!    is **escrowed out of the sender's settled balance** into the flow.
+//!  * As time passes, the receiver accrues `min(rate × elapsed, buffer)` — the
+//!    buffer is a **hard ceiling**. Once it is drained the flow stops paying.
+//!  * On `stop_flow`, any unspent buffer is refunded to the sender.
+//!
+//! This gives the exact invariant, preserved by every mutation:
+//!
+//!   total_supply == Σ static_balance(account) + Σ flow.buffer
+//!   Σ balance_of(account) ≤ total_supply        (never mints phantom tokens)
 //!
 //! ## Token modes
 //! - Wrapper: underlying_token != zero  → wrap/unwrap pull/push a VFT
@@ -19,8 +33,10 @@
 //! - Native:  underlying_token == zero, native == true  → wrap/unwrap VARA
 //!
 //! ## Authorization
-//! `update_flow` may only be called by a registered "flow controller"
-//! (i.e., `stream-core`). The admin sets flow controllers via `add_flow_controller`.
+//! The flow methods (`start_flow`, `set_flow_rate`, `add_flow_buffer`,
+//! `stop_flow`) may only be called by a registered "flow controller"
+//! (i.e., `stream-core`). The admin sets flow controllers via
+//! `add_flow_controller`.
 
 use sails_rs::{
     cell::RefCell,
@@ -81,41 +97,33 @@ fn decode_vft_bool_reply(reply_bytes: &[u8]) -> bool {
 // Types
 // ---------------------------------------------------------------------------
 
+/// A single streaming flow from `sender` to `receiver`.
+///
+/// `buffer` is the remaining escrowed balance backing this flow. It is debited
+/// from the sender's settled balance when the flow is opened (or topped up) and
+/// it is the hard ceiling on how much the receiver can ever accrue: the
+/// receiver gains `min(rate × elapsed, buffer)`.
 #[derive(Debug, Clone, Encode, Decode, TypeInfo)]
-pub struct AccountState {
-    /// Settled (static) balance — updated on every settle() call.
-    pub static_balance: u128,
-    /// Net flow rate in base units per second.
-    /// Positive = more incoming than outgoing (balance grows).
-    /// Negative = more outgoing than incoming (balance shrinks).
-    pub net_flow_rate: i128,
-    /// Block timestamp (seconds) when `static_balance` was last settled.
-    pub flow_updated_at: u64,
+pub struct Flow {
+    /// Streaming rate in base units per second.
+    pub rate: u128,
+    /// Remaining escrowed funds backing this flow (the hard accrual ceiling).
+    pub buffer: u128,
+    /// Block timestamp (seconds) when this flow was last settled.
+    pub last_update: u64,
 }
 
-impl AccountState {
-    fn new() -> Self {
-        Self { static_balance: 0, net_flow_rate: 0, flow_updated_at: 0 }
-    }
-
-    /// Real-time balance at timestamp `now` (clamped to 0, never negative).
-    fn realtime_balance(&self, now: u64) -> u128 {
-        let elapsed = now.saturating_sub(self.flow_updated_at) as i128;
-        let accrued = self.net_flow_rate.saturating_mul(elapsed);
-        let raw = self.static_balance as i128 + accrued;
-        if raw < 0 { 0 } else { raw as u128 }
-    }
-
-    /// Settle accrued flow into static_balance.
-    fn settle(&mut self, now: u64) {
-        let accrued = {
-            let elapsed = now.saturating_sub(self.flow_updated_at) as i128;
-            self.net_flow_rate.saturating_mul(elapsed)
-        };
-        let new_bal = self.static_balance as i128 + accrued;
-        self.static_balance = if new_bal < 0 { 0 } else { new_bal as u128 };
-        self.flow_updated_at = now;
-    }
+/// Back-compat view returned by `get_account_state` so existing API/keeper
+/// consumers keep working. `net_flow_rate` is *derived* from active flows.
+#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
+pub struct AccountState {
+    /// Settled (static) balance — escrowed flow buffers are NOT included.
+    pub static_balance: u128,
+    /// Derived net flow rate in base units per second (incoming − outgoing,
+    /// counting only flows that still have buffer remaining).
+    pub net_flow_rate: i128,
+    /// Block timestamp (seconds) of this view.
+    pub flow_updated_at: u64,
 }
 
 #[derive(Debug, Clone, Encode, Decode, TypeInfo)]
@@ -145,10 +153,12 @@ pub struct SuperTokenState {
     pub is_native_wrapper: bool,
     pub admin: ActorId,
     pub paused: bool,
-    /// Total wrapped/minted supply (settled view).
+    /// Total wrapped/minted supply. Equals `Σ balances + Σ flow.buffer`.
     pub total_supply: u128,
-    /// Per-account streaming + static balance state.
-    pub accounts: BTreeMap<ActorId, AccountState>,
+    /// Per-account settled balance (escrowed buffers held separately in `flows`).
+    pub balances: BTreeMap<ActorId, u128>,
+    /// Active streaming flows keyed by (sender, receiver).
+    pub flows: BTreeMap<(ActorId, ActorId), Flow>,
     /// Standard ERC-20-style allowances for instant transfers.
     pub allowances: BTreeMap<(ActorId, ActorId), u128>,
     /// Authorised flow controllers (e.g. stream-core program IDs).
@@ -173,24 +183,102 @@ impl SuperTokenState {
             admin,
             paused: false,
             total_supply: 0,
-            accounts: BTreeMap::new(),
+            balances: BTreeMap::new(),
+            flows: BTreeMap::new(),
             allowances: BTreeMap::new(),
             flow_controllers: BTreeMap::new(),
         }
     }
 
-    fn account(&mut self, id: ActorId) -> &mut AccountState {
-        self.accounts.entry(id).or_insert_with(AccountState::new)
+    fn balance(&self, id: &ActorId) -> u128 {
+        self.balances.get(id).copied().unwrap_or(0)
     }
 
-    fn account_ref(&self, id: &ActorId) -> Option<&AccountState> {
-        self.accounts.get(id)
+    fn credit(&mut self, id: ActorId, amount: u128) {
+        if amount == 0 { return; }
+        let e = self.balances.entry(id).or_insert(0);
+        *e = e.saturating_add(amount);
     }
 
+    /// Returns false if `id` has insufficient settled balance.
+    fn debit(&mut self, id: ActorId, amount: u128) -> bool {
+        if amount == 0 { return true; }
+        let bal = self.balance(&id);
+        if bal < amount { return false; }
+        self.balances.insert(id, bal - amount);
+        true
+    }
+
+    /// Pending (unsettled) accrual of a single flow at `now`, capped at buffer.
+    fn flow_pending(flow: &Flow, now: u64) -> u128 {
+        if flow.rate == 0 || flow.buffer == 0 || now <= flow.last_update {
+            return 0;
+        }
+        let elapsed = (now - flow.last_update) as u128;
+        flow.rate.saturating_mul(elapsed).min(flow.buffer)
+    }
+
+    /// Settle every flow that pays into `account`, moving accrued amounts from
+    /// each flow's buffer into the receiver's settled balance.
+    fn settle_incoming(&mut self, account: ActorId, now: u64) {
+        let keys: Vec<(ActorId, ActorId)> = self
+            .flows
+            .iter()
+            .filter(|((_, r), _)| *r == account)
+            .map(|(k, _)| *k)
+            .collect();
+        for k in keys {
+            let pending = {
+                let flow = self.flows.get(&k).expect("flow exists");
+                Self::flow_pending(flow, now)
+            };
+            if pending > 0 {
+                let flow = self.flows.get_mut(&k).expect("flow exists");
+                flow.buffer -= pending;
+                flow.last_update = now;
+            } else if let Some(flow) = self.flows.get_mut(&k) {
+                flow.last_update = now;
+            }
+            self.credit(account, pending);
+        }
+    }
+
+    /// Settle a single flow in place (drain accrued buffer to the receiver).
+    fn settle_flow(&mut self, key: (ActorId, ActorId), now: u64) {
+        let pending = match self.flows.get(&key) {
+            Some(flow) => Self::flow_pending(flow, now),
+            None => return,
+        };
+        if let Some(flow) = self.flows.get_mut(&key) {
+            flow.buffer -= pending;
+            flow.last_update = now;
+        }
+        let receiver = key.1;
+        self.credit(receiver, pending);
+    }
+
+    /// Real-time balance: settled balance plus everything still owed by
+    /// incoming flows (each capped at its remaining buffer).
     fn realtime_balance(&self, id: &ActorId, now: u64) -> u128 {
-        self.account_ref(id)
-            .map(|a| a.realtime_balance(now))
-            .unwrap_or(0)
+        let mut bal = self.balance(id);
+        for ((_, r), flow) in self.flows.iter() {
+            if r == id {
+                bal = bal.saturating_add(Self::flow_pending(flow, now));
+            }
+        }
+        bal
+    }
+
+    /// Derived net flow rate (incoming − outgoing) counting only flows that
+    /// still have buffer left to pay out.
+    fn net_flow_rate(&self, id: &ActorId) -> i128 {
+        let mut net: i128 = 0;
+        for ((s, r), flow) in self.flows.iter() {
+            if flow.rate == 0 || flow.buffer == 0 { continue; }
+            if r == id { net = net.saturating_add(flow.rate as i128); }
+            if s == id { net = net.saturating_sub(flow.rate as i128); }
+        }
+        net
     }
 
     fn is_flow_controller(&self, caller: &ActorId) -> bool {
@@ -260,7 +348,7 @@ impl<'a> SuperTokenService<'a> {
     // -----------------------------------------------------------------------
 
     /// Wrapper mode: pull `amount` of the underlying VFT from caller into this
-    /// contract and credit the caller's static_balance.
+    /// contract and credit the caller's settled balance.
     #[export]
     pub async fn wrap(&mut self, amount: u128) -> Result<(), &'static str> {
         {
@@ -288,17 +376,15 @@ impl<'a> SuperTokenService<'a> {
             return Err("VftTransferFailed");
         }
 
-        let now = exec::block_timestamp() / 1000;
         let mut state = self.state.borrow_mut();
-        let acct = state.account(caller);
-        acct.settle(now);
-        acct.static_balance = acct.static_balance.saturating_add(amount);
+        state.credit(caller, amount);
         state.total_supply = state.total_supply.saturating_add(amount);
         Ok(())
     }
 
     /// Wrapper mode: burn `amount` of super tokens from caller and send back
-    /// the underlying VFT.
+    /// the underlying VFT. Incoming flows are settled first so the caller can
+    /// unwrap funds that streamed in.
     #[export]
     pub async fn unwrap(&mut self, amount: u128) -> Result<(), &'static str> {
         {
@@ -315,10 +401,8 @@ impl<'a> SuperTokenService<'a> {
 
         {
             let mut state = self.state.borrow_mut();
-            let acct = state.account(caller);
-            acct.settle(now);
-            if acct.static_balance < amount { return Err("InsufficientBalance"); }
-            acct.static_balance -= amount;
+            state.settle_incoming(caller, now);
+            if !state.debit(caller, amount) { return Err("InsufficientBalance"); }
             state.total_supply = state.total_supply.saturating_sub(amount);
         }
 
@@ -333,8 +417,7 @@ impl<'a> SuperTokenService<'a> {
         if !decode_vft_bool_reply(reply.as_slice()) {
             // Revert the balance deduction on VFT failure
             let mut state = self.state.borrow_mut();
-            let acct = state.account(caller);
-            acct.static_balance = acct.static_balance.saturating_add(amount);
+            state.credit(caller, amount);
             state.total_supply = state.total_supply.saturating_add(amount);
             return Err("VftTransferFailed");
         }
@@ -353,11 +436,8 @@ impl<'a> SuperTokenService<'a> {
         if value == 0 { return Err("ZeroAmount"); }
 
         let caller = msg::source();
-        let now = exec::block_timestamp() / 1000;
         let mut state = self.state.borrow_mut();
-        let acct = state.account(caller);
-        acct.settle(now);
-        acct.static_balance = acct.static_balance.saturating_add(value);
+        state.credit(caller, value);
         state.total_supply = state.total_supply.saturating_add(value);
         Ok(())
     }
@@ -376,10 +456,8 @@ impl<'a> SuperTokenService<'a> {
         let now = exec::block_timestamp() / 1000;
         {
             let mut state = self.state.borrow_mut();
-            let acct = state.account(caller);
-            acct.settle(now);
-            if acct.static_balance < amount { return Err("InsufficientBalance"); }
-            acct.static_balance -= amount;
+            state.settle_incoming(caller, now);
+            if !state.debit(caller, amount) { return Err("InsufficientBalance"); }
             state.total_supply = state.total_supply.saturating_sub(amount);
         }
         msg::send(caller, b"", amount).map_err(|_| "NativeTransferFailed")?;
@@ -390,8 +468,8 @@ impl<'a> SuperTokenService<'a> {
     // VFT-compatible instant transfers
     // -----------------------------------------------------------------------
 
-    /// Instant transfer — debits sender's real-time balance, credits receiver's
-    /// static_balance. Both accounts are settled first.
+    /// Instant transfer — settles the sender's incoming flows, then moves
+    /// `amount` from sender's settled balance to receiver's settled balance.
     #[export]
     pub fn transfer(&mut self, to: ActorId, amount: u128) -> bool {
         if amount == 0 { return false; }
@@ -401,14 +479,9 @@ impl<'a> SuperTokenService<'a> {
         let now = exec::block_timestamp() / 1000;
         let mut state = self.state.borrow_mut();
 
-        let sender_acct = state.account(caller);
-        sender_acct.settle(now);
-        if sender_acct.static_balance < amount { return false; }
-        sender_acct.static_balance -= amount;
-
-        let recv_acct = state.account(to);
-        recv_acct.settle(now);
-        recv_acct.static_balance = recv_acct.static_balance.saturating_add(amount);
+        state.settle_incoming(caller, now);
+        if !state.debit(caller, amount) { return false; }
+        state.credit(to, amount);
         true
     }
 
@@ -430,15 +503,10 @@ impl<'a> SuperTokenService<'a> {
         let allowance = state.allowances.get(&(from, spender)).copied().unwrap_or(0);
         if allowance < amount { return false; }
 
-        let from_acct = state.account(from);
-        from_acct.settle(now);
-        if from_acct.static_balance < amount { return false; }
-        from_acct.static_balance -= amount;
+        state.settle_incoming(from, now);
+        if !state.debit(from, amount) { return false; }
         state.allowances.insert((from, spender), allowance - amount);
-
-        let to_acct = state.account(to);
-        to_acct.settle(now);
-        to_acct.static_balance = to_acct.static_balance.saturating_add(amount);
+        state.credit(to, amount);
         true
     }
 
@@ -446,24 +514,20 @@ impl<'a> SuperTokenService<'a> {
     // Flow control (called by stream-core)
     // -----------------------------------------------------------------------
 
-    /// Update the net flow rate of an account by a signed delta.
+    /// Open (or add rate + buffer to) a flow from `sender` to `receiver`.
     ///
-    /// Called by an authorised flow controller (stream-core) when a stream is
-    /// created, updated, or stopped. Settles both accounts first so accrued
-    /// amounts are materialised before the rate changes.
+    /// `buffer` (== stream-core `deposited`) is escrowed out of the sender's
+    /// settled balance. It is the hard ceiling on receiver accrual. `rate` is
+    /// added to any existing flow's rate.
     ///
-    /// - `sender`     — the account whose rate decreases (outgoing flow).
-    /// - `receiver`   — the account whose rate increases (incoming flow).
-    /// - `delta`      — flow rate change in base units per second (unsigned).
-    /// - `is_increase`— if true, sender rate decreases and receiver increases;
-    ///                  if false (stream stopped/decreased), roles are reversed.
+    /// Authorisation: caller must be a registered flow controller.
     #[export]
-    pub fn update_flow(
+    pub fn start_flow(
         &mut self,
         sender: ActorId,
         receiver: ActorId,
-        delta: u128,
-        is_increase: bool,
+        rate: u128,
+        buffer: u128,
     ) -> Result<(), &'static str> {
         let caller = msg::source();
         {
@@ -471,40 +535,120 @@ impl<'a> SuperTokenService<'a> {
             if !state.is_flow_controller(&caller) { return Err("Unauthorized"); }
             if state.paused { return Err("Paused"); }
         }
-        if delta == 0 { return Ok(()); }
+        if sender == receiver { return Err("SenderIsReceiver"); }
+        if rate == 0 { return Err("ZeroRate"); }
 
         let now = exec::block_timestamp() / 1000;
-        let signed_delta = delta as i128;
-
+        let key = (sender, receiver);
         let mut state = self.state.borrow_mut();
 
-        let sender_acct = state.account(sender);
-        sender_acct.settle(now);
-        if is_increase {
-            sender_acct.net_flow_rate = sender_acct.net_flow_rate.saturating_sub(signed_delta);
-        } else {
-            sender_acct.net_flow_rate = sender_acct.net_flow_rate.saturating_add(signed_delta);
-        }
+        // Settle any existing flow before changing its parameters.
+        state.settle_flow(key, now);
 
-        let recv_acct = state.account(receiver);
-        recv_acct.settle(now);
-        if is_increase {
-            recv_acct.net_flow_rate = recv_acct.net_flow_rate.saturating_add(signed_delta);
-        } else {
-            recv_acct.net_flow_rate = recv_acct.net_flow_rate.saturating_sub(signed_delta);
-        }
+        // Escrow the buffer out of the sender's settled balance.
+        if !state.debit(sender, buffer) { return Err("InsufficientBuffer"); }
 
+        let flow = state.flows.entry(key).or_insert(Flow {
+            rate: 0,
+            buffer: 0,
+            last_update: now,
+        });
+        flow.rate = flow.rate.saturating_add(rate);
+        flow.buffer = flow.buffer.saturating_add(buffer);
+        flow.last_update = now;
         Ok(())
     }
 
-    /// Manually settle an account's accrued flow into static_balance.
-    /// Can be called by anyone (e.g. a keeper / the account owner).
+    /// Top up the buffer backing an existing flow (stream deposit). Escrows
+    /// `amount` from the sender's settled balance into the flow.
+    #[export]
+    pub fn add_flow_buffer(
+        &mut self,
+        sender: ActorId,
+        receiver: ActorId,
+        amount: u128,
+    ) -> Result<(), &'static str> {
+        let caller = msg::source();
+        {
+            let state = self.state.borrow();
+            if !state.is_flow_controller(&caller) { return Err("Unauthorized"); }
+            if state.paused { return Err("Paused"); }
+        }
+        if amount == 0 { return Err("ZeroAmount"); }
+
+        let now = exec::block_timestamp() / 1000;
+        let key = (sender, receiver);
+        let mut state = self.state.borrow_mut();
+
+        if !state.flows.contains_key(&key) { return Err("FlowNotFound"); }
+        state.settle_flow(key, now);
+        if !state.debit(sender, amount) { return Err("InsufficientBuffer"); }
+        let flow = state.flows.get_mut(&key).expect("flow exists");
+        flow.buffer = flow.buffer.saturating_add(amount);
+        Ok(())
+    }
+
+    /// Change the rate of an existing flow without touching its buffer.
+    /// Used by stream-core `update_stream`.
+    #[export]
+    pub fn set_flow_rate(
+        &mut self,
+        sender: ActorId,
+        receiver: ActorId,
+        new_rate: u128,
+    ) -> Result<(), &'static str> {
+        let caller = msg::source();
+        {
+            let state = self.state.borrow();
+            if !state.is_flow_controller(&caller) { return Err("Unauthorized"); }
+            if state.paused { return Err("Paused"); }
+        }
+
+        let now = exec::block_timestamp() / 1000;
+        let key = (sender, receiver);
+        let mut state = self.state.borrow_mut();
+
+        if !state.flows.contains_key(&key) { return Err("FlowNotFound"); }
+        state.settle_flow(key, now);
+        let flow = state.flows.get_mut(&key).expect("flow exists");
+        flow.rate = new_rate;
+        Ok(())
+    }
+
+    /// Stop a flow: settle accrued amount to the receiver, refund any unspent
+    /// buffer to the sender, and remove the flow.
+    #[export]
+    pub fn stop_flow(
+        &mut self,
+        sender: ActorId,
+        receiver: ActorId,
+    ) -> Result<(), &'static str> {
+        let caller = msg::source();
+        {
+            let state = self.state.borrow();
+            if !state.is_flow_controller(&caller) { return Err("Unauthorized"); }
+            // NOTE: stopping is allowed even while paused so funds aren't trapped.
+        }
+
+        let now = exec::block_timestamp() / 1000;
+        let key = (sender, receiver);
+        let mut state = self.state.borrow_mut();
+
+        if !state.flows.contains_key(&key) { return Err("FlowNotFound"); }
+        // Settle accrued to receiver, then refund the remainder to the sender.
+        state.settle_flow(key, now);
+        let remaining = state.flows.remove(&key).map(|f| f.buffer).unwrap_or(0);
+        state.credit(sender, remaining);
+        Ok(())
+    }
+
+    /// Materialise an account's accrued incoming flows into its settled balance.
+    /// Callable by anyone (keeper / owner). Safe to call repeatedly.
     #[export]
     pub fn settle_account(&mut self, account: ActorId) {
         let now = exec::block_timestamp() / 1000;
         let mut state = self.state.borrow_mut();
-        let acct = state.account(account);
-        acct.settle(now);
+        state.settle_incoming(account, now);
     }
 
     // -----------------------------------------------------------------------
@@ -521,26 +665,21 @@ impl<'a> SuperTokenService<'a> {
         }
         if amount == 0 { return Err("ZeroAmount"); }
 
-        let now = exec::block_timestamp() / 1000;
         let mut state = self.state.borrow_mut();
-        let acct = state.account(to);
-        acct.settle(now);
-        acct.static_balance = acct.static_balance.saturating_add(amount);
+        state.credit(to, amount);
         state.total_supply = state.total_supply.saturating_add(amount);
         Ok(())
     }
 
-    /// Burn caller's own tokens (reduces static balance after settling).
+    /// Burn caller's own tokens (settles incoming flows first).
     #[export]
     pub fn burn(&mut self, amount: u128) -> Result<(), &'static str> {
         if amount == 0 { return Err("ZeroAmount"); }
         let caller = msg::source();
         let now = exec::block_timestamp() / 1000;
         let mut state = self.state.borrow_mut();
-        let acct = state.account(caller);
-        acct.settle(now);
-        if acct.static_balance < amount { return Err("InsufficientBalance"); }
-        acct.static_balance -= amount;
+        state.settle_incoming(caller, now);
+        if !state.debit(caller, amount) { return Err("InsufficientBalance"); }
         state.total_supply = state.total_supply.saturating_sub(amount);
         Ok(())
     }
@@ -593,7 +732,9 @@ impl<'a> SuperTokenService<'a> {
     // Queries
     // -----------------------------------------------------------------------
 
-    /// Real-time balance — accounts for all active flows at current timestamp.
+    /// Real-time balance — settled balance plus capped accrual from all
+    /// incoming flows at the current timestamp. Never exceeds what senders
+    /// have actually escrowed.
     #[export]
     pub fn balance_of(&self, account: ActorId) -> u128 {
         let state = self.state.borrow();
@@ -605,27 +746,33 @@ impl<'a> SuperTokenService<'a> {
     #[export]
     pub fn static_balance_of(&self, account: ActorId) -> u128 {
         let state = self.state.borrow();
-        state.account_ref(&account)
-            .map(|a| a.static_balance)
-            .unwrap_or(0)
+        state.balance(&account)
     }
 
-    /// Net flow rate for an account (base units per second, signed as i128).
+    /// Derived net flow rate for an account (base units per second, signed).
     #[export]
     pub fn net_flow_rate(&self, account: ActorId) -> i128 {
         let state = self.state.borrow();
-        state.account_ref(&account)
-            .map(|a| a.net_flow_rate)
-            .unwrap_or(0)
+        state.net_flow_rate(&account)
     }
 
-    /// Full account state (static balance + flow rate + last settled timestamp).
+    /// Full account state (settled balance + derived flow rate + timestamp).
     #[export]
     pub fn get_account_state(&self, account: ActorId) -> AccountState {
         let state = self.state.borrow();
-        state.account_ref(&account)
-            .cloned()
-            .unwrap_or_else(AccountState::new)
+        let now = exec::block_timestamp() / 1000;
+        AccountState {
+            static_balance: state.balance(&account),
+            net_flow_rate: state.net_flow_rate(&account),
+            flow_updated_at: now,
+        }
+    }
+
+    /// Inspect a single flow's current parameters (rate + remaining buffer).
+    #[export]
+    pub fn get_flow(&self, sender: ActorId, receiver: ActorId) -> Option<Flow> {
+        let state = self.state.borrow();
+        state.flows.get(&(sender, receiver)).cloned()
     }
 
     #[export]
@@ -690,5 +837,158 @@ impl<'a> SuperTokenService<'a> {
             total_supply: state.total_supply,
             flow_controller_count: controller_count,
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests — pure accounting invariants (host-runnable, no gstd runtime)
+// ---------------------------------------------------------------------------
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn actor(n: u8) -> ActorId {
+        let mut b = [0u8; 32];
+        b[0] = n;
+        ActorId::from(b)
+    }
+
+    /// Conservation invariant: settled balances plus all escrowed flow buffers
+    /// must always equal total_supply. If this holds, Σ balance_of ≤ supply and
+    /// no phantom tokens can be minted.
+    fn assert_conserved(s: &SuperTokenState) {
+        let bal_sum: u128 = s.balances.values().copied().sum();
+        let buf_sum: u128 = s.flows.values().map(|f| f.buffer).sum();
+        assert_eq!(
+            bal_sum + buf_sum,
+            s.total_supply,
+            "conservation violated: balances({bal_sum}) + buffers({buf_sum}) != supply({})",
+            s.total_supply
+        );
+    }
+
+    fn fresh(supply_to: ActorId, amount: u128) -> SuperTokenState {
+        let mut s = SuperTokenState::new(
+            actor(255), "g".into(), "g".into(), 12, ActorId::zero(), true,
+        );
+        s.credit(supply_to, amount);
+        s.total_supply = amount;
+        s
+    }
+
+    /// Simulate start_flow's state mutation (escrow buffer, open/extend flow).
+    fn open_flow(s: &mut SuperTokenState, sender: ActorId, receiver: ActorId, rate: u128, buffer: u128, now: u64) -> bool {
+        let key = (sender, receiver);
+        s.settle_flow(key, now);
+        if !s.debit(sender, buffer) { return false; }
+        let f = s.flows.entry(key).or_insert(Flow { rate: 0, buffer: 0, last_update: now });
+        f.rate = f.rate.saturating_add(rate);
+        f.buffer = f.buffer.saturating_add(buffer);
+        f.last_update = now;
+        true
+    }
+
+    /// Simulate stop_flow (settle accrued, refund remainder to sender).
+    fn close_flow(s: &mut SuperTokenState, sender: ActorId, receiver: ActorId, now: u64) {
+        let key = (sender, receiver);
+        s.settle_flow(key, now);
+        let remaining = s.flows.remove(&key).map(|f| f.buffer).unwrap_or(0);
+        s.credit(sender, remaining);
+    }
+
+    #[test]
+    fn receiver_accrual_is_capped_at_buffer() {
+        // 50 gVARA buffer, rate 1/sec. After 1_000_000 seconds the receiver must
+        // NOT exceed the 50-unit buffer — this is the exact bug from the report
+        // (deposit 50, balance ran to 736+ and rising).
+        let sender = actor(1);
+        let receiver = actor(2);
+        let mut s = fresh(sender, 50);
+
+        assert!(open_flow(&mut s, sender, receiver, 1, 50, 0));
+        assert_conserved(&s);
+
+        // Far in the future: receiver capped at 50, never more.
+        let bal = s.realtime_balance(&receiver, 1_000_000);
+        assert_eq!(bal, 50, "receiver accrual must be capped at the 50-unit buffer");
+
+        // Sender's real balance never goes negative and totals are conserved.
+        assert_eq!(s.realtime_balance(&sender, 1_000_000), 0);
+    }
+
+    #[test]
+    fn conservation_holds_through_full_lifecycle() {
+        let sender = actor(1);
+        let receiver = actor(2);
+        let mut s = fresh(sender, 100);
+
+        // Open a flow escrowing 60 of the 100.
+        assert!(open_flow(&mut s, sender, receiver, 2, 60, 0));
+        assert_conserved(&s);
+        assert_eq!(s.balance(&sender), 40); // 100 - 60 escrowed
+
+        // Settle the receiver at t=10s → 20 units streamed (2/sec × 10).
+        s.settle_incoming(receiver, 10);
+        assert_conserved(&s);
+        assert_eq!(s.balance(&receiver), 20);
+
+        // Stop at t=15s → another 10 streamed (total 30), refund 30 to sender.
+        close_flow(&mut s, sender, receiver, 15);
+        assert_conserved(&s);
+        assert_eq!(s.balance(&receiver), 30);
+        assert_eq!(s.balance(&sender), 70); // 40 + 30 refunded
+        assert!(s.flows.is_empty());
+    }
+
+    #[test]
+    fn buffer_exhaustion_auto_stops_accrual() {
+        let sender = actor(1);
+        let receiver = actor(2);
+        let mut s = fresh(sender, 10);
+
+        // rate 5/sec, buffer 10 → fully drained after 2 seconds.
+        assert!(open_flow(&mut s, sender, receiver, 5, 10, 0));
+
+        assert_eq!(s.realtime_balance(&receiver, 1), 5);
+        assert_eq!(s.realtime_balance(&receiver, 2), 10);
+        // After exhaustion, no further accrual.
+        assert_eq!(s.realtime_balance(&receiver, 100), 10);
+        assert_eq!(s.realtime_balance(&receiver, 1_000_000), 10);
+        assert_conserved(&s);
+    }
+
+    #[test]
+    fn deposit_top_up_extends_buffer() {
+        let sender = actor(1);
+        let receiver = actor(2);
+        let mut s = fresh(sender, 100);
+
+        // rate 1/sec, buffer 10.
+        assert!(open_flow(&mut s, sender, receiver, 1, 10, 0));
+        // Without top-up the receiver would cap at 10.
+        // Top up with 40 more at t=5 (simulates add_flow_buffer): settle first.
+        {
+            let key = (sender, receiver);
+            s.settle_flow(key, 5);
+            assert!(s.debit(sender, 40));
+            s.flows.get_mut(&key).unwrap().buffer += 40;
+        }
+        assert_conserved(&s);
+
+        // 5 already streamed; remaining buffer is 5 + 40 = 45. Total cap is now 50.
+        assert_eq!(s.realtime_balance(&receiver, 1_000_000), 50);
+        assert_conserved(&s);
+    }
+
+    #[test]
+    fn insufficient_balance_rejects_flow() {
+        let sender = actor(1);
+        let receiver = actor(2);
+        let mut s = fresh(sender, 30);
+        // Asking to escrow 50 with only 30 must fail and leave state untouched.
+        assert!(!open_flow(&mut s, sender, receiver, 1, 50, 0));
+        assert_conserved(&s);
+        assert_eq!(s.balance(&sender), 30);
+        assert!(s.flows.is_empty());
     }
 }

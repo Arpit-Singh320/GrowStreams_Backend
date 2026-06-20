@@ -38,6 +38,7 @@ import gvaraRouter from './routes/gvara.mjs';
 import distributionPoolsRouter from './routes/distribution-pools.mjs';
 import solvencyRouter from './routes/solvency.mjs';
 import varaEthRouter from './routes/vara-eth-streams.mjs';
+import configRouter from './routes/config.mjs';
 import { ensureVoucherTable } from './services/voucher-service.mjs';
 import { startStream as startXStream } from './services/x-agent.mjs';
 import { initCrons } from './cron/index.mjs';
@@ -92,6 +93,7 @@ app.use('/api/gvara', gvaraRouter);
 app.use('/api/distribution-pools', distributionPoolsRouter);
 app.use('/api/solvency', solvencyRouter);
 app.use('/api/vara-eth', varaEthRouter);
+app.use('/api/config', configRouter);
 
 app.get('/', (req, res) => {
   res.json({

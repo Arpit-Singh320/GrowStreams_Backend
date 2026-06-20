@@ -131,7 +131,7 @@ async function main() {
   
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const outputPath = path.join(__dirname, '../analytics-endpoint-audit.md');
+  const outputPath = path.join(__dirname, '../docs/analytics-endpoint-audit.md');
   
   fs.writeFileSync(outputPath, markdown, 'utf-8');
   console.log(`[audit] Results written to ${outputPath}`);

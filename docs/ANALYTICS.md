@@ -17,7 +17,7 @@ GrowStreams analytics report two clearly-separated domains:
 
 Everything is exposed under `GET /api/analytics/*` and rendered on the
 `/analytics` frontend dashboard. A live, generated reference of every endpoint's
-real response lives in [`analytics-endpoint-audit.md`](../analytics-endpoint-audit.md)
+real response lives in [`analytics-endpoint-audit.md`](./analytics-endpoint-audit.md)
 (regenerate with `node api/audit-analytics-endpoints.mjs`).
 
 ---

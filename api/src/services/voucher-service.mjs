@@ -1,4 +1,4 @@
-import { getApi, getKeyring } from '../sails-client.mjs';
+import { getApi, getKeyring, getProgramIds } from '../sails-client.mjs';
 import { queryOne, queryAll, query } from './db.mjs';
 
 const VOUCHER_AMOUNT = process.env.VOUCHER_AMOUNT || '20000000000000'; // 20 VARA (12 decimals) — refundable on expiry
@@ -6,19 +6,34 @@ const VOUCHER_DURATION_BLOCKS = parseInt(process.env.VOUCHER_DURATION_BLOCKS || 
 const MAX_VOUCHERS_PER_USER = parseInt(process.env.MAX_VOUCHERS_PER_USER || '5', 10);
 const VOUCHER_COOLDOWN_MS = parseInt(process.env.VOUCHER_COOLDOWN_MS || '60000', 10); // 1 min between requests
 
-// Program IDs that users can interact with (gasless)
+// Program IDs that users can interact with (gasless).
+//
+// IMPORTANT: this whitelist MUST match the program IDs the sails-client actually
+// connected to (env override -> deploy-state.json). Reading only from
+// process.env caused vouchers to whitelist a stale/empty set when the app ran
+// off deploy-state, which made every gasless call fail on-chain with
+// `gearVoucher.InappropriateDestination`. We source from the resolved IDs first
+// and fall back to env vars only for anything the client didn't load.
 function getAllowedPrograms() {
-  return [
-    process.env.STREAM_CORE_ID,
-    process.env.TOKEN_VAULT_ID,
-    process.env.SPLITS_ROUTER_ID,
-    process.env.PERMISSION_MANAGER_ID,
-    process.env.BOUNTY_ADAPTER_ID,
-    process.env.IDENTITY_REGISTRY_ID,
-    process.env.GROW_TOKEN_ID,
-    process.env.QUEST_SEEDS_ID,
-    process.env.WVARA_TOKEN_ID,
-  ].filter(Boolean);
+  // getProgramIds() -> { 'stream-core': '0x..', 'token-vault': '0x..', ... }
+  const resolved = getProgramIds();
+  const programs = [
+    resolved['stream-core']        || process.env.STREAM_CORE_ID,
+    resolved['token-vault']        || process.env.TOKEN_VAULT_ID,
+    resolved['splits-router']      || process.env.SPLITS_ROUTER_ID,
+    resolved['permission-manager'] || process.env.PERMISSION_MANAGER_ID,
+    resolved['bounty-adapter']     || process.env.BOUNTY_ADAPTER_ID,
+    resolved['identity-registry']  || process.env.IDENTITY_REGISTRY_ID,
+    resolved['grow-token']         || process.env.GROW_TOKEN_ID,
+    resolved['quest-seeds']        || process.env.QUEST_SEEDS_ID,
+    resolved['wvara']              || process.env.WVARA_TOKEN_ID,
+    // gVARA super-token: stream-core routes wVARA streams through it, so a
+    // gasless stream of gVARA needs it whitelisted too.
+    resolved['gvara-token']        || process.env.GVARA_TOKEN_ID,
+    resolved['super-token']        || process.env.SUPER_TOKEN_ID,
+  ];
+  // De-dupe and drop empties.
+  return [...new Set(programs.filter(Boolean))];
 }
 
 export async function ensureVoucherTable() {
@@ -132,6 +147,22 @@ export async function getVoucherForUser(userWallet) {
   );
 
   if (!dbVoucher) return null;
+
+  // Reject vouchers whose whitelisted program set is stale — i.e. it doesn't
+  // cover the program IDs the client is actually calling now (after a redeploy
+  // or a whitelist-source change). Reusing such a voucher fails on-chain with
+  // gearVoucher.InappropriateDestination, so we retire it and force a reissue.
+  const required = getAllowedPrograms();
+  const have = new Set((dbVoucher.program_ids || []).map((p) => String(p).toLowerCase()));
+  const missing = required.filter((p) => !have.has(String(p).toLowerCase()));
+  if (missing.length > 0) {
+    console.warn(
+      `[voucher] Retiring stale voucher ${dbVoucher.voucher_id} for ${userWallet}: ` +
+      `missing ${missing.length} program(s) from whitelist — forcing reissue.`
+    );
+    await query(`UPDATE vouchers SET status = 'EXPIRED' WHERE id = $1`, [dbVoucher.id]);
+    return null;
+  }
 
   // Verify on-chain it's still valid
   if (api) {

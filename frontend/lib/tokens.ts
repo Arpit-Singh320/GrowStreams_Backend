@@ -122,7 +122,7 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     symbol: 'gVARA',
     name: 'GrowStreams VARA',
     decimals: 12,
-    vara: '0x71de1ef1f4dec1a4fe862aa6c92747c8499bbf1af128625749027392709f4a72',
+    vara: '0x1edcac5125401f93a1b08be8464c84ad94f24af7d4a31efa32237d0738991af7',
     eth: null,
     icon: '/tokens/vara.svg',
     category: 'native',

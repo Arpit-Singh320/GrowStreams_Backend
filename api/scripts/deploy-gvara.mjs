@@ -22,7 +22,13 @@ const STREAM_CORE_ID = process.env.STREAM_CORE_ID;
 const DEPLOY_STATE_PATH = resolve(PROJECT_ROOT, 'deploy-state.json');
 const ENV_PATH = resolve(API_ROOT, '.env');
 
-const WASM_BASE = resolve(PROJECT_ROOT, 'contracts/target/wasm32v1-none/wasm32-gear/release');
+// Build output moved to contracts/target/wasm32-gear/release with newer
+// sails-rs/cargo. Fall back to the legacy path if the new one is absent.
+const WASM_BASE_NEW = resolve(PROJECT_ROOT, 'contracts/target/wasm32-gear/release');
+const WASM_BASE_OLD = resolve(PROJECT_ROOT, 'contracts/target/wasm32v1-none/wasm32-gear/release');
+const WASM_BASE = existsSync(resolve(WASM_BASE_NEW, 'super_token.opt.wasm'))
+  ? WASM_BASE_NEW
+  : WASM_BASE_OLD;
 const SUPER_TOKEN_WASM = resolve(WASM_BASE, 'super_token.opt.wasm');
 const SUPER_TOKEN_IDL = resolve(PROJECT_ROOT, 'contracts/super-token/super-token.idl');
 const STREAM_CORE_IDL = resolve(PROJECT_ROOT, 'contracts/stream-core/stream-core.idl');

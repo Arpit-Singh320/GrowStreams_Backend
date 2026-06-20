@@ -193,6 +193,34 @@ async function createStreamHandler(req, res, next) {
       depositBase = BigInt(initialDeposit);
     }
 
+    // --- Solvency / scaling guard --------------------------------------------
+    // The stream-core contract requires the deposit to cover at least
+    // `MIN_BUFFER_SECONDS` of streaming. Enforcing it here gives a clear error
+    // and catches a mis-scaled flow rate (e.g. a per-month amount accidentally
+    // sent as per-second) before it ever reaches the chain, where it would
+    // otherwise drain the buffer in seconds.
+    if (flowRateBase <= 0n) {
+      return res.status(400).json({ error: 'flowRate must be greater than 0' });
+    }
+    if (depositBase <= 0n) {
+      return res.status(400).json({ error: 'initialDeposit must be greater than 0' });
+    }
+    const minBufferSeconds = BigInt(process.env.STREAM_MIN_BUFFER_SECONDS || '3600');
+    const requiredBuffer = flowRateBase * minBufferSeconds;
+    if (depositBase < requiredBuffer) {
+      return res.status(400).json({
+        error: 'Initial deposit does not cover the minimum buffer',
+        detail:
+          `deposit (${depositBase} base units) must be at least ` +
+          `flowRate × ${minBufferSeconds}s = ${requiredBuffer} base units. ` +
+          `Check that flowRate is expressed per-second (use flowRateInterval for ` +
+          `per-month/day rates) — a too-high rate drains the buffer almost instantly.`,
+        flowRateBaseUnits: flowRateBase.toString(),
+        depositBaseUnits: depositBase.toString(),
+        requiredBufferBaseUnits: requiredBuffer.toString(),
+      });
+    }
+
     const receiverHex = toActorId(receiver);
 
     if (mode === 'payload') {
