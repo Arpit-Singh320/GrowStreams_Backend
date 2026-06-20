@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const BACKEND_API = process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'http://localhost:1337'
+const BACKEND_API = (process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'http://localhost:1337').replace(/\/$/, '')
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
