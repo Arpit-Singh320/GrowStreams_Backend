@@ -116,9 +116,13 @@ export function useGearSign() {
         const valueStr = typeof value === 'string' ? value : String(value);
         const hasValue = BigInt(valueStr) > BigInt(0);
 
-        // Skip gas estimation for contracts that make async cross-contract calls:
-        // stream-core (calls gVARA.UpdateFlow / vault) and gVARA (sends VARA reply)
-        const isAsyncCall = programId === PROGRAM_IDS.gvaraToken || programId === PROGRAM_IDS.streamCore;
+        // Skip gas estimation only for contracts that make async cross-contract
+        // calls: stream-core (calls gVARA.UpdateFlow / vault). gVARA's own
+        // wrap/unwrap are SYNCHRONOUS handlers (no .await — just a debit and a
+        // fire-and-forget msg::send), so they don't need the 100B async limit.
+        // Forcing 100B on unwrap made the gas-bank reserve more VARA than a
+        // low-balance wallet has free → gearBank.InsufficientBalance.
+        const isAsyncCall = programId === PROGRAM_IDS.streamCore;
 
         let gasLimit = isAsyncCall ? ASYNC_GAS : FIXED_GAS;
         if (!hasValue && !isAsyncCall) {
