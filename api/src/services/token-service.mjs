@@ -4,7 +4,7 @@
 import { getApi, getKeyring } from '../sails-client.mjs';
 import { Sails } from 'sails-js';
 import { SailsIdlParser } from 'sails-js-parser';
-import { SUPPORTED_TOKENS, getToken, resolveVaraAddress } from '../config/tokens.mjs';
+import { SUPPORTED_TOKENS, getToken, getTokenByVaraAddress, resolveVaraAddress } from '../config/tokens.mjs';
 import { toDisplayUnits } from '../utils/decimals.mjs';
 import { decodeAddress } from '@polkadot/keyring';
 
@@ -73,6 +73,31 @@ service VftService {
   query Name : () -> str;
   query Symbol : () -> str;
   query Decimals : () -> u8;
+};
+`;
+
+// Super Token IDL (gVARA, gUSDC, gGROW) — uses SuperTokenService, u128.
+// Super tokens have a dynamic streaming balance (BalanceOf) plus a static
+// deposited balance (StaticBalanceOf). For TVL we use BalanceOf, which reflects
+// the current value held by the account including settled stream flows.
+const SUPER_TOKEN_IDL = `
+constructor {
+  New : ();
+};
+
+service SuperTokenService {
+  Transfer : (to: actor_id, amount: u128) -> bool;
+  Approve : (spender: actor_id, amount: u128) -> bool;
+  TransferFrom : (from: actor_id, to: actor_id, amount: u128) -> bool;
+  query BalanceOf : (account: actor_id) -> u128;
+  query StaticBalanceOf : (account: actor_id) -> u128;
+  query Allowance : (owner: actor_id, spender: actor_id) -> u128;
+  query TotalSupply : () -> u128;
+  query Name : () -> str;
+  query Symbol : () -> str;
+  query Decimals : () -> u8;
+  query UnderlyingToken : () -> actor_id;
+  query IsNativeWrapper : () -> bool;
 };
 `;
 
@@ -145,9 +170,14 @@ async function getVftInstance(varaAddress) {
   // Use token-specific IDL
   const growTok = getToken('GROW');
   const wvaraTok = getToken('WTVARA');
+  const tokByAddr = getTokenByVaraAddress(varaAddress);
   const isGrow = growTok && growTok.vara === varaAddress;
   const isWvara = wvaraTok && wvaraTok.vara === varaAddress;
-  const idl = isGrow ? GROW_IDL : isWvara ? WVARA_IDL : VFT_IDL;
+  const isSuperToken = tokByAddr && tokByAddr.isSuperToken;
+  const idl = isSuperToken ? SUPER_TOKEN_IDL
+    : isGrow ? GROW_IDL
+    : isWvara ? WVARA_IDL
+    : VFT_IDL;
 
   const p = await getParser();
   const sails = new Sails(p);
@@ -164,7 +194,29 @@ async function getVftInstance(varaAddress) {
  * Standard VFT uses 'Vft'; GROW token uses 'VftService'.
  */
 function getVftService(sails) {
-  return sails.services.Vft || sails.services.VftService;
+  return sails.services.Vft || sails.services.VftService || sails.services.SuperTokenService;
+}
+
+// Cache of program-existence checks. A VFT/state query against an address that
+// holds no program panics in the Gear runtime with
+// "Failed to get last message from the queue" — so we must check existence
+// first and treat a missing program as a real (deployed:false, balance 0) state
+// rather than an error. Bridged tokens (WUSDC/WUSDT/WETH/WBTC) are not yet
+// deployed on mainnet, so this is the expected path for them today.
+const programExistsCache = new Map(); // vara address -> boolean
+
+async function programExists(varaAddress) {
+  if (programExistsCache.has(varaAddress)) return programExistsCache.get(varaAddress);
+  const api = getApi();
+  if (!api) throw new Error('Gear API not connected');
+  let exists = false;
+  try {
+    exists = await api.program.exists(varaAddress);
+  } catch {
+    exists = false;
+  }
+  programExistsCache.set(varaAddress, exists);
+  return exists;
 }
 
 /**
@@ -180,12 +232,27 @@ export async function getVftBalance(tokenSymbol, walletAddress) {
     return getNativeBalance(walletAddress, tok);
   }
 
+  // The token contract may not be deployed on-chain yet (e.g. bridged tokens).
+  // Querying a non-existent program panics the Gear runtime, so short-circuit
+  // to a clean zero balance with an explicit deployed:false marker.
+  if (!(await programExists(tok.vara))) {
+    return {
+      symbol: tok.symbol,
+      balance: '0',
+      balanceRaw: '0',
+      decimals: tok.decimals,
+      deployed: false,
+    };
+  }
+
   const sails = await getVftInstance(tok.vara);
   const service = getVftService(sails);
   if (!service) throw new Error('VFT service not found in IDL');
 
   const actorId = toActorId(walletAddress);
-  const origin = getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
+  const keyring = getKeyring();
+  if (!keyring) throw new Error('Server keyring not configured (VARA_SEED missing)');
+  const origin = keyring.address;
   // sails-js 0.5.x: queryFn(args) returns QueryBuilder; call .withAddress().call()
   const qb = service.queries.BalanceOf(actorId);
   qb.withAddress(origin);
@@ -197,6 +264,7 @@ export async function getVftBalance(tokenSymbol, walletAddress) {
     balance: toDisplayUnits(rawStr, tok.decimals),
     balanceRaw: rawStr,
     decimals: tok.decimals,
+    deployed: true,
   };
 }
 
@@ -232,7 +300,9 @@ export async function getVftAllowance(tokenSymbol, ownerAddress, spenderAddress)
   const service = getVftService(sails);
   const ownerActorId = toActorId(ownerAddress);
   const spenderActorId = toActorId(spenderAddress);
-  const origin = getKeyring()?.address || '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY';
+  const keyring = getKeyring();
+  if (!keyring) throw new Error('Server keyring not configured (VARA_SEED missing)');
+  const origin = keyring.address;
   // sails-js 0.5.x: queryFn(args) returns QueryBuilder; call .withAddress().call()
   const qb = service.queries.Allowance(ownerActorId, spenderActorId);
   qb.withAddress(origin);

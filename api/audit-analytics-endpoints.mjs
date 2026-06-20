@@ -6,6 +6,7 @@ const BASE_URL = 'http://127.0.0.1:1337/api/analytics';
 const ENDPOINTS = [
   { path: '/summary?days=30', name: 'summary' },
   { path: '/tvl', name: 'tvl' },
+  { path: '/defillama-tvl', name: 'defillama-tvl' },
   { path: '/activity?days=30', name: 'activity' },
   { path: '/history?hours=168', name: 'history' },
   { path: '/tvl-history?days=30', name: 'tvl-history' },

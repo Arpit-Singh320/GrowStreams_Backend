@@ -21,13 +21,21 @@ import { toDisplayUnits, flowRatePerInterval } from '../utils/decimals.mjs';
  * @param {string} [event.blockHash]
  * @param {string} [event.extrinsicHash] - transaction hash for explorer links
  * @param {Object} [event.metadata]
+ * @param {number} [event.blockNumber] - block number where transaction was included
+ * @param {string} [event.txTimestamp] - actual blockchain timestamp
+ * @param {string} [event.fromAddress] - standardized sender address
+ * @param {string} [event.toAddress] - standardized receiver address
+ * @param {number} [event.gasUsed] - gas consumed by transaction
+ * @param {string} [event.gasPrice] - gas price used
+ * @param {string} [event.chainId] - chain identifier
+ * @param {string} [event.txStatus] - transaction status (pending, confirmed, failed)
  */
 export async function logStreamEvent(event) {
   try {
     await dbQuery(
       `INSERT INTO stream_events
-        (stream_id, event_type, sender, receiver, token_address, token_symbol, flow_rate, amount, block_hash, extrinsic_hash, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        (stream_id, event_type, sender, receiver, token_address, token_symbol, flow_rate, amount, block_hash, extrinsic_hash, metadata, block_number, tx_timestamp, from_address, to_address, gas_used, gas_price, chain_id, tx_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
       [
         String(event.streamId),
         event.eventType,
@@ -40,6 +48,14 @@ export async function logStreamEvent(event) {
         event.blockHash || null,
         event.extrinsicHash || null,
         event.metadata ? JSON.stringify(event.metadata) : null,
+        event.blockNumber || null,
+        event.txTimestamp || null,
+        event.fromAddress || event.sender || null,
+        event.toAddress || event.receiver || null,
+        event.gasUsed || null,
+        event.gasPrice || null,
+        event.chainId || null,
+        event.txStatus || 'unknown',
       ]
     );
   } catch (err) {
@@ -63,13 +79,21 @@ export async function logStreamEvent(event) {
  * @param {string} [event.blockHash]
  * @param {string} [event.extrinsicHash] - transaction hash for explorer links
  * @param {Object} [event.metadata]
+ * @param {number} [event.blockNumber] - block number where transaction was included
+ * @param {string} [event.txTimestamp] - actual blockchain timestamp
+ * @param {string} [event.fromAddress] - standardized sender address
+ * @param {string} [event.toAddress] - standardized receiver address
+ * @param {number} [event.gasUsed] - gas consumed by transaction
+ * @param {string} [event.gasPrice] - gas price used
+ * @param {string} [event.chainId] - chain identifier
+ * @param {string} [event.txStatus] - transaction status (pending, confirmed, failed)
  */
 export async function logVaultEvent(event) {
   try {
     await dbQuery(
       `INSERT INTO vault_events
-        (wallet, event_type, token_address, token_symbol, amount, amount_display, stream_id, block_hash, extrinsic_hash, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        (wallet, event_type, token_address, token_symbol, amount, amount_display, stream_id, block_hash, extrinsic_hash, metadata, block_number, tx_timestamp, from_address, to_address, gas_used, gas_price, chain_id, tx_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
       [
         event.wallet,
         event.eventType,
@@ -81,6 +105,14 @@ export async function logVaultEvent(event) {
         event.blockHash || null,
         event.extrinsicHash || null,
         event.metadata ? JSON.stringify(event.metadata) : null,
+        event.blockNumber || null,
+        event.txTimestamp || null,
+        event.fromAddress || event.wallet || null,
+        event.toAddress || null,
+        event.gasUsed || null,
+        event.gasPrice || null,
+        event.chainId || null,
+        event.txStatus || 'unknown',
       ]
     );
   } catch (err) {
