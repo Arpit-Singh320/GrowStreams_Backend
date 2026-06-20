@@ -38,6 +38,31 @@ function toHex(address: string): string {
   }
 }
 
+// Decode the real reason out of a System.ExtrinsicFailed event so the user sees
+// e.g. "On-chain error: balances.InsufficientBalance — ..." instead of a generic
+// "Check contract parameters". The dispatchError is the first event argument.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function decodeDispatchError(api: any, failedEvent: any): string {
+  try {
+    const dispatchError = failedEvent?.event?.data?.[0] ?? failedEvent?.event?.data?.dispatchError;
+    if (dispatchError?.isModule) {
+      const decoded = api.registry.findMetaError(dispatchError.asModule);
+      const { section, name, docs } = decoded;
+      const doc = Array.isArray(docs) ? docs.join(' ').trim() : '';
+      return `On-chain error: ${section}.${name}${doc ? ` — ${doc}` : ''}`;
+    }
+    if (dispatchError?.isToken) {
+      return `On-chain token error: ${dispatchError.asToken.type}`;
+    }
+    if (dispatchError) {
+      return `Transaction failed on-chain: ${dispatchError.toString()}`;
+    }
+  } catch {
+    // fall through to generic message
+  }
+  return 'Transaction failed on-chain. Check contract parameters.';
+}
+
 export function useGearSign() {
   const { api } = useApi();
   const { account } = useAccount();
@@ -143,11 +168,11 @@ export function useGearSign() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           tx.signAndSend(account.address, { signer: injector.signer as any }, ({ status, events }: any) => {
             if (status.isInBlock) {
-              const failed = events?.some((e: any) =>
+              const failedEvent = events?.find((e: any) =>
                 api.events.system.ExtrinsicFailed.is(e.event)
               );
-              if (failed) {
-                reject(new Error('Transaction failed on-chain. Check contract parameters.'));
+              if (failedEvent) {
+                reject(new Error(decodeDispatchError(api, failedEvent)));
               } else {
                 resolve({ blockHash: status.asInBlock.toHex(), success: true });
               }
