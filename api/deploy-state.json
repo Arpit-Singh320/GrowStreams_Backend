@@ -1,11 +1,11 @@
 {
   "stream-core": {
-    "programId": "0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4",
+    "programId": "0xe84917a47826e945e62b267560905c840643f1aacdf0536be520d954a5d0ef7d",
     "codeId": "0xd65c7f3d3ca8320d426c8de0fe75aed9102227bc31bfaa70df6aa1bc2155875a",
-    "deployedAt": "2026-06-12T21:24:04.941Z",
+    "deployedAt": "2026-06-20T12:17:07.856Z",
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network",
-    "note": "Phase 2 — super token registry"
+    "note": "Buffered flow-aware redeploy (solvency fix)"
   },
   "token-vault": {
     "programId": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
@@ -78,5 +78,14 @@
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network",
     "streamCore": "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d"
+  },
+  "gvara-token": {
+    "programId": "0x1edcac5125401f93a1b08be8464c84ad94f24af7d4a31efa32237d0738991af7",
+    "deployedAt": "2026-06-20T12:17:07.856Z",
+    "network": "vara-mainnet",
+    "node": "wss://rpc.vara.network",
+    "underlyingToken": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
+    "symbol": "gVARA",
+    "note": "Buffered accrual (caps receiver at deposited)"
   }
 }

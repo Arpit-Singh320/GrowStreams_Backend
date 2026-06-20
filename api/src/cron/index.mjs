@@ -87,8 +87,12 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
-  // Liquidation keeper — every 5 minutes, scan and liquidate insolvent super token streams
-  cron.schedule('*/5 * * * *', async () => {
+  // Liquidation keeper — every minute, scan and liquidate insolvent super token
+  // streams. With the buffered super-token model the buffer already caps receiver
+  // accrual on-chain, so this is now cleanup (formally stop + refund unspent
+  // buffer to the sender) rather than the primary insolvency guard. Running it
+  // frequently minimises buffer wasted on already-dry streams.
+  cron.schedule('* * * * *', async () => {
     try {
       await runLiquidationKeeper();
     } catch (err) {
@@ -135,7 +139,7 @@ export function initCrons() {
   console.log('[cron]   sync-onchain:     */30 * * * *   (every 30m)');
   console.log('[cron]   quest-x-follow:   0 */6 * * *    (every 6h)');
   console.log('[cron]   quest-x-mention:  0 1,7,13,19 * * * (every 6h offset)');
-  console.log('[cron]   liquidation:      */5 * * * *    (every 5m, solvency enforcement)');
+  console.log('[cron]   liquidation:      * * * * *      (every 1m, solvency cleanup)');
   console.log('[cron]   evm-stream:      */10 * * * *   (every 10m, Vara.eth stream confirm)');
   console.log('[cron]   voucher-reclaim:  30 */6 * * *   (every 6h, reclaims VARA)');
   console.log('[cron]   analytics:        0 * * * *      (hourly KPI snapshots)');

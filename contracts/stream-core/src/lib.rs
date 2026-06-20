@@ -68,21 +68,8 @@ async fn call_vault_checked(vault: ActorId, payload: Vec<u8>) -> bool {
     decode_vault_result_ok(reply.as_slice())
 }
 
-/// Call super-token UpdateFlow and await the reply.
-/// `is_increase = true`  → sender rate decreases, receiver rate increases (stream starting/increasing).
-/// `is_increase = false` → sender rate increases, receiver rate decreases (stream stopping/decreasing).
-async fn call_super_token_update_flow(
-    super_token: ActorId,
-    sender: ActorId,
-    receiver: ActorId,
-    delta: u128,
-    is_increase: bool,
-) -> bool {
-    let payload = encode_call(
-        "SuperTokenService",
-        "UpdateFlow",
-        (sender, receiver, delta, is_increase),
-    );
+/// Send a Sails command to the super-token and await an `Ok(())` reply.
+async fn call_super_token(super_token: ActorId, payload: Vec<u8>) -> bool {
     let reply = match gstd_msg::send_bytes_for_reply(super_token, payload, 0, 0) {
         Ok(fut) => match fut.await {
             Ok(bytes) => bytes,
@@ -91,6 +78,67 @@ async fn call_super_token_update_flow(
         Err(_) => return false,
     };
     decode_super_token_result_ok(reply.as_slice())
+}
+
+/// Open a buffered flow: escrows `buffer` from the sender and starts streaming
+/// `rate` base-units/sec to the receiver. `buffer` is the hard accrual ceiling.
+async fn super_token_start_flow(
+    super_token: ActorId,
+    sender: ActorId,
+    receiver: ActorId,
+    rate: u128,
+    buffer: u128,
+) -> bool {
+    let payload = encode_call(
+        "SuperTokenService",
+        "StartFlow",
+        (sender, receiver, rate, buffer),
+    );
+    call_super_token(super_token, payload).await
+}
+
+/// Change an existing flow's rate without touching its buffer.
+async fn super_token_set_flow_rate(
+    super_token: ActorId,
+    sender: ActorId,
+    receiver: ActorId,
+    new_rate: u128,
+) -> bool {
+    let payload = encode_call(
+        "SuperTokenService",
+        "SetFlowRate",
+        (sender, receiver, new_rate),
+    );
+    call_super_token(super_token, payload).await
+}
+
+/// Top up the buffer backing an existing flow.
+async fn super_token_add_flow_buffer(
+    super_token: ActorId,
+    sender: ActorId,
+    receiver: ActorId,
+    amount: u128,
+) -> bool {
+    let payload = encode_call(
+        "SuperTokenService",
+        "AddFlowBuffer",
+        (sender, receiver, amount),
+    );
+    call_super_token(super_token, payload).await
+}
+
+/// Stop a flow: settle accrued to receiver, refund unspent buffer to sender.
+async fn super_token_stop_flow(
+    super_token: ActorId,
+    sender: ActorId,
+    receiver: ActorId,
+) -> bool {
+    let payload = encode_call(
+        "SuperTokenService",
+        "StopFlow",
+        (sender, receiver),
+    );
+    call_super_token(super_token, payload).await
 }
 
 // ---------------------------------------------------------------------------
@@ -285,12 +333,13 @@ impl StreamService {
 
         if let Some(super_token) = super_token_opt {
             // ---- Super Token path ------------------------------------------------
-            // Caller must already hold wrapped super tokens. We call update_flow
-            // to register the ongoing per-second transfer. No vault interaction.
-            let ok = call_super_token_update_flow(
-                super_token, sender, receiver, flow_rate, true,
+            // Caller must already hold wrapped super tokens. Open a buffered flow:
+            // the full `initial_deposit` is escrowed from the sender as the flow
+            // buffer and becomes the hard ceiling on receiver accrual.
+            let ok = super_token_start_flow(
+                super_token, sender, receiver, flow_rate, initial_deposit,
             ).await;
-            assert!(ok, "SuperToken update_flow failed");
+            assert!(ok, "SuperToken start_flow failed (insufficient gVARA balance for buffer?)");
         } else {
             // ---- Legacy vault path -----------------------------------------------
             let vault = state.config.token_vault;
@@ -349,24 +398,17 @@ impl StreamService {
 
         let super_token_opt = StreamCoreState::super_token_for(state, &token);
 
+        let _ = old_flow_rate;
         if let Some(super_token) = super_token_opt {
-            // ---- Super Token path: reverse old rate then apply new rate ----------
-            if old_flow_rate > 0 {
-                // Remove old outgoing flow from sender, remove old incoming from receiver
-                let sender = state.streams.get(&stream_id).unwrap().sender;
-                let receiver = state.streams.get(&stream_id).unwrap().receiver;
-                let ok = call_super_token_update_flow(
-                    super_token, sender, receiver, old_flow_rate, false,
-                ).await;
-                assert!(ok, "SuperToken update_flow (reverse) failed");
-            }
-            // Apply new rate
+            // ---- Super Token path: set the new rate on the existing flow ----------
+            // The flow's escrowed buffer is unchanged; only the per-second rate
+            // updates. The super-token settles accrued amounts before switching.
             let sender = state.streams.get(&stream_id).unwrap().sender;
             let receiver = state.streams.get(&stream_id).unwrap().receiver;
-            let ok = call_super_token_update_flow(
-                super_token, sender, receiver, new_flow_rate, true,
+            let ok = super_token_set_flow_rate(
+                super_token, sender, receiver, new_flow_rate,
             ).await;
-            assert!(ok, "SuperToken update_flow (new rate) failed");
+            assert!(ok, "SuperToken set_flow_rate failed");
         }
         // Legacy vault path: no vault call needed for rate change.
 
@@ -400,16 +442,14 @@ impl StreamService {
 
         let super_token_opt = StreamCoreState::super_token_for(state, &token);
 
+        let _ = flow_rate;
         if let Some(super_token) = super_token_opt {
             // ---- Super Token path -----------------------------------------------
-            // Reverse the ongoing flow so balances stop changing.
-            if flow_rate > 0 {
-                let receiver = state.streams.get(&stream_id).unwrap().receiver;
-                let ok = call_super_token_update_flow(
-                    super_token, sender, receiver, flow_rate, false,
-                ).await;
-                assert!(ok, "SuperToken update_flow (stop) failed");
-            }
+            // Stop the flow: the super-token settles accrued funds to the receiver
+            // and refunds any unspent buffer to the sender.
+            let receiver = state.streams.get(&stream_id).unwrap().receiver;
+            let ok = super_token_stop_flow(super_token, sender, receiver).await;
+            assert!(ok, "SuperToken stop_flow failed");
         } else {
             // ---- Legacy vault path -----------------------------------------------
             if unstreamed > 0 && vault != ActorId::zero() {
@@ -448,14 +488,12 @@ impl StreamService {
 
         let super_token_opt = StreamCoreState::super_token_for(state, &token);
 
+        let _ = flow_rate;
         if let Some(super_token) = super_token_opt {
-            // Pause = stop the ongoing flow; receiver balance is frozen at current real-time value.
-            if flow_rate > 0 {
-                let ok = call_super_token_update_flow(
-                    super_token, sender, receiver, flow_rate, false,
-                ).await;
-                assert!(ok, "SuperToken update_flow (pause) failed");
-            }
+            // Pause = set the flow rate to 0. Accrual freezes at the current
+            // real-time value; the escrowed buffer stays held for resume.
+            let ok = super_token_set_flow_rate(super_token, sender, receiver, 0).await;
+            assert!(ok, "SuperToken set_flow_rate (pause) failed");
         }
         // Legacy vault path: no vault action needed on pause.
 
@@ -485,12 +523,12 @@ impl StreamService {
         let super_token_opt = StreamCoreState::super_token_for(state, &token);
 
         if let Some(super_token) = super_token_opt {
-            // Resume = restart the flow from now.
+            // Resume = restore the original flow rate on the existing flow.
             if flow_rate > 0 {
-                let ok = call_super_token_update_flow(
-                    super_token, sender, receiver, flow_rate, true,
+                let ok = super_token_set_flow_rate(
+                    super_token, sender, receiver, flow_rate,
                 ).await;
-                assert!(ok, "SuperToken update_flow (resume) failed");
+                assert!(ok, "SuperToken set_flow_rate (resume) failed");
             }
         }
         // Legacy vault path: no vault action needed on resume.
@@ -508,7 +546,7 @@ impl StreamService {
         let caller = msg::source();
         let vault = state.config.token_vault;
 
-        let (sender, token) = {
+        let (sender, receiver, token) = {
             let stream = state.streams.get(&stream_id).expect("Stream not found");
             assert!(stream.sender == caller, "Only sender can deposit");
             assert!(
@@ -516,20 +554,30 @@ impl StreamService {
                 "Cannot deposit to a stopped stream"
             );
             assert!(amount > 0, "Deposit amount must be > 0");
-            (stream.sender, stream.token)
+            (stream.sender, stream.receiver, stream.token)
         };
 
-        assert!(vault != ActorId::zero(), "Token vault not configured");
+        let super_token_opt = StreamCoreState::super_token_for(state, &token);
 
-        // Ask vault to allocate additional amount to this stream. Vault's
-        // `AllocateToStream` is additive for existing stream ids.
-        let payload = encode_call(
-            "VaultService",
-            "AllocateToStream",
-            (sender, token, amount, stream_id),
-        );
-        let ok = call_vault_checked(vault, payload).await;
-        assert!(ok, "Vault allocate failed");
+        if let Some(super_token) = super_token_opt {
+            // ---- Super Token path: top up the flow's escrowed buffer -------------
+            let ok = super_token_add_flow_buffer(
+                super_token, sender, receiver, amount,
+            ).await;
+            assert!(ok, "SuperToken add_flow_buffer failed (insufficient gVARA balance?)");
+        } else {
+            // ---- Legacy vault path -----------------------------------------------
+            assert!(vault != ActorId::zero(), "Token vault not configured");
+            // Ask vault to allocate additional amount to this stream. Vault's
+            // `AllocateToStream` is additive for existing stream ids.
+            let payload = encode_call(
+                "VaultService",
+                "AllocateToStream",
+                (sender, token, amount, stream_id),
+            );
+            let ok = call_vault_checked(vault, payload).await;
+            assert!(ok, "Vault allocate failed");
+        }
 
         // Commit updated deposited amount.
         let state = StreamCoreState::get();

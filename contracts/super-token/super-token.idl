@@ -1,10 +1,18 @@
 // GrowStreams — Super Token IDL
-// Superfluid-style streaming VFT: real-time balance = static + netFlowRate × elapsed
+// Superfluid-style streaming VFT with buffered, flow-aware accrual:
+// receiver gains min(rate × elapsed, buffer); buffer is escrowed from the sender
+// so Σ balance_of ≤ total_supply (no phantom minting).
 
 type AccountState = struct {
   static_balance: u128,
   net_flow_rate: i128,
   flow_updated_at: u64,
+};
+
+type Flow = struct {
+  rate: u128,
+  buffer: u128,
+  last_update: u64,
 };
 
 type SuperTokenMeta = struct {
@@ -35,7 +43,10 @@ service SuperTokenService {
   TransferFrom : (from: actor_id, to: actor_id, amount: u128) -> bool;
 
   // --- Flow control (called by stream-core) ---
-  UpdateFlow : (sender: actor_id, receiver: actor_id, delta: u128, is_increase: bool) -> result(null, str);
+  StartFlow : (sender: actor_id, receiver: actor_id, rate: u128, buffer: u128) -> result(null, str);
+  AddFlowBuffer : (sender: actor_id, receiver: actor_id, amount: u128) -> result(null, str);
+  SetFlowRate : (sender: actor_id, receiver: actor_id, new_rate: u128) -> result(null, str);
+  StopFlow : (sender: actor_id, receiver: actor_id) -> result(null, str);
   SettleAccount : (account: actor_id) -> null;
 
   // --- Pure token: admin mint/burn ---
@@ -54,6 +65,7 @@ service SuperTokenService {
   query StaticBalanceOf : (account: actor_id) -> u128;
   query NetFlowRate : (account: actor_id) -> i128;
   query GetAccountState : (account: actor_id) -> AccountState;
+  query GetFlow : (sender: actor_id, receiver: actor_id) -> opt Flow;
   query Allowance : (owner: actor_id, spender: actor_id) -> u128;
   query TotalSupply : () -> u128;
   query Name : () -> str;

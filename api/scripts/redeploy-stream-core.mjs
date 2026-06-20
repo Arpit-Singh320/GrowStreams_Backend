@@ -20,10 +20,11 @@ const VARA_NODE = process.env.VARA_NODE || 'wss://rpc.vara.network';
 const DEPLOY_STATE_PATH = resolve(API_ROOT, 'deploy-state.json');
 const ENV_PATH = resolve(API_ROOT, '.env');
 
-const WASM_PATH = resolve(
-  PROJECT_ROOT,
-  'contracts/target/wasm32v1-none/wasm32-gear/release/stream_core.opt.wasm'
-);
+// Build output moved to contracts/target/wasm32-gear/release with newer
+// sails-rs/cargo. Fall back to the legacy path if the new one is absent.
+const WASM_PATH_NEW = resolve(PROJECT_ROOT, 'contracts/target/wasm32-gear/release/stream_core.opt.wasm');
+const WASM_PATH_OLD = resolve(PROJECT_ROOT, 'contracts/target/wasm32v1-none/wasm32-gear/release/stream_core.opt.wasm');
+const WASM_PATH = existsSync(WASM_PATH_NEW) ? WASM_PATH_NEW : WASM_PATH_OLD;
 
 const FIXED_GAS = 50_000_000_000n;
 
