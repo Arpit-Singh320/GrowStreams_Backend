@@ -856,6 +856,8 @@ export async function getOnchainStreamMetrics({ force = false } = {}) {
   const ids = [];
   for (let i = 1; i <= totalStreams; i++) ids.push(i);
 
+  const nowSec = BigInt(Math.floor(now / 1000));
+
   async function readOne(id) {
     try {
       const s = await contractQuery('streamCore', 'GetStream', id);
@@ -863,8 +865,23 @@ export async function getOnchainStreamMetrics({ force = false } = {}) {
       scanned++;
       const tok = s.token ? getTokenByVaraAddress(actorIdToHexLocal(s.token)) : null;
       const symbol = tok?.symbol || 'UNKNOWN';
-      const streamed = BigInt(toStringValue(s.streamed));
-      tokenStreamedRaw[symbol] = (tokenStreamedRaw[symbol] || 0n) + streamed;
+
+      // The stored `streamed` is only settled on mutating calls, so it is STALE
+      // for active streams. Compute the live value the same way the contract does
+      // (total_streamed = streamed + flow_rate * elapsed, capped at deposited),
+      // otherwise volume freezes between transactions and undercounts.
+      const stored = BigInt(toStringValue(s.streamed));
+      const deposited = BigInt(toStringValue(s.deposited));
+      const flowRate = BigInt(toStringValue(s.flow_rate));
+      const lastUpdate = BigInt(toStringValue(s.last_update));
+      const status = parseStreamStatus(s.status);
+      let liveStreamed = stored;
+      if (status === 'Active' && nowSec > lastUpdate) {
+        const accrued = flowRate * (nowSec - lastUpdate);
+        liveStreamed = stored + accrued;
+        if (liveStreamed > deposited) liveStreamed = deposited;
+      }
+      tokenStreamedRaw[symbol] = (tokenStreamedRaw[symbol] || 0n) + liveStreamed;
 
       const sender = s.sender ? actorIdToHexLocal(s.sender) : null;
       const receiver = s.receiver ? actorIdToHexLocal(s.receiver) : null;
