@@ -175,6 +175,19 @@ export function buildVaultEventLog(eventName, data, tokenInfo = null) {
         amountDisplay: toDisplayUnits(amount, decimals),
         metadata: { source: 'on_chain_event', remaining: bigIntToString(data.remaining) },
       };
+    case 'FeeCollected':
+      // Protocol fee skimmed on stream create/deposit and credited to treasury.
+      // Logged against the treasury wallet (the recipient) with event_type 'fee'
+      // so getProtocolFees() can sum it; payer is preserved in metadata.
+      return {
+        wallet: actorIdToHex(data.treasury),
+        eventType: 'fee',
+        tokenAddress,
+        tokenSymbol: tokenInfo?.symbol ?? null,
+        amount,
+        amountDisplay: toDisplayUnits(amount, decimals),
+        metadata: { source: 'on_chain_event', payer: actorIdToHex(data.payer) },
+      };
     default:
       return null;
   }
@@ -235,7 +248,7 @@ const STREAM_EVENTS = [
   'StreamCreated', 'StreamUpdated', 'StreamStopped', 'StreamPaused',
   'StreamResumed', 'Withdrawn', 'Deposited', 'StreamLiquidated',
 ];
-const VAULT_EVENTS = ['TokensDeposited', 'TokensWithdrawn'];
+const VAULT_EVENTS = ['TokensDeposited', 'TokensWithdrawn', 'FeeCollected'];
 
 async function subscribeEvents(contract, serviceName, eventNames, handler) {
   const service = contract?.services?.[serviceName];

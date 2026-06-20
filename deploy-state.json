@@ -1,15 +1,15 @@
 {
   "stream-core": {
-    "programId": "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d",
+    "programId": "0xba0901f3ef665e956d8ab721686d97d2e5473092df34baf229e87ac826eadc4a",
     "codeId": "0x6779c341d19ba154f9b4aa4dae619c9bebae9ed141fa67d8972fdc0073e4f3fd",
-    "deployedAt": "2026-05-13T10:49:18.569Z",
+    "deployedAt": "2026-06-20T22:43:10.573Z",
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network"
   },
   "token-vault": {
-    "programId": "0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef",
+    "programId": "0x657cf9c4f929aeac97092037826c1117f9e6cd0e3c4edc44e49decc17b840aa9",
     "codeId": "0xc567b7ba58c39c509e3740e3f10c825e077f2c937ccf5b81ccf52f56ace46fe5",
-    "deployedAt": "2026-05-13T10:48:57.832Z",
+    "deployedAt": "2026-06-20T22:41:22.715Z",
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network"
   },

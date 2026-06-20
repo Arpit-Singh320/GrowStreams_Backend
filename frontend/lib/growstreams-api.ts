@@ -465,8 +465,17 @@ export interface AnalyticsSummaryResponse {
     payouts: number;
     available: boolean;
   };
+  onchain?: {
+    fees?: AnalyticsFeesResponse;
+    retention?: AnalyticsRetentionResponse;
+    [key: string]: unknown;
+  };
   kpis?: {
     tvlUsd: number;
+    protocolFeesUsd?: number;
+    protocolFees24hUsd?: number;
+    protocolFees30dUsd?: number;
+    retentionRate?: number;
     volumeUsd: {
       last24h: number;
       last7d: number;
@@ -495,6 +504,42 @@ export interface AnalyticsSummaryResponse {
     usersSource?: string;
     notes: string[];
   };
+}
+
+export interface AnalyticsFeesResponse {
+  available: boolean;
+  windowDays: number;
+  source: string;
+  feeBps?: number;
+  feePercent?: number;
+  totalFeesUsd: number;
+  last24hUsd: number;
+  last7dUsd: number;
+  last30dUsd: number;
+  byToken: Array<{
+    symbol: string;
+    amountRaw: string;
+    amountDisplay: string;
+    price: number;
+    feesUsd: number;
+  }>;
+  note?: string;
+}
+
+export interface AnalyticsRetentionResponse {
+  available: boolean;
+  windowDays: number;
+  source?: string;
+  retentionRate: number;
+  cohortWallets?: number;
+  retainedWallets?: number;
+  cohorts: Array<{
+    cohortWeek: string;
+    cohortSize: number;
+    retainedCount: number;
+    retentionRate: number;
+  }>;
+  note?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -640,6 +685,8 @@ export const api = {
     defillamaVolume: () => localRequest<any>('/api/analytics/defillama-volume'),
     transactions: (limit = 50, offset = 0) => localRequest<{ available: boolean; transactions: any[]; count: number; total: number; offset: number; hasMore: boolean }>(`/api/analytics/transactions?limit=${limit}&offset=${offset}`),
     wallets: (limit = 50, offset = 0) => localRequest<{ available: boolean; wallets: any[]; count: number; total: number; offset: number; hasMore: boolean }>(`/api/analytics/wallets?limit=${limit}&offset=${offset}`),
+    fees: (days = 30) => localRequest<AnalyticsFeesResponse>(`/api/analytics/fees?days=${days}`),
+    retention: (days = 30) => localRequest<AnalyticsRetentionResponse>(`/api/analytics/retention?days=${days}`),
   },
 
   tokens: {

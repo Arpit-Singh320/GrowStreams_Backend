@@ -177,6 +177,68 @@ pub struct Config {
     pub token_vault: ActorId,
     /// Number of registered super tokens.
     pub super_token_count: u32,
+    /// Protocol fee in basis points (250 = 2.5%). Applied entry-side on the
+    /// legacy-vault path only; super-token streams are not charged.
+    pub fee_bps: u16,
+    /// Destination for collected protocol fees. Defaults to admin at init.
+    pub treasury: ActorId,
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+// Variant order AND per-field order must mirror stream-core.idl exactly — the
+// off-chain indexer decodes by SCALE variant index and positional fields.
+
+#[event]
+#[derive(Encode, TypeInfo)]
+pub enum StreamEvent {
+    StreamCreated {
+        id: u64,
+        sender: ActorId,
+        receiver: ActorId,
+        token: ActorId,
+        flow_rate: u128,
+        start_time: u64,
+        initial_deposit: u128,
+    },
+    StreamUpdated {
+        id: u64,
+        old_flow_rate: u128,
+        new_flow_rate: u128,
+        updated_at: u64,
+    },
+    StreamStopped {
+        id: u64,
+        stopped_at: u64,
+        sender_refund: u128,
+        total_streamed: u128,
+    },
+    StreamPaused {
+        id: u64,
+        paused_at: u64,
+    },
+    StreamResumed {
+        id: u64,
+        resumed_at: u64,
+    },
+    Withdrawn {
+        id: u64,
+        receiver: ActorId,
+        amount: u128,
+        timestamp: u64,
+    },
+    Deposited {
+        id: u64,
+        sender: ActorId,
+        amount: u128,
+        new_buffer: u128,
+    },
+    StreamLiquidated {
+        id: u64,
+        liquidated_at: u64,
+        shortfall: u128,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -206,6 +268,8 @@ impl StreamCoreState {
                 next_stream_id: 1,
                 token_vault: ActorId::zero(),
                 super_token_count: 0,
+                fee_bps: 250,
+                treasury: admin,
             },
             streams: BTreeMap::new(),
             sender_streams: BTreeMap::new(),
@@ -303,7 +367,7 @@ impl StreamService {
     }
 }
 
-#[service]
+#[service(events = StreamEvent)]
 impl StreamService {
     // ---- Commands ----
 
@@ -330,12 +394,19 @@ impl StreamService {
 
         let id = state.config.next_stream_id;
         let super_token_opt = StreamCoreState::super_token_for(state, &token);
+        let fee_bps = state.config.fee_bps;
+        let treasury = state.config.treasury;
+
+        // Net amount actually escrowed into the stream buffer. On the vault path
+        // we skim the protocol fee off the top, so the stream is funded by `net`.
+        let net_deposit;
 
         if let Some(super_token) = super_token_opt {
             // ---- Super Token path ------------------------------------------------
-            // Caller must already hold wrapped super tokens. Open a buffered flow:
-            // the full `initial_deposit` is escrowed from the sender as the flow
+            // No protocol fee (skimming would require a super-token redeploy that
+            // wipes balances). The full `initial_deposit` is escrowed as the flow
             // buffer and becomes the hard ceiling on receiver accrual.
+            net_deposit = initial_deposit;
             let ok = super_token_start_flow(
                 super_token, sender, receiver, flow_rate, initial_deposit,
             ).await;
@@ -344,13 +415,33 @@ impl StreamService {
             // ---- Legacy vault path -----------------------------------------------
             let vault = state.config.token_vault;
             assert!(vault != ActorId::zero(), "Token vault not configured");
+
+            // Skim the protocol fee entry-side. The buffer invariant must hold on
+            // the post-fee amount, so the stream stays solvent for min_buffer.
+            let fee = initial_deposit.saturating_mul(fee_bps as u128) / 10000;
+            let net = initial_deposit.saturating_sub(fee);
+            assert!(net >= min_deposit, "Deposit after fee must cover minimum buffer");
+            net_deposit = net;
+
+            // Allocate the net amount to the stream.
             let payload = encode_call(
                 "VaultService",
                 "AllocateToStream",
-                (sender, token, initial_deposit, id),
+                (sender, token, net, id),
             );
             let ok = call_vault_checked(vault, payload).await;
             assert!(ok, "Vault allocate failed");
+
+            // Route the fee to treasury inside the vault (tokens already custodied).
+            if fee > 0 {
+                let fee_payload = encode_call(
+                    "VaultService",
+                    "CollectFee",
+                    (sender, token, fee, treasury),
+                );
+                let fee_ok = call_vault_checked(vault, fee_payload).await;
+                assert!(fee_ok, "Vault fee collection failed");
+            }
         }
 
         // Commit stream state (same for both paths).
@@ -365,7 +456,7 @@ impl StreamService {
             flow_rate,
             start_time: now,
             last_update: now,
-            deposited: initial_deposit,
+            deposited: net_deposit,
             withdrawn: 0,
             streamed: 0,
             status: StreamStatus::Active,
@@ -375,6 +466,17 @@ impl StreamService {
         state.sender_streams.entry(sender).or_default().push(id);
         state.receiver_streams.entry(receiver).or_default().push(id);
         state.active_count += 1;
+
+        self.emit_event(StreamEvent::StreamCreated {
+            id,
+            sender,
+            receiver,
+            token,
+            flow_rate,
+            start_time: now,
+            initial_deposit: net_deposit,
+        })
+        .unwrap();
 
         id
     }
@@ -417,6 +519,14 @@ impl StreamService {
         let stream = state.streams.get_mut(&stream_id).expect("Stream not found");
         StreamCoreState::settle(stream, now);
         stream.flow_rate = new_flow_rate;
+
+        self.emit_event(StreamEvent::StreamUpdated {
+            id: stream_id,
+            old_flow_rate,
+            new_flow_rate,
+            updated_at: now,
+        })
+        .unwrap();
     }
 
     #[export]
@@ -471,6 +581,14 @@ impl StreamService {
         stream.status = StreamStatus::Stopped;
         stream.flow_rate = 0;
         state.active_count = state.active_count.saturating_sub(1);
+
+        self.emit_event(StreamEvent::StreamStopped {
+            id: stream_id,
+            stopped_at: now,
+            sender_refund: unstreamed,
+            total_streamed: streamed_after_settle,
+        })
+        .unwrap();
     }
 
     #[export]
@@ -502,6 +620,12 @@ impl StreamService {
         StreamCoreState::settle(stream, now);
         stream.status = StreamStatus::Paused;
         state.active_count = state.active_count.saturating_sub(1);
+
+        self.emit_event(StreamEvent::StreamPaused {
+            id: stream_id,
+            paused_at: now,
+        })
+        .unwrap();
     }
 
     #[export]
@@ -538,6 +662,12 @@ impl StreamService {
         stream.last_update = now;
         stream.status = StreamStatus::Active;
         state.active_count += 1;
+
+        self.emit_event(StreamEvent::StreamResumed {
+            id: stream_id,
+            resumed_at: now,
+        })
+        .unwrap();
     }
 
     #[export]
@@ -558,9 +688,16 @@ impl StreamService {
         };
 
         let super_token_opt = StreamCoreState::super_token_for(state, &token);
+        let fee_bps = state.config.fee_bps;
+        let treasury = state.config.treasury;
+
+        // Net amount added to the stream buffer (post-fee on the vault path).
+        let net_amount;
 
         if let Some(super_token) = super_token_opt {
             // ---- Super Token path: top up the flow's escrowed buffer -------------
+            // No protocol fee (see create_stream rationale).
+            net_amount = amount;
             let ok = super_token_add_flow_buffer(
                 super_token, sender, receiver, amount,
             ).await;
@@ -568,21 +705,46 @@ impl StreamService {
         } else {
             // ---- Legacy vault path -----------------------------------------------
             assert!(vault != ActorId::zero(), "Token vault not configured");
-            // Ask vault to allocate additional amount to this stream. Vault's
-            // `AllocateToStream` is additive for existing stream ids.
+
+            let fee = amount.saturating_mul(fee_bps as u128) / 10000;
+            let net = amount.saturating_sub(fee);
+            net_amount = net;
+
+            // Allocate the net amount to this stream (additive for existing ids).
             let payload = encode_call(
                 "VaultService",
                 "AllocateToStream",
-                (sender, token, amount, stream_id),
+                (sender, token, net, stream_id),
             );
             let ok = call_vault_checked(vault, payload).await;
             assert!(ok, "Vault allocate failed");
+
+            // Route the fee to treasury inside the vault.
+            if fee > 0 {
+                let fee_payload = encode_call(
+                    "VaultService",
+                    "CollectFee",
+                    (sender, token, fee, treasury),
+                );
+                let fee_ok = call_vault_checked(vault, fee_payload).await;
+                assert!(fee_ok, "Vault fee collection failed");
+            }
         }
 
         // Commit updated deposited amount.
+        let now = exec::block_timestamp() / 1000;
         let state = StreamCoreState::get();
         let stream = state.streams.get_mut(&stream_id).expect("Stream not found");
-        stream.deposited = stream.deposited.saturating_add(amount);
+        stream.deposited = stream.deposited.saturating_add(net_amount);
+        let new_buffer = StreamCoreState::remaining_buffer(stream, now);
+
+        self.emit_event(StreamEvent::Deposited {
+            id: stream_id,
+            sender,
+            amount: net_amount,
+            new_buffer,
+        })
+        .unwrap();
     }
 
     #[export]
@@ -633,6 +795,14 @@ impl StreamService {
         stream.last_update = now;
         stream.withdrawn = stream.withdrawn.saturating_add(withdrawable);
 
+        self.emit_event(StreamEvent::Withdrawn {
+            id: stream_id,
+            receiver,
+            amount: withdrawable,
+            timestamp: now,
+        })
+        .unwrap();
+
         withdrawable
     }
 
@@ -649,9 +819,22 @@ impl StreamService {
             "Stream is not eligible for liquidation"
         );
 
+        // Shortfall = how far the remaining buffer has fallen below the required
+        // minimum buffer for this stream's flow rate.
+        let remaining = StreamCoreState::remaining_buffer(stream, now);
+        let min_buffer = stream.flow_rate.saturating_mul(min_buffer_seconds as u128);
+        let shortfall = min_buffer.saturating_sub(remaining);
+
         StreamCoreState::settle(stream, now);
         stream.status = StreamStatus::Paused;
         state.active_count = state.active_count.saturating_sub(1);
+
+        self.emit_event(StreamEvent::StreamLiquidated {
+            id: stream_id,
+            liquidated_at: now,
+            shortfall,
+        })
+        .unwrap();
     }
 
     // ---- Queries ----
@@ -772,5 +955,23 @@ impl StreamService {
         assert!(msg::source() == state.config.admin, "Only admin can set min_buffer_seconds");
         assert!(seconds > 0, "Min buffer seconds must be > 0");
         state.config.min_buffer_seconds = seconds;
+    }
+
+    /// Update the protocol fee in basis points (admin only). Capped at 1000 (10%).
+    #[export]
+    pub fn set_fee_bps(&mut self, fee_bps: u16) {
+        let state = StreamCoreState::get();
+        assert!(msg::source() == state.config.admin, "Only admin can set fee_bps");
+        assert!(fee_bps <= 1000, "Fee must be <= 10%");
+        state.config.fee_bps = fee_bps;
+    }
+
+    /// Update the protocol fee treasury destination (admin only).
+    #[export]
+    pub fn set_treasury(&mut self, treasury: ActorId) {
+        let state = StreamCoreState::get();
+        assert!(msg::source() == state.config.admin, "Only admin can set treasury");
+        assert!(treasury != ActorId::zero(), "Treasury cannot be zero");
+        state.config.treasury = treasury;
     }
 }

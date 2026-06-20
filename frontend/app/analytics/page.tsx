@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import {
   DollarSign, Users, Activity, BarChart3, ExternalLink, Loader2, AlertCircle,
-  Layers, Coins, Award, Network,
+  Layers, Coins, Award, Network, Percent, Repeat,
 } from "lucide-react"
 import { api } from "@/lib/growstreams-api"
 import { NavigationV2 } from "@/components/v2/navigation-v2"
@@ -92,6 +92,8 @@ export default function AnalyticsPage() {
   const kpis = summary.kpis || {}
   const onchain = summary.onchain || {}
   const platform = summary.platform || {}
+  const fees = onchain.fees || {}
+  const retention = onchain.retention || {}
 
   // Build chart series from history.
   const tvlSeries: SeriesPoint[] = tvlHistory.map((p) => ({ date: p.date, value: Number(p.tvl_usd || 0) }))
@@ -141,6 +143,12 @@ export default function AnalyticsPage() {
               <KpiCard icon={BarChart3} label="Streaming Volume" value={formatUsd(kpis.onchainVolumeUsd)} sublabel={`${formatNumber(kpis.totalStreams)} streams`} />
               <KpiCard icon={Users} label="On-chain Wallets" value={formatNumber(kpis.onchainActiveWallets)} sublabel={`MAU ${formatNumber(kpis.onchainMau)} · DAU ${formatNumber(kpis.onchainDau)}`} />
               <KpiCard icon={Award} label="Platform Users" value={formatNumber(kpis.totalDistinctWallets)} sublabel={`${formatNumber(kpis.questParticipants)} quest participants`} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <KpiCard icon={Percent} label="Protocol Fees (USD)" value={formatUsd(kpis.protocolFeesUsd)} sublabel={`${fees.feePercent ?? 2.5}% entry fee · all-time`} />
+              <KpiCard icon={DollarSign} label="Fees (30d)" value={formatUsd(kpis.protocolFees30dUsd)} sublabel={`24h ${formatUsd(kpis.protocolFees24hUsd)}`} />
+              <KpiCard icon={Repeat} label="Retention (30d)" value={`${formatNumber(kpis.retentionRate ?? retention.retentionRate)}%`} sublabel={`${formatNumber(retention.retainedWallets)} of ${formatNumber(retention.cohortWallets)} wallets`} />
+              <KpiCard icon={Activity} label="On-chain DAU" value={formatNumber(kpis.onchainDau)} sublabel={`MAU ${formatNumber(kpis.onchainMau)}`} />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <TimeSeriesChart title="TVL" subtitle="Total value locked (USD), daily" data={tvlSeries} valuePrefix="$" />
@@ -197,6 +205,46 @@ export default function AnalyticsPage() {
               </div>
             </Card>
 
+            {/* Protocol fee revenue (2.5% entry fee, on-chain FeeCollected events) */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">Protocol Fee Revenue</h3>
+                <span className="text-xs text-gray-500">{fees.feePercent ?? 2.5}% entry fee · vault/native paths</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                <KpiCard label="Total (USD)" value={formatUsd(fees.totalFeesUsd)} />
+                <KpiCard label="30d" value={formatUsd(fees.last30dUsd)} />
+                <KpiCard label="7d" value={formatUsd(fees.last7dUsd)} />
+                <KpiCard label="24h" value={formatUsd(fees.last24hUsd)} />
+              </div>
+              {fees.byToken && fees.byToken.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-400 border-b border-white/10">
+                        <th className="px-3 py-2 font-medium">Token</th>
+                        <th className="px-3 py-2 font-medium">Fees Collected</th>
+                        <th className="px-3 py-2 font-medium">Price</th>
+                        <th className="px-3 py-2 font-medium">USD</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fees.byToken.map((t: any) => (
+                        <tr key={t.symbol} className="border-b border-white/5">
+                          <td className="px-3 py-2 text-white">{t.symbol}</td>
+                          <td className="px-3 py-2 text-gray-300">{formatNumber(t.amountDisplay)}</td>
+                          <td className="px-3 py-2 text-gray-400">{t.price != null ? `$${t.price}` : "—"}</td>
+                          <td className="px-3 py-2 text-gray-300">{formatUsd(t.feesUsd)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No protocol fees collected yet. Fees accrue on new streams created on the fee-bearing contracts.</p>
+              )}
+            </Card>
+
             {/* Contracts with explorer links (REQ 1) */}
             <Card className="p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Contracts (verifiable on-chain)</h3>
@@ -247,6 +295,46 @@ export default function AnalyticsPage() {
                 ["Vouchers issued", formatNumber(platform.engagement?.vouchersIssued)],
               ]} />
             </div>
+
+            {/* Retention cohorts (30-day, on-chain first-seen) */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Repeat className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-lg font-semibold text-white">Retention ({retention.windowDays ?? 30}-day)</h3>
+                </div>
+                <span className="text-2xl font-bold text-emerald-300">{formatNumber(retention.retentionRate)}%</span>
+              </div>
+              <p className="text-xs text-gray-500 mb-4">
+                Share of wallets that return for more on-chain activity 24h–{retention.windowDays ?? 30}d after their first stream/vault action.
+              </p>
+              {retention.cohorts && retention.cohorts.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-gray-400 border-b border-white/10">
+                        <th className="px-3 py-2 font-medium">Cohort (week)</th>
+                        <th className="px-3 py-2 font-medium">Wallets</th>
+                        <th className="px-3 py-2 font-medium">Retained</th>
+                        <th className="px-3 py-2 font-medium">Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {retention.cohorts.map((c: any) => (
+                        <tr key={c.cohortWeek} className="border-b border-white/5">
+                          <td className="px-3 py-2 text-gray-300">{formatTimestamp(c.cohortWeek)?.slice(0, 10) || c.cohortWeek}</td>
+                          <td className="px-3 py-2 text-gray-300">{formatNumber(c.cohortSize)}</td>
+                          <td className="px-3 py-2 text-gray-300">{formatNumber(c.retainedCount)}</td>
+                          <td className="px-3 py-2 text-emerald-300 font-medium">{formatNumber(c.retentionRate)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Not enough on-chain history yet to compute completed retention cohorts.</p>
+              )}
+            </Card>
           </div>
         )}
 

@@ -27,6 +27,8 @@ type Config = struct {
   next_stream_id: u64,
   token_vault: actor_id,
   super_token_count: u32,
+  fee_bps: u16,
+  treasury: actor_id,
 };
 
 constructor {
@@ -48,6 +50,8 @@ service StreamService {
   SetTokenVault : (vault: actor_id) -> null;
   RegisterSuperToken : (underlying_token: actor_id, super_token_contract: actor_id) -> null;
   SetMinBufferSeconds : (seconds: u64) -> null;
+  SetFeeBps : (fee_bps: u16) -> null;
+  SetTreasury : (treasury: actor_id) -> null;
 
   // --- Queries ---
   query GetStream : (stream_id: u64) -> opt Stream;

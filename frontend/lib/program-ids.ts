@@ -16,8 +16,8 @@ import { api as gsApi } from '@/lib/growstreams-api';
 import { SUPPORTED_TOKENS } from '@/lib/tokens';
 
 export const PROGRAM_IDS: Record<string, string> = {
-  streamCore: '0xe84917a47826e945e62b267560905c840643f1aacdf0536be520d954a5d0ef7d',
-  tokenVault: '0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef',
+  streamCore: '0xba0901f3ef665e956d8ab721686d97d2e5473092df34baf229e87ac826eadc4a',
+  tokenVault: '0x657cf9c4f929aeac97092037826c1117f9e6cd0e3c4edc44e49decc17b840aa9',
   growToken: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
   splitsRouter: '0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45',
   permissionManager: '0x52f4299e964dab5e97c91cdd10e2d6e635b19696ab8389889aabceba3de9e581',

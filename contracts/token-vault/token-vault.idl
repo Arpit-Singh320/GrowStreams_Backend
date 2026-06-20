@@ -41,6 +41,7 @@ service VaultService {
   AllocateToStream : (owner: actor_id, token: actor_id, amount: u128, stream_id: u64) -> result (null, VaultError);
   ReleaseFromStream : (owner: actor_id, token: actor_id, amount: u128, stream_id: u64) -> result (null, VaultError);
   TransferToReceiver : (token: actor_id, receiver: actor_id, amount: u128, stream_id: u64) -> result (null, VaultError);
+  CollectFee : (from: actor_id, token: actor_id, amount: u128, treasury: actor_id) -> result (null, VaultError);
   DepositNative : () -> result (null, VaultError);
   WithdrawNative : (amount: u128) -> result (null, VaultError);
   SetStreamCore : (stream_core: actor_id) -> result (null, VaultError);
@@ -87,5 +88,11 @@ service VaultService {
     };
     VaultPaused: struct { paused_by: actor_id, timestamp: u64 };
     VaultUnpaused: struct { unpaused_by: actor_id, timestamp: u64 };
+    FeeCollected: struct {
+      payer: actor_id,
+      token: actor_id,
+      amount: u128,
+      treasury: actor_id,
+    };
   }
 };

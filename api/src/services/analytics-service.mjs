@@ -1494,11 +1494,199 @@ export async function getCampaignMetrics() {
   }
 }
 
+/**
+ * Protocol fee revenue. The 2.5% entry fee skimmed on stream create/deposit is
+ * emitted on-chain as TokenVault `FeeCollected`, indexed into vault_events with
+ * event_type = 'fee' (see buildVaultEventLog in event-indexer.mjs). This sums
+ * those rows, prices each token live, and buckets by 24h/7d/30d window.
+ *
+ * Returns zeros (available:false) until the first fee is collected on the newly
+ * deployed fee-bearing contracts — old streams live on the prior contracts and
+ * never emitted fees.
+ */
+export async function getProtocolFees(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
+  const windowDays = clampInt(days, 1, 365, DEFAULT_ACTIVITY_WINDOW_DAYS);
+  if (!getPool()) {
+    return {
+      available: false,
+      windowDays,
+      source: 'on_chain_event_indexer',
+      totalFeesUsd: 0,
+      last24hUsd: 0,
+      last7dUsd: 0,
+      last30dUsd: 0,
+      byToken: [],
+    };
+  }
+
+  const rows = await queryAll(
+    `SELECT token_symbol, token_address, amount, created_at AS event_at
+     FROM vault_events
+     WHERE event_type = 'fee' AND amount IS NOT NULL`
+  ).catch(() => []);
+
+  const now = Date.now();
+  const windows = {
+    last24h: now - 24 * 60 * 60 * 1000,
+    last7d: now - 7 * 24 * 60 * 60 * 1000,
+    last30d: now - 30 * 24 * 60 * 60 * 1000,
+  };
+
+  // Aggregate raw fee amounts per token (all-time) for the byToken breakdown.
+  const perToken = new Map(); // symbol -> bigint
+  const symbols = new Set();
+  for (const row of rows) {
+    if (row.token_symbol) symbols.add(row.token_symbol);
+    const sym = row.token_symbol || 'UNKNOWN';
+    try {
+      perToken.set(sym, (perToken.get(sym) || 0n) + BigInt(row.amount));
+    } catch { /* skip unparseable */ }
+  }
+
+  const priced = symbols.size ? await getBatchPricesDetailed(Array.from(symbols)) : {};
+  const priceFor = (symbol, token) => {
+    const info = priced[symbol];
+    if (info?.price != null) return info.price;
+    return token?.fallbackPrice ?? (token?.isStablecoin ? 1 : 0);
+  };
+
+  let totalFeesUsd = 0;
+  const byToken = [];
+  for (const [symbol, rawTotal] of perToken.entries()) {
+    const token = getToken(symbol);
+    const decimals = token?.decimals ?? 12;
+    const amountDisplay = toDisplayUnits(rawTotal.toString(), decimals);
+    const price = priceFor(symbol, token);
+    const feesUsd = roundNumber(toNumberValue(amountDisplay) * price);
+    totalFeesUsd += feesUsd;
+    byToken.push({
+      symbol,
+      amountRaw: rawTotal.toString(),
+      amountDisplay,
+      price,
+      feesUsd,
+    });
+  }
+  byToken.sort((a, b) => b.feesUsd - a.feesUsd);
+
+  // Windowed USD totals (per-row, so each fee lands in the correct bucket).
+  let last24hUsd = 0, last7dUsd = 0, last30dUsd = 0;
+  for (const row of rows) {
+    const token = getToken(row.token_symbol);
+    const decimals = token?.decimals ?? 12;
+    const amountDisplay = toDisplayUnits(row.amount, decimals);
+    const usd = toNumberValue(amountDisplay) * priceFor(row.token_symbol, token);
+    const at = new Date(row.event_at).getTime();
+    if (at >= windows.last24h) last24hUsd += usd;
+    if (at >= windows.last7d) last7dUsd += usd;
+    if (at >= windows.last30d) last30dUsd += usd;
+  }
+
+  return {
+    available: true,
+    windowDays,
+    source: 'on_chain_event_indexer',
+    feeBps: 250,
+    feePercent: 2.5,
+    totalFeesUsd: roundNumber(totalFeesUsd),
+    last24hUsd: roundNumber(last24hUsd),
+    last7dUsd: roundNumber(last7dUsd),
+    last30dUsd: roundNumber(last30dUsd),
+    byToken,
+    note: 'Protocol fee (2.5%) collected on stream create/deposit for vault/VFT and native VARA paths. gVARA super-token streams are fee-exempt. Sourced from on-chain FeeCollected events.',
+  };
+}
+
+/**
+ * 30-day retention cohorts. A wallet's "first seen" is the earliest on-chain
+ * activity (stream sender/receiver OR vault wallet). Wallets are grouped into
+ * weekly cohorts by first-seen week; a wallet is "retained" if it has ANY
+ * further activity at least 24h after first-seen and within `days` days. The
+ * headline `retentionRate` is the wallet-weighted average across all cohorts
+ * old enough to have a full observation window.
+ */
+export async function getRetentionCohorts({ days = 30 } = {}) {
+  const windowDays = clampInt(days, 1, 365, 30);
+  if (!getPool()) {
+    return { available: false, windowDays, retentionRate: 0, cohorts: [] };
+  }
+
+  // Unified per-wallet activity timeline from on-chain event tables.
+  const activitySql = `
+    SELECT LOWER(wallet) AS wallet, created_at FROM (
+      SELECT sender AS wallet, created_at FROM stream_events
+        WHERE sender IS NOT NULL AND sender <> 'unknown'
+      UNION ALL
+      SELECT receiver AS wallet, created_at FROM stream_events
+        WHERE receiver IS NOT NULL AND receiver <> 'unknown'
+      UNION ALL
+      SELECT wallet, created_at FROM vault_events
+        WHERE wallet IS NOT NULL AND wallet <> 'unknown'
+    ) a
+  `;
+
+  const cohorts = await queryAll(`
+    WITH activity AS (${activitySql}),
+    first_seen AS (
+      SELECT wallet, MIN(created_at) AS first_at FROM activity GROUP BY wallet
+    ),
+    retained AS (
+      SELECT fs.wallet,
+             DATE_TRUNC('week', fs.first_at) AS cohort_week,
+             fs.first_at,
+             EXISTS (
+               SELECT 1 FROM activity a
+               WHERE a.wallet = fs.wallet
+                 AND a.created_at >= fs.first_at + INTERVAL '24 hours'
+                 AND a.created_at <= fs.first_at + ($1 * INTERVAL '1 day')
+             ) AS is_retained
+      FROM first_seen fs
+    )
+    SELECT cohort_week,
+           COUNT(*)::int AS cohort_size,
+           COUNT(*) FILTER (WHERE is_retained)::int AS retained_count
+    FROM retained
+    -- Only cohorts old enough to have a complete observation window.
+    WHERE cohort_week <= NOW() - ($1 * INTERVAL '1 day')
+    GROUP BY cohort_week
+    ORDER BY cohort_week ASC
+  `, [windowDays]).catch((err) => {
+    console.error('[analytics] retention cohort query failed:', err.message);
+    return [];
+  });
+
+  let totalCohort = 0, totalRetained = 0;
+  const cohortRows = cohorts.map((c) => {
+    const size = Number.parseInt(c.cohort_size || '0', 10);
+    const retained = Number.parseInt(c.retained_count || '0', 10);
+    totalCohort += size;
+    totalRetained += retained;
+    return {
+      cohortWeek: c.cohort_week,
+      cohortSize: size,
+      retainedCount: retained,
+      retentionRate: size > 0 ? roundNumber((retained / size) * 100, 2) : 0,
+    };
+  });
+
+  return {
+    available: true,
+    windowDays,
+    source: 'on_chain_event_indexer',
+    retentionRate: totalCohort > 0 ? roundNumber((totalRetained / totalCohort) * 100, 2) : 0,
+    cohortWallets: totalCohort,
+    retainedWallets: totalRetained,
+    cohorts: cohortRows,
+    note: `A wallet is retained if it transacts again 24h–${windowDays}d after first on-chain activity. Only cohorts with a complete ${windowDays}-day window are counted.`,
+  };
+}
+
 export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   const [
     tvl, activity, streamMetrics, contracts, explorerLinks, freshness,
     totalUsers, questMetrics, contributorMetrics, campaignMetrics,
     platformUsers, engagement, catalog, evmStreams, platformDau,
+    protocolFees, retention,
   ] = await Promise.all([
     getCurrentTvl(),
     getObservedActivity(days),
@@ -1515,6 +1703,8 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     getCatalogMetrics(),
     getEvmStreamMetrics(),
     getPlatformDau(),
+    getProtocolFees(days),
+    getRetentionCohorts({ days }),
   ]);
 
   const protocol = {
@@ -1561,6 +1751,10 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
         source: activity.source,
       },
     },
+    // Protocol fee revenue (2.5% entry fee) — a headline Phase-2 grant KPI.
+    fees: protocolFees,
+    // 30-day retention cohorts — a headline Phase-2 grant KPI.
+    retention,
   };
 
   const platform = {
@@ -1648,6 +1842,12 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     kpis: {
       // ── On-chain protocol KPIs (Phase 2 grant targets) ──────────────────────
       tvlUsd: tvl.totals.estimatedUsd,
+      // Protocol fee revenue (2.5% entry fee, on-chain FeeCollected events).
+      protocolFeesUsd: protocolFees.totalFeesUsd,
+      protocolFees24hUsd: protocolFees.last24hUsd,
+      protocolFees30dUsd: protocolFees.last30dUsd,
+      // 30-day retention rate (% of cohort wallets that returned).
+      retentionRate: retention.retentionRate,
       // Streaming volume (live per-stream `streamed`, summed, priced).
       onchainVolumeUsd: streamMetrics.totalVolumeUsd,
       totalStreams: streamMetrics.totalStreams,

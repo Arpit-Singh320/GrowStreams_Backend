@@ -122,6 +122,62 @@ pub enum VaultError {
 }
 
 // ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+// Variant order AND per-field order must mirror token-vault.idl exactly — the
+// off-chain indexer decodes by SCALE variant index and positional fields.
+// FeeCollected is appended last so existing indices are unaffected.
+
+#[event]
+#[derive(Encode, TypeInfo)]
+pub enum VaultEvent {
+    TokensDeposited {
+        owner: ActorId,
+        token: ActorId,
+        amount: u128,
+        new_balance: u128,
+    },
+    TokensWithdrawn {
+        owner: ActorId,
+        token: ActorId,
+        amount: u128,
+        remaining: u128,
+    },
+    StreamAllocated {
+        stream_id: u64,
+        owner: ActorId,
+        token: ActorId,
+        amount: u128,
+    },
+    StreamReleased {
+        stream_id: u64,
+        owner: ActorId,
+        token: ActorId,
+        amount: u128,
+    },
+    ReceiverPaid {
+        stream_id: u64,
+        receiver: ActorId,
+        token: ActorId,
+        amount: u128,
+    },
+    VaultPaused {
+        paused_by: ActorId,
+        timestamp: u64,
+    },
+    VaultUnpaused {
+        unpaused_by: ActorId,
+        timestamp: u64,
+    },
+    FeeCollected {
+        payer: ActorId,
+        token: ActorId,
+        amount: u128,
+        treasury: ActorId,
+    },
+}
+
+// ---------------------------------------------------------------------------
 // State (program-owned RefCell — production default per Gear patterns)
 // ---------------------------------------------------------------------------
 
@@ -191,7 +247,7 @@ impl<'a> VaultService<'a> {
     }
 }
 
-#[service]
+#[service(events = VaultEvent)]
 impl<'a> VaultService<'a> {
     // ---- Commands ----
 
@@ -225,26 +281,49 @@ impl<'a> VaultService<'a> {
             return Err(VaultError::VftTransferFailed);
         }
 
-        let mut state = self.state.borrow_mut();
-        let balance = state.get_or_create_balance(caller, token);
-        balance.total_deposited = balance.total_deposited.saturating_add(amount);
-        balance.available = balance.available.saturating_add(amount);
+        let new_balance = {
+            let mut state = self.state.borrow_mut();
+            let balance = state.get_or_create_balance(caller, token);
+            balance.total_deposited = balance.total_deposited.saturating_add(amount);
+            balance.available = balance.available.saturating_add(amount);
+            balance.available
+        };
+
+        self.emit_event(VaultEvent::TokensDeposited {
+            owner: caller,
+            token,
+            amount,
+            new_balance,
+        })
+        .map_err(|_| VaultError::VftTransferFailed)?;
         Ok(())
     }
 
     #[export]
     pub fn deposit_native(&mut self) -> Result<(), VaultError> {
-        let mut state = self.state.borrow_mut();
-        if state.paused { return Err(VaultError::Paused); }
-        
-        let value = msg::value();
-        if value == 0 { return Err(VaultError::ZeroAmount); }
-        
         let caller = msg::source();
         let token = ActorId::zero();
-        let balance = state.get_or_create_balance(caller, token);
-        balance.total_deposited = balance.total_deposited.saturating_add(value);
-        balance.available = balance.available.saturating_add(value);
+        let new_balance = {
+            let mut state = self.state.borrow_mut();
+            if state.paused { return Err(VaultError::Paused); }
+
+            let value = msg::value();
+            if value == 0 { return Err(VaultError::ZeroAmount); }
+
+            let balance = state.get_or_create_balance(caller, token);
+            balance.total_deposited = balance.total_deposited.saturating_add(value);
+            balance.available = balance.available.saturating_add(value);
+            balance.available
+        };
+
+        // `value` is consumed above; re-read for the event amount.
+        self.emit_event(VaultEvent::TokensDeposited {
+            owner: caller,
+            token,
+            amount: msg::value(),
+            new_balance,
+        })
+        .map_err(|_| VaultError::NativeTransferFailed)?;
         Ok(())
     }
 
@@ -254,13 +333,14 @@ impl<'a> VaultService<'a> {
         let caller = msg::source();
 
         // Debit first, revert on VFT failure
-        {
+        let remaining = {
             let mut state = self.state.borrow_mut();
             if state.paused { return Err(VaultError::Paused); }
             let balance = state.get_or_create_balance(caller, token);
             if balance.available < amount { return Err(VaultError::InsufficientBalance); }
             balance.available = balance.available.saturating_sub(amount);
-        }
+            balance.available
+        };
 
         // Send tokens to caller via VFT transfer(caller, amount)
         let amount_u256 = VftU256::from_u128(amount);
@@ -282,21 +362,40 @@ impl<'a> VaultService<'a> {
             balance.available = balance.available.saturating_add(amount);
             return Err(VaultError::VftTransferFailed);
         }
+
+        self.emit_event(VaultEvent::TokensWithdrawn {
+            owner: caller,
+            token,
+            amount,
+            remaining,
+        })
+        .map_err(|_| VaultError::VftTransferFailed)?;
         Ok(())
     }
 
     #[export]
     pub fn withdraw_native(&mut self, amount: u128) -> Result<(), VaultError> {
-        let mut state = self.state.borrow_mut();
-        if state.paused { return Err(VaultError::Paused); }
-        
         let caller = msg::source();
         let token = ActorId::zero();
-        let balance = state.get_or_create_balance(caller, token);
-        if balance.available < amount { return Err(VaultError::InsufficientBalance); }
-        
-        balance.available = balance.available.saturating_sub(amount);
+        let remaining = {
+            let mut state = self.state.borrow_mut();
+            if state.paused { return Err(VaultError::Paused); }
+
+            let balance = state.get_or_create_balance(caller, token);
+            if balance.available < amount { return Err(VaultError::InsufficientBalance); }
+
+            balance.available = balance.available.saturating_sub(amount);
+            balance.available
+        };
         msg::send(caller, b"", amount).map_err(|_| VaultError::NativeTransferFailed)?;
+
+        self.emit_event(VaultEvent::TokensWithdrawn {
+            owner: caller,
+            token,
+            amount,
+            remaining,
+        })
+        .map_err(|_| VaultError::NativeTransferFailed)?;
         Ok(())
     }
 
@@ -308,18 +407,28 @@ impl<'a> VaultService<'a> {
         amount: u128,
         stream_id: u64,
     ) -> Result<(), VaultError> {
-        let mut state = self.state.borrow_mut();
-        let caller = msg::source();
-        if caller != state.stream_core { return Err(VaultError::Unauthorized); }
+        {
+            let mut state = self.state.borrow_mut();
+            let caller = msg::source();
+            if caller != state.stream_core { return Err(VaultError::Unauthorized); }
 
-        let balance = state.get_or_create_balance(owner, token);
-        if balance.available < amount { return Err(VaultError::InsufficientBalance); }
+            let balance = state.get_or_create_balance(owner, token);
+            if balance.available < amount { return Err(VaultError::InsufficientBalance); }
 
-        balance.available = balance.available.saturating_sub(amount);
-        balance.total_allocated = balance.total_allocated.saturating_add(amount);
+            balance.available = balance.available.saturating_sub(amount);
+            balance.total_allocated = balance.total_allocated.saturating_add(amount);
 
-        let current = state.stream_allocations.entry(stream_id).or_insert(0);
-        *current = current.saturating_add(amount);
+            let current = state.stream_allocations.entry(stream_id).or_insert(0);
+            *current = current.saturating_add(amount);
+        }
+
+        self.emit_event(VaultEvent::StreamAllocated {
+            stream_id,
+            owner,
+            token,
+            amount,
+        })
+        .map_err(|_| VaultError::InsufficientBalance)?;
         Ok(())
     }
 
@@ -331,20 +440,30 @@ impl<'a> VaultService<'a> {
         amount: u128,
         stream_id: u64,
     ) -> Result<(), VaultError> {
-        let mut state = self.state.borrow_mut();
-        let caller = msg::source();
-        if caller != state.stream_core { return Err(VaultError::Unauthorized); }
+        {
+            let mut state = self.state.borrow_mut();
+            let caller = msg::source();
+            if caller != state.stream_core { return Err(VaultError::Unauthorized); }
 
-        let alloc = state
-            .stream_allocations
-            .get_mut(&stream_id)
-            .ok_or(VaultError::NoAllocation)?;
-        if *alloc < amount { return Err(VaultError::AllocationExceeded); }
-        *alloc = alloc.saturating_sub(amount);
+            let alloc = state
+                .stream_allocations
+                .get_mut(&stream_id)
+                .ok_or(VaultError::NoAllocation)?;
+            if *alloc < amount { return Err(VaultError::AllocationExceeded); }
+            *alloc = alloc.saturating_sub(amount);
 
-        let balance = state.get_or_create_balance(owner, token);
-        balance.total_allocated = balance.total_allocated.saturating_sub(amount);
-        balance.available = balance.available.saturating_add(amount);
+            let balance = state.get_or_create_balance(owner, token);
+            balance.total_allocated = balance.total_allocated.saturating_sub(amount);
+            balance.available = balance.available.saturating_add(amount);
+        }
+
+        self.emit_event(VaultEvent::StreamReleased {
+            stream_id,
+            owner,
+            token,
+            amount,
+        })
+        .map_err(|_| VaultError::NoAllocation)?;
         Ok(())
     }
 
@@ -389,6 +508,53 @@ impl<'a> VaultService<'a> {
                 return Err(VaultError::VftTransferFailed);
             }
         }
+
+        self.emit_event(VaultEvent::ReceiverPaid {
+            stream_id,
+            receiver,
+            token,
+            amount,
+        })
+        .map_err(|_| VaultError::VftTransferFailed)?;
+        Ok(())
+    }
+
+    /// Move a protocol fee from `from`'s available balance to the treasury's
+    /// available balance. The tokens are already custodied by the vault (they
+    /// were pulled in when the depositor funded the stream), so this is a pure
+    /// internal ledger transfer — no VFT call. Treasury later withdraws via
+    /// `withdraw_tokens`. Gated to stream-core, same as allocate/release.
+    #[export]
+    pub fn collect_fee(
+        &mut self,
+        from: ActorId,
+        token: ActorId,
+        amount: u128,
+        treasury: ActorId,
+    ) -> Result<(), VaultError> {
+        if amount == 0 { return Ok(()); }
+        {
+            let mut state = self.state.borrow_mut();
+            let caller = msg::source();
+            if caller != state.stream_core { return Err(VaultError::Unauthorized); }
+
+            let payer = state.get_or_create_balance(from, token);
+            if payer.available < amount { return Err(VaultError::InsufficientBalance); }
+            payer.available = payer.available.saturating_sub(amount);
+            payer.total_deposited = payer.total_deposited.saturating_sub(amount);
+
+            let treasury_bal = state.get_or_create_balance(treasury, token);
+            treasury_bal.available = treasury_bal.available.saturating_add(amount);
+            treasury_bal.total_deposited = treasury_bal.total_deposited.saturating_add(amount);
+        }
+
+        self.emit_event(VaultEvent::FeeCollected {
+            payer: from,
+            token,
+            amount,
+            treasury,
+        })
+        .map_err(|_| VaultError::InsufficientBalance)?;
         Ok(())
     }
 

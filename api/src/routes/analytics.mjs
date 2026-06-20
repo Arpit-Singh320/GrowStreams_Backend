@@ -14,6 +14,8 @@ import {
   getVolumeHistory,
   getRecentTransactions,
   getActiveWallets,
+  getProtocolFees,
+  getRetentionCohorts,
 } from '../services/analytics-service.mjs';
 
 const router = Router();
@@ -98,6 +100,22 @@ router.get('/volume-history', async (req, res, next) => {
     const days = parsePositiveInt(req.query.days, 30, 1, 365);
     const history = await getVolumeHistory(days);
     res.json(history);
+  } catch (err) { next(err); }
+});
+
+router.get('/fees', async (req, res, next) => {
+  try {
+    const days = parsePositiveInt(req.query.days, 30, 1, 365);
+    const fees = await getProtocolFees(days);
+    res.json(fees);
+  } catch (err) { next(err); }
+});
+
+router.get('/retention', async (req, res, next) => {
+  try {
+    const days = parsePositiveInt(req.query.days, 30, 1, 365);
+    const retention = await getRetentionCohorts({ days });
+    res.json(retention);
   } catch (err) { next(err); }
 });
 
