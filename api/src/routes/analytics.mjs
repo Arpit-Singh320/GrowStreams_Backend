@@ -5,6 +5,7 @@ import {
   getAnalyticsHistory,
   getAnalyticsSummary,
   getCurrentTvl,
+  getDefiLlamaTvl,
   getObservedActivity,
   getTvlHistory,
   getVolumeHistory,
@@ -31,6 +32,13 @@ router.get('/summary', async (req, res, next) => {
 router.get('/tvl', async (req, res, next) => {
   try {
     const tvl = await getCurrentTvl();
+    res.json(tvl);
+  } catch (err) { next(err); }
+});
+
+router.get('/defillama-tvl', async (req, res, next) => {
+  try {
+    const tvl = await getDefiLlamaTvl();
     res.json(tvl);
   } catch (err) { next(err); }
 });
