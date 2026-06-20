@@ -1079,7 +1079,7 @@ export const api = {
       get<{ id: number; name: string; slug: string; status: string; start_at: string; end_at: string | null; description: string }>('/api/seasons/active'),
     get: (idOrSlug: string | number) =>
       get<{ id: number; name: string; slug: string; status: string; start_at: string; end_at: string | null; description: string }>(`/api/seasons/${idOrSlug}`),
-    leaderboard: (idOrSlug: string | number, page = 1, limit = 50) =>
+    leaderboard: (idOrSlug: string | number, page = 1, limit = 50, sortBy: 'seeds' | 'streak' = 'seeds') =>
       get<{
         season: { id: number; name: string; slug: string; status: string; startAt: string; endAt: string | null };
         seasonId: number;
@@ -1092,10 +1092,11 @@ export const api = {
           evmAddress: string | null;
           seasonSeeds: number;
           questCompletions: number;
+          streak: number;
         }>;
         pagination: { page: number; limit: number; total: number; totalPages: number };
         stats: { totalParticipants: number; totalSeeds: number; totalCompletions: number };
-      }>(`/api/seasons/${idOrSlug}/leaderboard?page=${page}&limit=${limit}&_t=${Date.now()}`),
+      }>(`/api/seasons/${idOrSlug}/leaderboard?page=${page}&limit=${limit}&sortBy=${sortBy}&_t=${Date.now()}`),
     userStats: (idOrSlug: string | number, wallet: string) =>
       get<{
         season: { id: number; name: string; slug: string; status: string };

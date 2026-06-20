@@ -5,6 +5,73 @@ import { query, queryOne, queryAll } from './db.mjs';
 // ---------------------------------------------------------------------------
 
 /**
+ * Compute each wallet's CURRENT daily stream-creation streak.
+ *
+ * A streak is the number of consecutive UTC days (ending today or yesterday)
+ * on which a wallet created at least one stream. If the most recent creation
+ * was more than one day ago, the streak is considered broken (0) and the
+ * wallet is omitted from the map.
+ *
+ * `stream_events.sender` holds the creator as a hex public key ("0x" + 32
+ * bytes). Leaderboard wallets are SS58, so callers decode SS58 -> hex to match.
+ * Returns a Map keyed by lowercase hex pubkey -> streak length (number).
+ */
+export async function getStreakMap() {
+  // Gaps-and-islands: distinct active days per sender, then group consecutive
+  // days by subtracting a per-sender row number — equal "grp" = consecutive run.
+  const rows = await queryAll(`
+    WITH active_days AS (
+      SELECT DISTINCT sender,
+             (created_at AT TIME ZONE 'UTC')::date AS day
+      FROM stream_events
+      WHERE event_type = 'created' AND sender IS NOT NULL
+    ),
+    grouped AS (
+      SELECT sender, day,
+             (day - (ROW_NUMBER() OVER (PARTITION BY sender ORDER BY day))::int) AS grp
+      FROM active_days
+    ),
+    runs AS (
+      SELECT sender, COUNT(*) AS len, MAX(day) AS last_day
+      FROM grouped
+      GROUP BY sender, grp
+    )
+    SELECT DISTINCT ON (sender) sender, len, last_day
+    FROM runs
+    ORDER BY sender, last_day DESC
+  `);
+
+  const map = new Map();
+  for (const r of rows) {
+    // Only count a streak as live if the last active day is today or yesterday.
+    const last = new Date(r.last_day);
+    const today = new Date();
+    const utcToday = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    const utcLast = Date.UTC(last.getUTCFullYear(), last.getUTCMonth(), last.getUTCDate());
+    const daysSince = Math.round((utcToday - utcLast) / 86400000);
+    if (daysSince <= 1 && r.sender) {
+      map.set(String(r.sender).toLowerCase(), parseInt(r.len, 10));
+    }
+  }
+  return map;
+}
+
+/**
+ * Resolve an SS58 (or already-hex) wallet to a lowercase "0x" hex pubkey so it
+ * can be matched against stream_events.sender. Returns null on failure.
+ */
+async function walletToHexPubkey(wallet) {
+  if (!wallet) return null;
+  if (wallet.startsWith('0x')) return wallet.toLowerCase();
+  try {
+    const { decodeAddress } = await import('@polkadot/util-crypto');
+    return ('0x' + Buffer.from(decodeAddress(wallet)).toString('hex')).toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get all seasons ordered by start date (newest first).
  */
 export async function getAllSeasons() {
@@ -46,7 +113,7 @@ export async function getSeason(idOrSlug) {
  * For Season 2+, we calculate: Season N XP = Total XP - XP earned before season start
  * This avoids relying on season_id which may be incorrectly set.
  */
-export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
+export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50, sortBy = 'seeds') {
   const offset = (page - 1) * limit;
 
   // Get season start date
@@ -57,6 +124,13 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
   // For Season 1, use all XP before Season 2 start
   // For Season 2+, use XP earned after season start date
   const isFirstSeason = seasonId === 1;
+
+  // When sorting by streak we must rank across the WHOLE qualifying set, so we
+  // fetch a wide window (offset 0, capped) and paginate in JS after attaching
+  // streaks. Seeds-sorted requests keep efficient SQL LIMIT/OFFSET pagination.
+  const byStreak = sortBy === 'streak';
+  const fetchLimit = byStreak ? 1000 : limit;
+  const fetchOffset = byStreak ? 0 : offset;
 
   let participants;
   if (isFirstSeason) {
@@ -88,7 +162,7 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
       WHERE COALESCE(s.total_seeds, 0) > 0
       ORDER BY season_seeds DESC
       LIMIT $2 OFFSET $3
-    `, [season2Start, limit, offset]);
+    `, [season2Start, fetchLimit, fetchOffset]);
   } else {
     // Season 2+: XP earned after season start date
     // Use subqueries to avoid cartesian product from multiple JOINs
@@ -117,7 +191,7 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
       WHERE COALESCE(s.total_seeds, 0) > 0
       ORDER BY season_seeds DESC
       LIMIT $2 OFFSET $3
-    `, [seasonStart, limit, offset]);
+    `, [seasonStart, fetchLimit, fetchOffset]);
   }
 
   // Get total count of participants with Seeds in this season (for pagination)
@@ -172,16 +246,38 @@ export async function getSeasonLeaderboard(seasonId, page = 1, limit = 50) {
   }
   const totalCompletions = parseInt(completionsRow?.cnt || '0', 10);
 
-  // Add rank to each participant
-  const rankedParticipants = participants.map((p, idx) => ({
+  // Attach each participant's current daily stream-creation streak. The streak
+  // map is keyed by hex pubkey, so decode each SS58 wallet to match.
+  const streakMap = await getStreakMap();
+  const withStreak = await Promise.all(participants.map(async (p) => {
+    const hex = await walletToHexPubkey(p.wallet);
+    const evmHex = p.evm_address ? p.evm_address.toLowerCase() : null;
+    const streak = (hex && streakMap.get(hex)) || (evmHex && streakMap.get(evmHex)) || 0;
+    return {
+      wallet: p.wallet,
+      displayName: p.display_name || p.x_username || p.github_username || p.wallet?.slice(0, 8) + '...',
+      xUsername: p.x_username,
+      githubUsername: p.github_username,
+      evmAddress: p.evm_address,
+      seasonSeeds: parseInt(p.season_seeds, 10),
+      questCompletions: parseInt(p.quest_completions, 10),
+      streak,
+    };
+  }));
+
+  // For streak sorting, re-rank the whole set by streak DESC (seeds as tiebreak)
+  // and slice the requested page in JS. Seeds sorting keeps the SQL ordering.
+  let pageParticipants;
+  if (byStreak) {
+    withStreak.sort((a, b) => (b.streak - a.streak) || (b.seasonSeeds - a.seasonSeeds));
+    pageParticipants = withStreak.slice(offset, offset + limit);
+  } else {
+    pageParticipants = withStreak;
+  }
+
+  const rankedParticipants = pageParticipants.map((p, idx) => ({
     rank: offset + idx + 1,
-    wallet: p.wallet,
-    displayName: p.display_name || p.x_username || p.github_username || p.wallet?.slice(0, 8) + '...',
-    xUsername: p.x_username,
-    githubUsername: p.github_username,
-    evmAddress: p.evm_address,
-    seasonSeeds: parseInt(p.season_seeds, 10),
-    questCompletions: parseInt(p.quest_completions, 10),
+    ...p,
   }));
 
   return {

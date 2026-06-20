@@ -172,39 +172,6 @@ export default function AnalyticsPage() {
               <KpiCard label="Stream Wallets" value={formatNumber(kpis.uniqueStreamWallets)} sublabel="created/received streams" />
             </div>
 
-            {/* TVL by token */}
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">TVL by Token</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-gray-400 border-b border-white/10">
-                      <th className="px-3 py-2 font-medium">Token</th>
-                      <th className="px-3 py-2 font-medium">Balance</th>
-                      <th className="px-3 py-2 font-medium">Price</th>
-                      <th className="px-3 py-2 font-medium">USD</th>
-                      <th className="px-3 py-2 font-medium">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(summary.tvl?.tokens || []).map((t: any) => (
-                      <tr key={t.key} className="border-b border-white/5">
-                        <td className="px-3 py-2 text-white">{t.symbol}</td>
-                        <td className="px-3 py-2 text-gray-300">{formatNumber(t.balanceDisplay)}</td>
-                        <td className="px-3 py-2 text-gray-400">{t.price != null ? `$${t.price}` : "—"}</td>
-                        <td className="px-3 py-2 text-gray-300">{formatUsd(t.estimatedUsd)}</td>
-                        <td className="px-3 py-2">
-                          <span className={`text-xs ${t.deployed === false ? "text-amber-400" : "text-emerald-400"}`}>
-                            {t.deployed === false ? "not deployed" : t.pricingSource || "—"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-
             {/* Protocol fee revenue (2.5% entry fee, on-chain FeeCollected events) */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">

@@ -485,12 +485,18 @@ export default function VaraEthStreamDashboard({ evmAddress }: { evmAddress?: st
 
       {/* Balances row */}
       {evmAddress && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             {
               label: 'wVARA Balance',
+              value: wvaraBal ? fmtUnits(wvaraBal.balance, wvaraBal.decimals) : '—',
+              sub: 'In connected ETH wallet',
+              color: 'text-emerald-400',
+            },
+            {
+              label: 'Streaming Token',
               value: tokenBal ? fmtUnits(tokenBal.balance, tokenBal.decimals) : '—',
-              sub: 'Streaming Token',
+              sub: 'Escrow token',
               color: 'text-emerald-400',
             },
             {

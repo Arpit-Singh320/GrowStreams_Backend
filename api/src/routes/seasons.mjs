@@ -110,8 +110,9 @@ router.get('/:idOrSlug/leaderboard', async (req, res, next) => {
 
     const page = Math.max(1, parseInt(req.query.page || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '50', 10)));
+    const sortBy = req.query.sortBy === 'streak' ? 'streak' : 'seeds';
 
-    const result = await getSeasonLeaderboard(season.id, page, limit);
+    const result = await getSeasonLeaderboard(season.id, page, limit, sortBy);
     res.json({
       season: {
         id: season.id,

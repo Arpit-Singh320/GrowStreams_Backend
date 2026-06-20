@@ -26,7 +26,10 @@ interface LbRow {
   quests_completed: number;
   last_completed_at: string | null;
   onchain_xp?: number | null;
+  streak: number;
 }
+
+type SortBy = 'seeds' | 'streak';
 
 // Level system: every 200 XP = 1 level (Lv 1 = 0–199 XP, Lv 2 = 200–399, ...)
 // 0 XP → Lv 1, 200 XP → Lv 2, 400 XP → Lv 3, ...
@@ -143,11 +146,6 @@ function Row({
   const color = levelColor(lvl);
   const badge = rankBadge(rank);
 
-  // Streak proxy: days since last completion
-  const daysSinceLast = row.last_completed_at
-    ? Math.max(0, Math.floor((Date.now() - new Date(row.last_completed_at).getTime()) / 86400000))
-    : null;
-
   return (
     <div
       className={`flex items-center gap-3 px-4 py-3 border-b border-provn-border/40 last:border-b-0 transition-colors ${
@@ -229,12 +227,12 @@ function Row({
           <Trophy className="w-3 h-3 text-amber-400" />
           <span className="text-provn-text font-medium">{row.quests_completed}</span>
         </div>
-        {daysSinceLast !== null && daysSinceLast <= 7 && (
-          <div className="flex items-center gap-1">
-            <Flame className="w-3 h-3 text-orange-400" />
-            <span className="text-provn-text font-medium">{daysSinceLast === 0 ? 'today' : `${daysSinceLast}d`}</span>
-          </div>
-        )}
+        <div className="flex items-center gap-1" title="Daily stream streak">
+          <Flame className={`w-3 h-3 ${row.streak > 0 ? 'text-orange-400' : 'text-provn-muted/40'}`} />
+          <span className={row.streak > 0 ? 'text-provn-text font-medium' : 'text-provn-muted/50'}>
+            {row.streak > 0 ? `${row.streak}d` : '—'}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -250,6 +248,7 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortBy>('seeds');
 
   // Season state
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -267,13 +266,14 @@ export default function LeaderboardPage() {
     }).catch(console.error);
   }, []);
 
-  const load = async (season?: Season | null) => {
+  const load = async (season?: Season | null, sort?: SortBy) => {
     const s = season !== undefined ? season : selectedSeason;
+    const sortKey = sort ?? sortBy;
     if (!s) return;
     setLoading(true);
     setError('');
     try {
-      const res = await api.seasons.leaderboard(s.id, 1, 100);
+      const res = await api.seasons.leaderboard(s.id, 1, 100, sortKey);
       const lb: LbRow[] = res.participants.map(p => ({
         wallet: p.wallet,
         display_name: p.displayName,
@@ -283,6 +283,7 @@ export default function LeaderboardPage() {
         quests_completed: p.questCompletions,
         last_completed_at: null,
         onchain_xp: p.seasonSeeds,
+        streak: p.streak ?? 0,
       }));
       setRows(lb);
       setSeasonStats(res.stats);
@@ -294,7 +295,7 @@ export default function LeaderboardPage() {
     }
   };
 
-  useEffect(() => { if (selectedSeason) load(selectedSeason); }, [selectedSeason]);
+  useEffect(() => { if (selectedSeason) load(selectedSeason, sortBy); }, [selectedSeason, sortBy]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return rows;
@@ -447,16 +448,36 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-provn-muted" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by handle, GitHub, or wallet..."
-          className="w-full pl-9 pr-4 py-2.5 bg-provn-surface border border-provn-border rounded-lg text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/50"
-        />
+      {/* Search + sort */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-provn-muted" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by handle, GitHub, or wallet..."
+            className="w-full pl-9 pr-4 py-2.5 bg-provn-surface border border-provn-border rounded-lg text-sm focus:outline-none focus:border-emerald-500/50 placeholder:text-provn-muted/50"
+          />
+        </div>
+        <div className="flex items-center rounded-lg border border-provn-border bg-provn-surface overflow-hidden flex-shrink-0">
+          <button
+            onClick={() => setSortBy('seeds')}
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors ${
+              sortBy === 'seeds' ? 'bg-emerald-500/15 text-emerald-300' : 'text-provn-muted hover:text-provn-text'
+            }`}
+          >
+            <Sprout className="w-3.5 h-3.5" /> XP
+          </button>
+          <button
+            onClick={() => setSortBy('streak')}
+            className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors ${
+              sortBy === 'streak' ? 'bg-orange-500/15 text-orange-300' : 'text-provn-muted hover:text-provn-text'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" /> Streak
+          </button>
+        </div>
       </div>
 
       {/* Table */}
