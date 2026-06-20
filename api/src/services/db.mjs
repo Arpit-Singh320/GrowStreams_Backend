@@ -60,9 +60,11 @@ export async function queryAll(text, params = []) {
  * Run the migration to create all tables.
  */
 export async function migrate() {
-  console.log('[db] Skipping migrations — DATABASE_URL not set');
   const p = getPool();
-  if (!p) return;
+  if (!p) {
+    console.log('[db] Skipping migrations — DATABASE_URL not set');
+    return;
+  }
 
   // -----------------------------------------------------------------------
   // Core tables (original)
@@ -216,6 +218,157 @@ export async function migrate() {
       completed_at      TIMESTAMPTZ
     );
   `);
+
+  // -----------------------------------------------------------------------
+  // V4: Add essential on-chain transaction fields for analytics
+  // -----------------------------------------------------------------------
+  console.log('[db] Adding on-chain transaction fields to event tables...');
+
+  await p.query(`
+    ALTER TABLE stream_events
+    ADD COLUMN IF NOT EXISTS block_number BIGINT,
+    ADD COLUMN IF NOT EXISTS tx_timestamp TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS from_address TEXT,
+    ADD COLUMN IF NOT EXISTS to_address TEXT,
+    ADD COLUMN IF NOT EXISTS gas_used BIGINT,
+    ADD COLUMN IF NOT EXISTS gas_price TEXT,
+    ADD COLUMN IF NOT EXISTS chain_id TEXT,
+    ADD COLUMN IF NOT EXISTS tx_status TEXT DEFAULT 'unknown' CHECK (tx_status IN ('pending', 'confirmed', 'failed', 'unknown'));
+  `);
+
+  await p.query(`
+    ALTER TABLE vault_events
+    ADD COLUMN IF NOT EXISTS block_number BIGINT,
+    ADD COLUMN IF NOT EXISTS tx_timestamp TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS from_address TEXT,
+    ADD COLUMN IF NOT EXISTS to_address TEXT,
+    ADD COLUMN IF NOT EXISTS gas_used BIGINT,
+    ADD COLUMN IF NOT EXISTS gas_price TEXT,
+    ADD COLUMN IF NOT EXISTS chain_id TEXT,
+    ADD COLUMN IF NOT EXISTS tx_status TEXT DEFAULT 'unknown' CHECK (tx_status IN ('pending', 'confirmed', 'failed', 'unknown'));
+  `);
+
+  await p.query(`
+    ALTER TABLE bridge_transactions
+    ADD COLUMN IF NOT EXISTS block_number BIGINT,
+    ADD COLUMN IF NOT EXISTS tx_timestamp TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS from_address TEXT,
+    ADD COLUMN IF NOT EXISTS to_address TEXT,
+    ADD COLUMN IF NOT EXISTS gas_used BIGINT,
+    ADD COLUMN IF NOT EXISTS gas_price TEXT,
+    ADD COLUMN IF NOT EXISTS chain_id TEXT,
+    ADD COLUMN IF NOT EXISTS tx_status TEXT DEFAULT 'unknown' CHECK (tx_status IN ('pending', 'confirmed', 'failed', 'unknown'));
+  `);
+
+  // Create indexes for analytics queries
+  await p.query(`
+    CREATE INDEX IF NOT EXISTS idx_stream_events_block_number ON stream_events(block_number);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_tx_timestamp ON stream_events(tx_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_from_address ON stream_events(from_address);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_to_address ON stream_events(to_address);
+    CREATE INDEX IF NOT EXISTS idx_stream_events_tx_status ON stream_events(tx_status);
+  `);
+
+  await p.query(`
+    CREATE INDEX IF NOT EXISTS idx_vault_events_block_number ON vault_events(block_number);
+    CREATE INDEX IF NOT EXISTS idx_vault_events_tx_timestamp ON vault_events(tx_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_vault_events_from_address ON vault_events(from_address);
+    CREATE INDEX IF NOT EXISTS idx_vault_events_to_address ON vault_events(to_address);
+    CREATE INDEX IF NOT EXISTS idx_vault_events_tx_status ON vault_events(tx_status);
+  `);
+
+  await p.query(`
+    CREATE INDEX IF NOT EXISTS idx_bridge_transactions_block_number ON bridge_transactions(block_number);
+    CREATE INDEX IF NOT EXISTS idx_bridge_transactions_tx_timestamp ON bridge_transactions(tx_timestamp);
+    CREATE INDEX IF NOT EXISTS idx_bridge_transactions_from_address ON bridge_transactions(from_address);
+    CREATE INDEX IF NOT EXISTS idx_bridge_transactions_to_address ON bridge_transactions(to_address);
+    CREATE INDEX IF NOT EXISTS idx_bridge_transactions_tx_status ON bridge_transactions(tx_status);
+  `);
+
+  console.log('[db] On-chain transaction fields added successfully');
+
+  // -----------------------------------------------------------------------
+  // V5: Fix token symbols in event tables
+  // -----------------------------------------------------------------------
+  console.log('[db] Fixing token symbols in event tables...');
+
+  // Import token resolution function
+  const { getTokenByVaraAddress } = await import('../config/tokens.mjs');
+
+  // Fix stream_events token symbols
+  const streamRows = await p.query(
+    `SELECT id, token_address, token_symbol
+     FROM stream_events
+     WHERE token_symbol LIKE '0x0000%'
+       OR token_symbol IS NULL
+       OR token_symbol = ''`
+  );
+
+  let streamFixed = 0;
+  let streamUnknown = 0;
+  for (const row of streamRows.rows) {
+    if (row.token_address && !row.token_address.includes('0x0000')) {
+      const tokenInfo = getTokenByVaraAddress(row.token_address);
+      if (tokenInfo && tokenInfo.symbol) {
+        await p.query(
+          `UPDATE stream_events SET token_symbol = $1 WHERE id = $2`,
+          [tokenInfo.symbol, row.id]
+        );
+        streamFixed++;
+      } else {
+        await p.query(
+          `UPDATE stream_events SET token_symbol = 'UNKNOWN' WHERE id = $1`,
+          [row.id]
+        );
+        streamUnknown++;
+      }
+    } else {
+      await p.query(
+        `UPDATE stream_events SET token_symbol = 'UNKNOWN' WHERE id = $1`,
+        [row.id]
+      );
+      streamUnknown++;
+    }
+  }
+  console.log(`[db] Fixed ${streamFixed} stream_events token symbols, marked ${streamUnknown} as UNKNOWN`);
+
+  // Fix vault_events token symbols
+  const vaultRows = await p.query(
+    `SELECT id, token_address, token_symbol
+     FROM vault_events
+     WHERE token_symbol LIKE '0x0000%'
+       OR token_symbol IS NULL
+       OR token_symbol = ''`
+  );
+
+  let vaultFixed = 0;
+  let vaultUnknown = 0;
+  for (const row of vaultRows.rows) {
+    if (row.token_address && !row.token_address.includes('0x0000')) {
+      const tokenInfo = getTokenByVaraAddress(row.token_address);
+      if (tokenInfo && tokenInfo.symbol) {
+        await p.query(
+          `UPDATE vault_events SET token_symbol = $1 WHERE id = $2`,
+          [tokenInfo.symbol, row.id]
+        );
+        vaultFixed++;
+      } else {
+        await p.query(
+          `UPDATE vault_events SET token_symbol = 'UNKNOWN' WHERE id = $1`,
+          [row.id]
+        );
+        vaultUnknown++;
+      }
+    } else {
+      await p.query(
+        `UPDATE vault_events SET token_symbol = 'UNKNOWN' WHERE id = $1`,
+        [row.id]
+      );
+      vaultUnknown++;
+    }
+  }
+  console.log(`[db] Fixed ${vaultFixed} vault_events token symbols, marked ${vaultUnknown} as UNKNOWN`);
+  console.log('[db] Token symbol fix completed');
 
   await p.query(`
     CREATE TABLE IF NOT EXISTS analytics_protocol_snapshots (
