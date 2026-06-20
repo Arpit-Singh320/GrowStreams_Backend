@@ -1076,4 +1076,16 @@ export const api = {
         '/api/voucher/stats'
       ),
   },
+
+  // ─── gVARA super-token (wrap wVARA ↔ gVARA) ────────────────────────────────
+  gvara: {
+    meta: () =>
+      get<{ name: string; symbol: string; decimals: number; total_supply: string; total_supply_display: string }>('/api/gvara/meta'),
+    balance: (address: string) =>
+      get<{ account: string; balance: string; balance_display: string; static_balance: string; static_balance_display: string; net_flow_rate: string }>(`/api/gvara/balance/${address}`),
+    wrapNative: (params: { amount?: string; amountRaw?: string; mode?: string }) =>
+      post<{ payload: string; value: string }>('/api/gvara/wrap-native', params as unknown as Record<string, unknown>),
+    unwrapNative: (params: { amount?: string; amountRaw?: string; mode?: string }) =>
+      post<{ payload: string } | TxResult>('/api/gvara/unwrap-native', params as unknown as Record<string, unknown>),
+  },
 };

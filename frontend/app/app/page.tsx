@@ -66,6 +66,7 @@ export default function DashboardPage() {
   const [campaignUSDC, setCampaignUSDC] = useState<number | null>(null);
   const [tokenBalances, setTokenBalances] = useState<Record<string, { wallet: string; vault: string }>>({});
   const [showTokenBalances, setShowTokenBalances] = useState(true);
+  const [gvaraBalance, setGvaraBalance] = useState('0');
 
   const loadDashboard = useCallback(async () => {
     if (!account?.decodedAddress) return;
@@ -140,6 +141,13 @@ export default function DashboardPage() {
         setTokenBalances(bals);
       } catch {
         // V3 endpoints may not be available
+      }
+      // Load gVARA balance
+      try {
+        const gb = await api.gvara.balance(hex);
+        setGvaraBalance(gb.balance_display || '0');
+      } catch {
+        // gVARA may not be configured yet
       }
     } catch (err) {
       console.error('Dashboard load failed:', err);
@@ -222,7 +230,29 @@ export default function DashboardPage() {
         {showTokenBalances && (
           <div className="px-5 pb-4">
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-              {listTokens().filter((t: TokenConfig) => t.key !== 'GROW' && t.key !== 'VARA').map((tok: TokenConfig) => {
+              {/* gVARA super-token card */}
+              <Link href="/app/vault" className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-xl p-3 hover:border-emerald-500/50 transition-colors group">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-emerald-400">gV</span>
+                  </div>
+                  <span className="text-xs font-semibold text-emerald-400">gVARA</span>
+                </div>
+                {parseFloat(gvaraBalance) > 0 && (
+                  <p className="text-lg font-bold font-mono text-emerald-400 mb-1.5">{fmtNum(parseFloat(gvaraBalance))}</p>
+                )}
+                <div className="space-y-1">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[10px] text-provn-muted">Wallet</span>
+                    <span className="text-xs font-mono font-medium">{fmtNum(parseFloat(gvaraBalance))}</span>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-[10px] text-provn-muted">Superfluid</span>
+                    <span className="text-[10px] text-emerald-400">streaming token</span>
+                  </div>
+                </div>
+              </Link>
+              {listTokens().filter((t: TokenConfig) => t.key !== 'GROW' && t.key !== 'VARA' && t.key !== 'WTVARA' && t.key !== 'GVARA').map((tok: TokenConfig) => {
                 const b = tokenBalances[tok.key] || { wallet: '0', vault: '0' };
                 // Values are already in display units from the API
                 const walletVal = parseFloat(b.wallet) || 0;

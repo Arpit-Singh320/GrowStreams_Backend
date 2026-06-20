@@ -24,7 +24,7 @@ export default function VaraEthPage() {
           Vara.eth Streams
         </h1>
         <p className="text-xs text-provn-muted mt-0.5">
-          EVM-native token streaming powered by Vara.eth on Hoodi testnet
+          EVM-native token streaming powered by Vara.eth on Ethereum Mainnet
         </p>
       </div>
 

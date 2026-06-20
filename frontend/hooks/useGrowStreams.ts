@@ -8,7 +8,7 @@ import { decodeAddress } from '@gear-js/api';
 import { api as gsApi, type PayloadResult, type TxResult } from '@/lib/growstreams-api';
 
 export const PROGRAM_IDS: Record<string, string> = {
-  streamCore: '0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d',
+  streamCore: '0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4',
   tokenVault: '0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef',
   growToken: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
   splitsRouter: '0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45',
@@ -17,6 +17,7 @@ export const PROGRAM_IDS: Record<string, string> = {
   identityRegistry: '0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29',
   questSeeds: '0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d',
   wvara: '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d',
+  gvaraToken: '0x71de1ef1f4dec1a4fe862aa6c92747c8499bbf1af128625749027392709f4a72',
 };
 
 interface SendResult {
@@ -91,23 +92,39 @@ export function useGearSign() {
           throw new Error('Could not access wallet signer. Please reconnect your wallet.');
         }
 
-        const gas = await api.program.calculateGas.handle(
-          account.decodedAddress as `0x${string}`,
-          programId,
-          payloadHex as `0x${string}`,
-          value,
-          true,
-        );
-
-        const minGas = BigInt(gas.min_limit.toString());
-        const gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
-
+        const FIXED_GAS = '50000000000';       // 50B — safe for simple calls
+        const ASYNC_GAS  = '100000000000';      // 100B — for async cross-contract calls (stream-core, gVARA)
         // Convert value to string for API compatibility
         const valueStr = typeof value === 'string' ? value : String(value);
         const hasValue = BigInt(valueStr) > BigInt(0);
 
-        // Try to get a gasless voucher (but skip if sending value - vouchers can't cover value transfers)
-        const voucherId = hasValue ? null : await getOrIssueVoucher(account.decodedAddress);
+        // Skip gas estimation for contracts that make async cross-contract calls:
+        // stream-core (calls gVARA.UpdateFlow / vault) and gVARA (sends VARA reply)
+        const isAsyncCall = programId === PROGRAM_IDS.gvaraToken || programId === PROGRAM_IDS.streamCore;
+
+        let gasLimit = isAsyncCall ? ASYNC_GAS : FIXED_GAS;
+        if (!hasValue && !isAsyncCall) {
+          // Only estimate gas for simple zero-value messages without async calls
+          try {
+            const gas = await api.program.calculateGas.handle(
+              account.decodedAddress as `0x${string}`,
+              programId,
+              payloadHex as `0x${string}`,
+              0,
+              true,
+            );
+            const minGas = BigInt(gas.min_limit.toString());
+            gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
+          } catch {
+            gasLimit = FIXED_GAS;
+          }
+        }
+
+        // Skip voucher for gVARA contract — UnwrapNative sends VARA back via msg::send,
+        // which is incompatible with voucher-wrapped calls on Vara mainnet.
+        const isGvaraCall = programId === PROGRAM_IDS.gvaraToken;
+        // Try to get a gasless voucher (but skip if sending value or calling gVARA)
+        const voucherId = (hasValue || isGvaraCall) ? null : await getOrIssueVoucher(account.decodedAddress);
 
         return new Promise((resolve, reject) => {
           let tx;

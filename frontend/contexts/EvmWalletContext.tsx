@@ -10,14 +10,14 @@ import {
 } from 'react';
 
 // ---------------------------------------------------------------------------
-// Vara.eth Hoodi testnet chain params for wallet_addEthereumChain
+// Vara.eth Ethereum Mainnet chain params for wallet_addEthereumChain
 // ---------------------------------------------------------------------------
 const VARA_ETH_CHAIN = {
-  chainId: '0x88bb0',
-  chainName: 'Vara.eth (Hoodi Testnet)',
-  nativeCurrency: { name: 'Hoodi Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: ['https://hoodi-reth-rpc.gear-tech.io'],
-  blockExplorerUrls: ['https://hoodi.etherscan.io'],
+  chainId: '0x1',
+  chainName: 'Ethereum Mainnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: ['https://mainnet-reth-rpc.gear-tech.io'],
+  blockExplorerUrls: ['https://etherscan.io'],
 };
 
 // ---------------------------------------------------------------------------

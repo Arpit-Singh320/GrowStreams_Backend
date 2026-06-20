@@ -117,6 +117,20 @@ export const SUPPORTED_TOKENS: Record<string, TokenConfig> = {
     color: 'text-emerald-400',
     colorAccent: 'emerald',
   },
+  GVARA: {
+    key: 'GVARA',
+    symbol: 'gVARA',
+    name: 'GrowStreams VARA',
+    decimals: 12,
+    vara: '0x71de1ef1f4dec1a4fe862aa6c92747c8499bbf1af128625749027392709f4a72',
+    eth: null,
+    icon: '/tokens/vara.svg',
+    category: 'native',
+    isStablecoin: false,
+    minBuffer: 3600,
+    color: 'text-teal-400',
+    colorAccent: 'emerald',
+  },
 };
 
 // ─── Lookup helpers ──────────────────────────────────────────
@@ -149,7 +163,7 @@ export function listStablecoins(): TokenConfig[] {
 }
 
 export function listStreamableTokens(): TokenConfig[] {
-  return listTokens().filter(t => !t.comingSoon && t.key !== 'VARA');
+  return listTokens().filter(t => !t.comingSoon && t.key !== 'VARA' && t.key !== 'WTVARA');
 }
 
 // ─── Decimal conversion ──────────────────────────────────────

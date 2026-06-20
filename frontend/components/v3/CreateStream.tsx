@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useAccount } from '@gear-js/react-hooks';
 import { useStreamActions } from '@/hooks/useGrowStreams';
 import { useTokenSelector, useWalletBalances, useVaultBalances } from '@/hooks/useTokens';
+import { api } from '@/lib/growstreams-api';
 import {
   type TokenConfig,
   listStreamableTokens,
@@ -36,9 +37,18 @@ export default function CreateStream({ onCreated }: CreateStreamProps) {
   const [depositAmount, setDepositAmount] = useState('');
   const [streamName, setStreamName] = useState('');
   const [busy, setBusy] = useState(false);
+  const [gvaraWalletBal, setGvaraWalletBal] = useState('0');
+
+  useEffect(() => {
+    if (!account?.decodedAddress) return;
+    api.gvara.balance(account.decodedAddress)
+      .then(b => setGvaraWalletBal(b.balance_display || '0'))
+      .catch(() => {});
+  }, [account?.decodedAddress]);
 
   const walletBalMap: Record<string, string> = {};
   for (const wb of walletBalances) walletBalMap[wb.key] = wb.balance;
+  walletBalMap['GVARA'] = gvaraWalletBal;
   const vaultBalMap: Record<string, string> = {};
   for (const vb of vaultBals) vaultBalMap[vb.key] = vb.available_display;
 
@@ -84,9 +94,13 @@ export default function CreateStream({ onCreated }: CreateStreamProps) {
 
     setBusy(true);
     try {
+      // gVARA streams: pass wVARA address as token — stream-core maps wVARA→gVARA internally
+      const tokenAddress = tok.key === 'GVARA'
+        ? '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d'
+        : tok.vara;
       await actions.createStream(
         receiver,
-        tok.vara,
+        tokenAddress,
         flowRatePerSecond.toString(),
         depositBaseUnits.toString(),
       );
@@ -200,6 +214,20 @@ export default function CreateStream({ onCreated }: CreateStreamProps) {
             ))}
           </div>
         )}
+        {tok.key === 'GVARA' && (
+          <div className="flex gap-1.5 mt-1.5">
+            {['1', '5', '10', '50', '100'].map(v => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setFlowRateAmount(v)}
+                className="px-2 py-0.5 rounded text-[10px] border border-provn-border/50 text-provn-muted hover:text-teal-400 hover:border-teal-500/30 transition-colors"
+              >
+                {v}{INTERVAL_LABELS[flowRateInterval]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Initial deposit */}
@@ -230,6 +258,20 @@ export default function CreateStream({ onCreated }: CreateStreamProps) {
                 type="button"
                 onClick={() => setDepositAmount(v)}
                 className="px-2 py-0.5 rounded text-[10px] border border-provn-border/50 text-provn-muted hover:text-emerald-400 hover:border-emerald-500/30 transition-colors"
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        )}
+        {tok.key === 'GVARA' && (
+          <div className="flex gap-1.5 mt-1.5">
+            {['1', '5', '10', '50', '100'].map(v => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setDepositAmount(v)}
+                className="px-2 py-0.5 rounded text-[10px] border border-provn-border/50 text-provn-muted hover:text-teal-400 hover:border-teal-500/30 transition-colors"
               >
                 {v}
               </button>

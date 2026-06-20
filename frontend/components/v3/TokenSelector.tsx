@@ -124,6 +124,9 @@ export default function TokenSelector({
                       {token.isStablecoin && (
                         <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full">Stable</span>
                       )}
+                      {token.key === 'GVARA' && (
+                        <span className="text-[9px] bg-teal-500/10 text-teal-400 px-1.5 py-0.5 rounded-full">Super</span>
+                      )}
                       {token.comingSoon && (
                         <span className="text-[9px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full">Soon</span>
                       )}

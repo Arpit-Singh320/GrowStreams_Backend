@@ -41,6 +41,13 @@ for (const k of required) {
 
 const { ETH_PRIVATE_KEY, VARA_ETH_RPC, VARA_ETH_CHAIN_ID } = process.env;
 const chainId = parseInt(VARA_ETH_CHAIN_ID, 10);
+const networkName = process.env.VARA_ETH_NETWORK_NAME || (chainId === 1 ? 'Ethereum Mainnet' : `Vara.eth chain ${chainId}`);
+const isEthMainnet = chainId === 1;
+
+if (isEthMainnet && process.env.VARA_ETH_MAINNET_CONFIRM !== 'DEPLOY_TO_MAINNET') {
+  console.error('Error: set VARA_ETH_MAINNET_CONFIRM=DEPLOY_TO_MAINNET in .env to deploy to Ethereum mainnet.');
+  process.exit(1);
+}
 
 const CONTRACTS_DIR = resolve(ROOT, 'contracts/vara-eth/stream-escrow');
 const STREAM_CORE_ETH_SOL = readFileSync(resolve(CONTRACTS_DIR, 'StreamCoreEth.sol'), 'utf8');
@@ -99,23 +106,24 @@ writeFileSync(resolve(BUILD_DIR, 'StreamEscrow.json'), JSON.stringify({
 }, null, 2));
 console.log('  Saved to contracts/vara-eth/stream-escrow/build/');
 
-// ── Deploy StreamCoreEthAbi to Hoodi ──────────────────────────────────────
+// ── Deploy StreamCoreEthAbi ───────────────────────────────────────────────
 console.log('');
-console.log('=== Deploying StreamCoreEthAbi to Hoodi testnet ===');
+console.log(`=== Deploying StreamCoreEthAbi to ${networkName} (chainId ${chainId}) ===`);
 
-const hoodiChain = {
+const targetChain = {
   id: chainId,
-  name: 'Vara.eth Hoodi Testnet',
-  nativeCurrency: { name: 'Hoodi ETH', symbol: 'ETH', decimals: 18 },
+  name: networkName,
+  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: [VARA_ETH_RPC] } },
 };
 
 const account = privateKeyToAccount(
   ETH_PRIVATE_KEY.startsWith('0x') ? ETH_PRIVATE_KEY : `0x${ETH_PRIVATE_KEY}`
 );
-const publicClient = createPublicClient({ chain: hoodiChain, transport: http(VARA_ETH_RPC) });
-const walletClient = createWalletClient({ account, chain: hoodiChain, transport: http(VARA_ETH_RPC) });
+const publicClient = createPublicClient({ chain: targetChain, transport: http(VARA_ETH_RPC) });
+const walletClient = createWalletClient({ account, chain: targetChain, transport: http(VARA_ETH_RPC) });
 
+console.log('Network :', networkName);
 console.log('Deployer:', account.address);
 
 const hash = await walletClient.deployContract({
@@ -156,7 +164,7 @@ let state = {};
 try { state = JSON.parse(readFileSync(stateFile, 'utf8')); } catch {}
 state['stream-core-eth-abi'] = {
   address: abiAddress,
-  network: 'vara-eth-hoodi',
+  network: isEthMainnet ? 'ethereum-mainnet' : `vara-eth-${chainId}`,
   deployedAt: new Date().toISOString(),
   txHash: hash,
 };
