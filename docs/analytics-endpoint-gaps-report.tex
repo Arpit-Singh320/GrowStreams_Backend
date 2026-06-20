@@ -1,0 +1,374 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{longtable}
+
+\geometry{
+    left=25mm,
+    right=25mm,
+    top=25mm,
+    bottom=25mm
+}
+
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegray},
+    keywordstyle=\color{codepurple},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    language=bash
+}
+
+\lstset{style=mystyle}
+
+\titleformat{\section}
+{\normalfont\Large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}
+{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}
+{\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+
+\title{\textbf{Analytics Endpoint Gaps \& Limitations Report}}
+\author{GrowStreams Backend Audit}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Executive Summary}
+
+This report identifies critical gaps and limitations in the GrowStreams analytics endpoints that prevent the system from achieving enterprise-grade KPI accuracy and reliability. The audit reveals 10 distinct issues ranging from critical URL construction errors to data quality problems that impact user experience and metric reliability.
+
+\textbf{Key Findings:}
+\begin{itemize}
+    \item 1 Critical issue blocking transaction verification
+    \item 2 High-priority issues affecting data accuracy
+    \item 3 Medium-priority issues impacting metric completeness
+    \item 4 Low-priority data quality issues
+\end{itemize}
+
+\section{Critical Issues Blocking Enterprise-Grade KPIs}
+
+\subsection{1. Explorer URL Construction Error (CRITICAL)}
+
+\textbf{Endpoint:} \texttt{/transactions}
+
+\textbf{Problem:} Explorer URLs are constructed incorrectly using \texttt{block\_hash} instead of transaction hash/extrinsic hash.
+
+\textbf{Current URL pattern:}
+\begin{lstlisting}
+https://idea.gear-tech.io/extrinsics/{block_hash}?node=wss%3A%2F%2Frpc.vara.network
+\end{lstlisting}
+
+\textbf{Issue:} Block hashes identify blocks, not individual transactions. The Vara explorer expects extrinsic hashes (transaction IDs) in the \texttt{/extrinsics/} path.
+
+\textbf{Impact:} All explorer links lead to "something went wrong, oops page not found". Users cannot verify transactions on-chain.
+
+\textbf{Root Cause:} The \texttt{block\_hash} field in \texttt{stream\_events} and \texttt{vault\_events} is being used for explorer URLs instead of \texttt{extrinsic\_hash}.
+
+\textbf{Fix Required:}
+\begin{lstlisting}
+// Current (WRONG):
+explorerUrl: `https://idea.gear-tech.io/extrinsics/${block_hash}?node=wss%3A%2F%2Frpc.vara.network`
+
+// Should be (CORRECT):
+explorerUrl: `https://idea.gear-tech.io/extrinsics/${extrinsic_hash}?node=wss%3A%2F%2Frpc.vara.network`
+\end{lstlisting}
+
+\textbf{Note:} The database needs \texttt{extrinsic\_hash} column populated by the indexer. \texttt{block\_hash} is insufficient for transaction verification.
+
+\subsection{2. Token Symbol Resolution Failure (HIGH)}
+
+\textbf{Endpoint:} \texttt{/transactions}
+
+\textbf{Problem:} Stream events show zero-address token symbols instead of actual token symbols.
+
+\textbf{Example from endpoint:}
+\begin{lstlisting}
+{
+  "event_type": "created",
+  "token_symbol": "0x0000000000000000000000000000000000000000000000000000000000000000"
+}
+\end{lstlisting}
+
+\textbf{Impact:} Users cannot identify which token was used in stream creation events. Transactions appear broken.
+
+\textbf{Root Cause:} Stream events don't capture token addresses/symbols during stream creation. The indexer only captures receiver address and amount.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Add \texttt{token\_address} column to \texttt{stream\_events} table
+    \item Update indexer to capture token address from stream creation events
+    \item Add token symbol resolution logic using token address $\rightarrow$ symbol mapping
+\end{itemize}
+
+\subsection{3. Missing Sender/Receiver Information (MEDIUM)}
+
+\textbf{Endpoint:} \texttt{/transactions}
+
+\textbf{Problem:} Stream events have \texttt{sender: null} and \texttt{receiver: 0x0000000000000000000000000000000000000000000000000000000000000001} (zero address).
+
+\textbf{Example:}
+\begin{lstlisting}
+{
+  "event_type": "created",
+  "sender": null,
+  "receiver": "0x0000000000000000000000000000000000000000000000000000000000000001"
+}
+\end{lstlisting}
+
+\textbf{Impact:} Cannot identify who created streams or who the receiver is. Transactions lack context.
+
+\textbf{Root Cause:} Stream creation events don't capture sender/receiver wallet addresses properly.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Update indexer to capture actual sender wallet from transaction origin
+    \item Capture actual receiver wallet from stream creation parameters
+    \item Remove hardcoded zero-address fallback
+\end{itemize}
+
+\subsection{4. TVL Pricing RPC Failure (HIGH)}
+
+\textbf{Endpoint:} \texttt{/summary}, \texttt{/tvl}
+
+\textbf{Problem:} 4 out of 7 tokens return RPC errors preventing TVL calculation.
+
+\textbf{Error:}
+\begin{lstlisting}
+"error": "8000: Runtime error: \"Internal error: entered unreachable code 'Failed to get last message from the queue'\""
+\end{lstlisting}
+
+\textbf{Affected Tokens:} WUSDC, WUSDT, WETH, WBTC
+
+\textbf{Impact:} TVL shows \$0 despite vault holding 189.8 wVARA + 155 VARA. USD estimates only cover stablecoins marked at \$1, but even stablecoin queries are failing.
+
+\textbf{Root Cause:} Vara RPC queue failure or Gear-JS client issue when querying token balances.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Implement retry logic with exponential backoff for RPC calls
+    \item Add fallback pricing source (CoinGecko, CoinMarketCap)
+    \item Add RPC health check endpoint
+    \item Cache successful responses to reduce RPC load
+\end{itemize}
+
+\subsection{5. DAU Calculation Broken (MEDIUM)}
+
+\textbf{Endpoint:} \texttt{/summary}, \texttt{/activity}, \texttt{/history}
+
+\textbf{Problem:} \texttt{dau: 0} despite recent activity (last activity at 2026-06-18T16:48:24.236Z).
+
+\textbf{History snapshot shows inconsistency:}
+\begin{lstlisting}
+{
+  "snapped_at": "2026-06-18T18:00:01.427Z",
+  "dau": 0,
+  "observed_unique_wallets": 68
+}
+\end{lstlisting}
+
+\textbf{Impact:} Daily Active Users metric is broken despite 68 unique wallets observed.
+
+\textbf{Root Cause:} DAU calculation logic in \texttt{getActivityMetrics()} not correctly identifying unique wallets in the 24-hour time window.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Debug DAU calculation query time window
+    \item Verify \texttt{created\_at} timestamps in \texttt{stream\_events} and \texttt{vault\_events}
+    \item Cross-check DAU with \texttt{observed\_unique\_wallets} logic
+\end{itemize}
+
+\subsection{6. On-Chain Indexer Not Running (MEDIUM)}
+
+\textbf{Endpoint:} \texttt{/summary} $\rightarrow$ \texttt{freshness}
+
+\textbf{Problem:}
+\begin{lstlisting}
+"indexerRunning": false,
+"source": "backend_command_logs_fallback"
+\end{lstlisting}
+
+\textbf{Impact:} Activity metrics rely on backend command logs instead of authoritative on-chain events. This is a temporary fallback that should not be permanent.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Start the on-chain event indexer (Subsquid or Gear-JS event polling)
+    \item Monitor indexer health
+    \item Add alerts when indexer stops
+\end{itemize}
+
+\subsection{7. Volume Coverage Limited (MEDIUM)}
+
+\textbf{Endpoint:} \texttt{/activity}, \texttt{/volume-history}
+
+\textbf{Problem:}
+\begin{lstlisting}
+"coverage": "stablecoin_stream_withdrawals_and_completed_bridge_transfers_only"
+\end{lstlisting}
+
+\textbf{Impact:} Volume metrics only count stablecoin withdrawals. Volatile token volume (wVARA, VARA, WETH, WBTC) is excluded. Actual volume is likely higher than reported.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Implement external price oracle (CoinGecko, CoinMarketCap)
+    \item Add USD pricing for volatile tokens
+    \item Update volume calculation to include all token types
+\end{itemize}
+
+\subsection{8. Missing Transaction Metadata (LOW)}
+
+\textbf{Endpoint:} \texttt{/transactions}
+
+\textbf{Problem:} Vault events have \texttt{metadata: null} while stream events have metadata.
+
+\textbf{Example:}
+\begin{lstlisting}
+{
+  "event_type": "deposit",
+  "metadata": null
+}
+\end{lstlisting}
+
+\textbf{Impact:} Cannot distinguish between different types of deposits or additional context.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Add metadata capture for vault events (e.g., deposit source, withdrawal reason)
+\end{itemize}
+
+\subsection{9. Wallet Activity Tracking Incomplete (LOW)}
+
+\textbf{Endpoint:} \texttt{/wallets}
+
+\textbf{Problem:} Most wallets show zero activity despite being registered users.
+
+\textbf{Example:}
+\begin{lstlisting}
+{
+  "wallet": "0x064c4fb187267f2a3d47070351da5382610c6725803961d471bc16183677c56c",
+  "streamCount": 0,
+  "vaultCount": 0,
+  "bridgeCount": 0
+}
+\end{lstlisting}
+
+\textbf{Impact:} Wallet activity metrics don't reflect actual user engagement. 68 users registered but only 1-3 have activity.
+
+\textbf{Root Cause:} Wallet activity calculation only counts events with captured wallet addresses. Since many events have "unknown" or null wallets, they're not attributed to users.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Fix wallet address capture in event logs (see Issue \#2, \#3)
+    \item Re-run wallet activity aggregation after fixing transaction data
+\end{itemize}
+
+\subsection{10. Historical Data Inconsistency (LOW)}
+
+\textbf{Endpoint:} \texttt{/history}
+
+\textbf{Problem:} Historical snapshots show inconsistent data sources and metrics:
+
+\begin{lstlisting}
+{
+  "snapped_at": "2026-06-18T08:38:13.032Z",
+  "observed_volume_source": "api_event_logs_only",
+  "total_transactions": 0
+},
+{
+  "snapped_at": "2026-06-18T10:00:03.140Z",
+  "observed_volume_source": "on_chain_event_indexer",
+  "total_transactions": 0
+},
+{
+  "snapped_at": "2026-06-18T11:00:03.111Z",
+  "observed_volume_source": "backend_command_logs_fallback",
+  "total_transactions": 28
+}
+\end{lstlisting}
+
+\textbf{Impact:} Historical data shows different sources and inconsistent transaction counts, making trend analysis unreliable.
+
+\textbf{Fix Required:}
+\begin{itemize}
+    \item Standardize on a single authoritative data source
+    \item Re-calculate historical snapshots after fixing data quality issues
+\end{itemize}
+
+\section{Summary of Gaps by Priority}
+
+\subsection{CRITICAL (Must Fix for Enterprise KPIs)}
+\begin{enumerate}
+    \item Explorer URL construction using block\_hash instead of extrinsic\_hash
+    \item Token symbol resolution failure (zero-address symbols)
+\end{enumerate}
+
+\subsection{HIGH (Significantly Impacts KPI Accuracy)}
+\begin{enumerate}
+    \item TVL pricing RPC failures
+    \item Missing sender/receiver information in stream events
+\end{enumerate}
+
+\subsection{MEDIUM (Impacts KPI Completeness)}
+\begin{enumerate}
+    \item DAU calculation broken
+    \item On-chain indexer not running
+    \item Volume coverage limited to stablecoins only
+\end{enumerate}
+
+\subsection{LOW (Data Quality Issues)}
+\begin{enumerate}
+    \item Missing transaction metadata for vault events
+    \item Wallet activity tracking incomplete
+    \item Historical data inconsistency
+\end{enumerate}
+
+\section{Recommended Minimal Fixes}
+
+To make the 2 KPIs enterprise-grade with minimal backend changes:
+
+\subsection{Fix 1: Explorer URL Construction}
+Change URL from block\_hash to extrinsic\_hash (requires database schema change and indexer update).
+
+\subsection{Fix 2: Token Symbol Resolution}
+Add token\_address column to stream\_events and implement symbol lookup.
+
+\subsection{Fix 3: TVL Pricing Retry Logic}
+Add retry + fallback pricing for RPC failures.
+
+\subsection{Fix 4: DAU Calculation Debug}
+Fix the time-windowed query to correctly count active wallets.
+
+These 4 fixes would address the most visible gaps without major architecture changes.
+
+\section{Conclusion}
+
+The analytics endpoints have significant data quality issues that prevent enterprise-grade KPI accuracy. The most critical issues are the explorer URL construction error and token symbol resolution failure, which directly impact user experience. Addressing the recommended minimal fixes would significantly improve the reliability and usability of the analytics system.
+
+\end{document}

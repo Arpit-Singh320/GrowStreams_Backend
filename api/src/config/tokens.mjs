@@ -1,5 +1,5 @@
 // Token Registry — all supported tokens with full metadata
-// Vara addresses are VFT contract ActorIds on Vara testnet
+// Vara addresses are VFT contract ActorIds on Vara mainnet
 // ETH addresses are ERC-20 contract addresses on Ethereum Hoodi testnet
 
 export const SUPPORTED_TOKENS = {
@@ -13,6 +13,8 @@ export const SUPPORTED_TOKENS = {
     category: 'stablecoin',
     isStablecoin: true,
     minBuffer: 3600, // seconds of flow required as buffer
+    priceSource: 'coingecko',
+    coingeckoId: 'usd-coin',
   },
   WUSDT: {
     symbol: 'USDT',
@@ -24,6 +26,8 @@ export const SUPPORTED_TOKENS = {
     category: 'stablecoin',
     isStablecoin: true,
     minBuffer: 3600,
+    priceSource: 'coingecko',
+    coingeckoId: 'tether',
   },
   WETH: {
     symbol: 'WETH',
@@ -35,6 +39,8 @@ export const SUPPORTED_TOKENS = {
     category: 'volatile',
     isStablecoin: false,
     minBuffer: 3600,
+    priceSource: 'coingecko',
+    coingeckoId: 'ethereum',
   },
   WBTC: {
     symbol: 'WBTC',
@@ -46,6 +52,8 @@ export const SUPPORTED_TOKENS = {
     category: 'volatile',
     isStablecoin: false,
     minBuffer: 3600,
+    priceSource: 'coingecko',
+    coingeckoId: 'bitcoin',
   },
   GROW: {
     symbol: 'GROW',
@@ -57,6 +65,8 @@ export const SUPPORTED_TOKENS = {
     category: 'utility',
     isStablecoin: false,
     minBuffer: 3600,
+    priceSource: 'fallback',
+    fallbackPrice: 0.01, // Placeholder - should be updated based on actual market data
   },
   WTVARA: {
     symbol: 'wVARA',
@@ -68,6 +78,8 @@ export const SUPPORTED_TOKENS = {
     category: 'native',
     isStablecoin: false,
     minBuffer: 3600,
+    priceSource: 'fallback',
+    fallbackPrice: 0.05, // Placeholder - should be updated based on actual market data
   },
   VARA: {
     symbol: 'VARA',
@@ -79,6 +91,8 @@ export const SUPPORTED_TOKENS = {
     category: 'native',
     isStablecoin: false,
     minBuffer: 3600,
+    priceSource: 'fallback',
+    fallbackPrice: 0.05, // Placeholder - should be updated based on actual market data
   },
 
   // ---- Super Token variants (deploy via contracts/super-token) ----
@@ -113,7 +127,7 @@ export const SUPPORTED_TOKENS = {
     symbol: 'gVARA',
     name: 'Grow VARA (Native Super Token)',
     decimals: 12,
-    vara: null,         // set after deployment
+    vara: '0x71de1ef1f4dec1a4fe862aa6c92747c8499bbf1af128625749027392709f4a72',
     eth: null,
     underlying: 'VARA',
     icon: '/tokens/vara.svg',
