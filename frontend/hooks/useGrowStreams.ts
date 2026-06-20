@@ -17,7 +17,7 @@ export const PROGRAM_IDS: Record<string, string> = {
   identityRegistry: '0x6f413156308663798a77507cf0ea6e79bdbf53add3579ccd4317fc320acf7f29',
   questSeeds: '0xefbe2c4a66e05cbde419196c1196ff6e790a59b7c0fd601ebc035c3c8dd7466d',
   wvara: '0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d',
-  gvaraToken: '0x71de1ef1f4dec1a4fe862aa6c92747c8499bbf1af128625749027392709f4a72',
+  gvaraToken: '0x1edcac5125401f93a1b08be8464c84ad94f24af7d4a31efa32237d0738991af7',
 };
 
 interface SendResult {
