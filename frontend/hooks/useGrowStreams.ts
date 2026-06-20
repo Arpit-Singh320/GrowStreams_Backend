@@ -8,7 +8,7 @@ import { decodeAddress } from '@gear-js/api';
 import { api as gsApi, type PayloadResult, type TxResult } from '@/lib/growstreams-api';
 
 export const PROGRAM_IDS: Record<string, string> = {
-  streamCore: '0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4',
+  streamCore: '0xe84917a47826e945e62b267560905c840643f1aacdf0536be520d954a5d0ef7d',
   tokenVault: '0x20099b7637ae936670f54464c4109d1f028fbb63230e151ea4ef29c4a94cbcef',
   growToken: '0x728d04df91561c66938053a4f5178f749da004ebd219ca05f7c090609a6f7163',
   splitsRouter: '0x68b9fd8f53f6557db2c26b5b9a7c63061bb7f36d379dc843b8a53e78f5692f45',
