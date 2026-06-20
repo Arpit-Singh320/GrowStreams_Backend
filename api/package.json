@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.mjs",
-    "dev": "node --watch src/index.mjs",
+    "dev": "nodemon src/index.mjs",
+    "dev:watch": "node --watch src/index.mjs",
     "test": "node --test \"tests/unit/*.test.mjs\"",
     "test:analytics": "node --test tests/unit/analytics-service.test.mjs tests/unit/event-indexer.test.mjs",
     "test:indexer": "node --test tests/unit/event-indexer.test.mjs"
@@ -29,5 +30,8 @@
   },
   "engines": {
     "node": "20.x"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }
