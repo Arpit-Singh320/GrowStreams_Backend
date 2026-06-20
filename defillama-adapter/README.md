@@ -1,13 +1,28 @@
-# GrowStreams — DeFiLlama TVL adapter (staging)
+# GrowStreams — DeFiLlama adapters (staging)
 
-This folder stages the GrowStreams TVL adapter for submission to
-[DefiLlama/DefiLlama-Adapters](https://github.com/DefiLlama/DefiLlama-Adapters).
+This folder stages two GrowStreams adapters for DeFiLlama:
 
-## What it does
-`growstreams/index.js` reports the TVL of the GrowStreams TokenVault on **Vara
-mainnet**, denominated in VARA. It reads on-chain balances directly from the
-Vara RPC (`gear_calculateReplyForHandle`) — no project API, no `@polkadot/api`,
-only `axios` + `bignumber.js` (both already DeFiLlama-standard deps).
+| Adapter | Dir | Target repo | Approach |
+|---------|-----|-------------|----------|
+| **TVL** | `growstreams/` | [DefiLlama-Adapters](https://github.com/DefiLlama/DefiLlama-Adapters) | Direct on-chain read (axios + raw RPC) |
+| **Volume** | `growstreams-volume/` | [dimension-adapters](https://github.com/DefiLlama/dimension-adapters) | Backend endpoint (chain decoded server-side) |
+
+## Why two different approaches
+- **TVL** = a simple `BalanceOf(vault) -> u128` read. Hand-rolled SCALE decoding
+  of a trailing u128 is trivial and reliable, so the TVL adapter reads the chain
+  directly (the standard expected by the TVL repo).
+- **Volume** = requires reading `GetStream(id) -> Option<Stream>`, a nested Gear
+  struct. Hand-rolling SCALE for nested types in the adapter proved fragile (it
+  mis-parsed non-existent streams as real). DeFiLlama's dimensions guidance
+  allows adapters to collect data via endpoint calls, so the volume adapter is a
+  thin wrapper over the backend, which decodes StreamCore state with the trusted
+  chain-native Sails/Gear stack. Backend = source of truth; adapter = transport.
+
+## TVL adapter (`growstreams/index.js`)
+Reports the TVL of the GrowStreams TokenVault on **Vara mainnet**, denominated in
+VARA. Reads on-chain balances directly from the Vara RPC
+(`gear_calculateReplyForHandle`) — no project API, no `@polkadot/api`, only
+`axios` + `bignumber.js` (both already DeFiLlama-standard deps).
 
 ## TVL methodology
 GrowStreams streams value using two VARA wrappers:
@@ -31,15 +46,38 @@ wVARA: 189.801937500022 VARA
 => { "coingecko:vara-network": "189.801937500022" }
 ```
 
-## To submit (when TVL is meaningful)
+## Volume adapter (`growstreams-volume/index.js`)
+Reports cumulative streaming volume on Vara, denominated in VARA. Thin wrapper:
+calls the backend `GET /api/analytics/defillama-volume`, which computes volume
+from authoritative StreamCore state (sum of each stream's live `streamed` amount,
+settled + accrued) using the Sails/Gear stack. Returns `dailyVolume`/`totalVolume`
+keyed by `coingecko:vara-network` — token amounts only, NOT USD (DeFiLlama prices
+them). `version: 1` (current-snapshot source — the backend reads live chain state,
+not arbitrary historical ranges); DeFiLlama derives daily volume from the change
+in cumulative volume between runs.
+
+Verified against the backend endpoint:
+```
+{ "dailyVolume": { "coingecko:vara-network": "60" },
+  "totalVolume": { "coingecko:vara-network": "60" } }
+```
+
+> Dependency: the volume adapter needs the backend `/api/analytics/defillama-volume`
+> endpoint deployed to production (`growstreams-api-v3-production.up.railway.app`).
+> It exists in the codebase but must be deployed before the adapter returns data.
+
+## To submit
+**TVL** (when TVL is meaningful — DeFiLlama won't show dust):
 1. Fork DefiLlama-Adapters, copy `growstreams/` to `projects/growstreams/`.
 2. `node test.js projects/growstreams/index.js` — confirm non-zero balances.
 3. Open PR with the metadata below; enable "Allow edits by maintainers".
 4. Do NOT edit `pnpm-lock.yaml` or add npm deps.
 
-> Note: hold the PR until real deposits push TVL above DeFiLlama's display
-> threshold — the directory does not show dust. Volume is a SEPARATE adapter in
-> the `dimension-adapters` repo and depends on the backend event indexer (Task C).
+**Volume** (after the backend endpoint is deployed to production):
+1. Fork dimension-adapters, copy `growstreams-volume/` to `dexs/growstreams/`
+   (or the appropriate dimension category).
+2. Test per the dimension-adapters repo instructions.
+3. Open PR; methodology is in the adapter's `methodology` field.
 
 ## PR metadata (new listing)
 - **Name:** GrowStreams
