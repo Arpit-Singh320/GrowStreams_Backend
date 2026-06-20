@@ -6,6 +6,7 @@ import {
   getAnalyticsSummary,
   getCurrentTvl,
   getDefiLlamaTvl,
+  getOnchainStreamMetrics,
   getObservedActivity,
   getTvlHistory,
   getVolumeHistory,
@@ -40,6 +41,14 @@ router.get('/defillama-tvl', async (req, res, next) => {
   try {
     const tvl = await getDefiLlamaTvl();
     res.json(tvl);
+  } catch (err) { next(err); }
+});
+
+router.get('/onchain-streams', async (req, res, next) => {
+  try {
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const metrics = await getOnchainStreamMetrics({ force });
+    res.json(metrics);
   } catch (err) { next(err); }
 });
 

@@ -780,6 +780,171 @@ export async function getDefiLlamaTvl() {
   };
 }
 
+// Short cache for the on-chain stream scan — protects the public RPC node from
+// per-request enumeration cost.
+const STREAM_METRICS_CACHE_TTL_MS = Number.parseInt(process.env.STREAM_METRICS_CACHE_TTL_MS || '', 10) || 60 * 1000;
+let streamMetricsCache = { data: null, at: 0 };
+
+export function clearStreamMetricsCache() {
+  streamMetricsCache = { data: null, at: 0 };
+}
+
+function parseStreamStatus(status) {
+  // Sails enums decode to { Active: null } | "Active" | etc.
+  if (status == null) return 'unknown';
+  if (typeof status === 'string') return status;
+  if (typeof status === 'object') return Object.keys(status)[0] || 'unknown';
+  return String(status);
+}
+
+// On-chain timestamps are Unix seconds. Returns ms or null.
+function onchainTsToMs(value) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n * 1000;
+}
+
+/**
+ * Reconstruct on-chain stream activity by POLLING the StreamCore contract state,
+ * since the contract does not emit events (see docs/BLOCKER-onchain-events-and-fees.md).
+ *
+ * Reads TotalStreams then enumerates GetStream(id) and aggregates:
+ *   - totalStreams / activeStreams (cumulative + active counts)
+ *   - totalVolume (Σ streamed) valued in USD per token
+ *   - uniqueWallets (distinct sender/receiver)
+ *   - dau / mau from on-chain start_time + last_update (real Unix-second timestamps)
+ *
+ * This is the authoritative on-chain activity source (`onchain_state_polling`),
+ * independent of the disabled event indexer. Read-only; cached briefly.
+ *
+ * NOTE (scale): enumerates every stream id. Fine for current volumes; Phase 2
+ * persists per-stream state and scans incrementally for large N.
+ */
+export async function getOnchainStreamMetrics({ force = false } = {}) {
+  if (!force && streamMetricsCache.data && (Date.now() - streamMetricsCache.at) < STREAM_METRICS_CACHE_TTL_MS) {
+    return streamMetricsCache.data;
+  }
+
+  const now = Date.now();
+  const startOfToday = startOfUtcDay().getTime();
+  const start30d = now - 30 * 24 * 60 * 60 * 1000;
+
+  let totalStreams = 0;
+  let activeStreams = 0;
+  try {
+    totalStreams = Number.parseInt(toStringValue(await contractQuery('streamCore', 'TotalStreams')), 10) || 0;
+    activeStreams = Number.parseInt(toStringValue(await contractQuery('streamCore', 'ActiveStreams')), 10) || 0;
+  } catch (err) {
+    return {
+      available: false,
+      source: 'onchain_state_polling',
+      error: `Failed to read stream counts: ${err.message}`,
+      totalStreams: 0,
+      activeStreams: 0,
+    };
+  }
+
+  // Enumerate streams. IDs are 1-based (next_stream_id starts at 1).
+  const tokenStreamedRaw = {};          // symbol -> bigint Σ streamed
+  const wallets = new Set();
+  let dauWallets = new Set();
+  let mauWallets = new Set();
+  let scanned = 0;
+  let scanErrors = 0;
+
+  const CONCURRENCY = 8;
+  const ids = [];
+  for (let i = 1; i <= totalStreams; i++) ids.push(i);
+
+  async function readOne(id) {
+    try {
+      const s = await contractQuery('streamCore', 'GetStream', id);
+      if (!s) return;
+      scanned++;
+      const tok = s.token ? getTokenByVaraAddress(actorIdToHexLocal(s.token)) : null;
+      const symbol = tok?.symbol || 'UNKNOWN';
+      const streamed = BigInt(toStringValue(s.streamed));
+      tokenStreamedRaw[symbol] = (tokenStreamedRaw[symbol] || 0n) + streamed;
+
+      const sender = s.sender ? actorIdToHexLocal(s.sender) : null;
+      const receiver = s.receiver ? actorIdToHexLocal(s.receiver) : null;
+      if (sender) wallets.add(sender);
+      if (receiver) wallets.add(receiver);
+
+      // Activity timing from real on-chain timestamps.
+      const startMs = onchainTsToMs(s.start_time);
+      const updMs = onchainTsToMs(s.last_update);
+      const lastActivity = Math.max(startMs || 0, updMs || 0);
+      if (lastActivity >= startOfToday) {
+        if (sender) dauWallets.add(sender);
+        if (receiver) dauWallets.add(receiver);
+      }
+      if (lastActivity >= start30d) {
+        if (sender) mauWallets.add(sender);
+        if (receiver) mauWallets.add(receiver);
+      }
+    } catch (err) {
+      scanErrors++;
+    }
+  }
+
+  for (let i = 0; i < ids.length; i += CONCURRENCY) {
+    await Promise.all(ids.slice(i, i + CONCURRENCY).map(readOne));
+  }
+
+  // Value Σ streamed per token in USD.
+  const symbols = Object.keys(tokenStreamedRaw);
+  const priced = symbols.length ? await getBatchPricesDetailed(symbols) : {};
+  let totalVolumeUsd = 0;
+  const byToken = [];
+  for (const symbol of symbols) {
+    const tok = getToken(symbol);
+    const decimals = tok?.decimals ?? 12;
+    const display = toDisplayUnits(tokenStreamedRaw[symbol].toString(), decimals);
+    const priceInfo = priced[symbol] || { price: tok?.fallbackPrice ?? null, source: 'unpriced' };
+    const usd = priceInfo.price != null ? roundNumber(Number.parseFloat(display) * priceInfo.price) : null;
+    if (usd) totalVolumeUsd += usd;
+    byToken.push({
+      symbol,
+      streamedRaw: tokenStreamedRaw[symbol].toString(),
+      streamedDisplay: display,
+      price: priceInfo.price,
+      pricingSource: priceInfo.source,
+      volumeUsd: usd,
+    });
+  }
+
+  const result = {
+    available: true,
+    source: 'onchain_state_polling',
+    note: 'Reconstructed by polling StreamCore state (contract emits no events). Volume = sum of per-stream `streamed`; DAU/MAU from on-chain start_time/last_update.',
+    totalStreams,
+    activeStreams,
+    scannedStreams: scanned,
+    scanErrors,
+    uniqueWallets: wallets.size,
+    dau: dauWallets.size,
+    mau: mauWallets.size,
+    totalVolumeUsd: roundNumber(totalVolumeUsd),
+    byToken,
+    asOf: new Date().toISOString(),
+  };
+
+  streamMetricsCache = { data: result, at: Date.now() };
+  return result;
+}
+
+// Local actor_id -> hex (avoids importing token-service's internal helper).
+function actorIdToHexLocal(actorId) {
+  if (actorId == null) return null;
+  if (typeof actorId === 'string') return actorId.startsWith('0x') ? actorId.toLowerCase() : actorId;
+  try {
+    if (actorId.value != null) return '0x' + Buffer.from(actorId.value).toString('hex');
+    if (Array.isArray(actorId)) return '0x' + Buffer.from(actorId).toString('hex');
+  } catch { /* fall through */ }
+  return String(actorId);
+}
+
 export async function getObservedActivity(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   const windowDays = clampInt(days, 1, 365, DEFAULT_ACTIVITY_WINDOW_DAYS);
   if (!getPool()) {
@@ -1170,14 +1335,13 @@ export async function getCampaignMetrics() {
 
 export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   const [
-    tvl, activity, totalStreams, activeStreams, contracts, explorerLinks, freshness,
+    tvl, activity, streamMetrics, contracts, explorerLinks, freshness,
     totalUsers, questMetrics, contributorMetrics, campaignMetrics,
     platformUsers, engagement, catalog, evmStreams, platformDau,
   ] = await Promise.all([
     getCurrentTvl(),
     getObservedActivity(days),
-    contractQuery('streamCore', 'TotalStreams'),
-    contractQuery('streamCore', 'ActiveStreams'),
+    getOnchainStreamMetrics(),
     getAnalyticsContracts(),
     getAnalyticsExplorerLinks(),
     getLatestFreshness(),
@@ -1193,26 +1357,35 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   ]);
 
   const protocol = {
-    totalStreams: Number.parseInt(toStringValue(totalStreams), 10),
-    activeStreams: Number.parseInt(toStringValue(activeStreams), 10),
+    totalStreams: streamMetrics.totalStreams,
+    activeStreams: streamMetrics.activeStreams,
   };
 
   // ── Two clearly-separated domains ──────────────────────────────────────────
   // onchain: DeFi / blockchain activity (source of truth = Vara chain).
   // platform: off-chain GrowStreams app activity (quests, XP, invites, campaigns).
+  //
+  // On-chain activity is reconstructed by POLLING StreamCore state (the contract
+  // emits no events — see docs/BLOCKER-onchain-events-and-fees.md). Volume, unique
+  // wallets, DAU and MAU come from real on-chain stream data + timestamps.
   const onchain = {
     tvl,
     streams: protocol,
     activity: {
-      source: activity.source,
-      capturesPayloadSignedTransactions: activity.capturesPayloadSignedTransactions,
-      transactionCount: activity.totalTransactions,
-      uniqueWallets: activity.uniqueWalletsAllTime,
-      dau: activity.dau,
-      volumeUsd: activity.volumeUsd,
-      note: activity.capturesPayloadSignedTransactions
-        ? 'On-chain activity captured via event indexer.'
-        : 'On-chain volume / DAU / unique-wallet counts await the chain event indexer (Task C); currently reflect backend-logged transactions only.',
+      source: streamMetrics.source, // 'onchain_state_polling'
+      totalStreams: streamMetrics.totalStreams,
+      activeStreams: streamMetrics.activeStreams,
+      uniqueWallets: streamMetrics.uniqueWallets,
+      dau: streamMetrics.dau,
+      mau: streamMetrics.mau,
+      volumeUsd: streamMetrics.totalVolumeUsd,
+      byToken: streamMetrics.byToken,
+      note: streamMetrics.note,
+      // Backend command-log derived counts retained for cross-reference.
+      backendLogged: {
+        transactionCount: activity.totalTransactions,
+        source: activity.source,
+      },
     },
   };
 
@@ -1299,22 +1472,29 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
       available: campaignMetrics.available,
     },
     kpis: {
+      // ── On-chain protocol KPIs (Phase 2 grant targets) ──────────────────────
+      // Reconstructed from StreamCore state polling (contract emits no events).
       tvlUsd: tvl.totals.estimatedUsd,
-      volumeUsd: {
-        last24h: activity.volumeUsd.last24h,
-        last7d: activity.volumeUsd.last7d,
-        last30d: activity.volumeUsd.last30d,
-      },
-      dau: activity.dau,
+      onchainVolumeUsd: streamMetrics.totalVolumeUsd,
+      totalStreams: streamMetrics.totalStreams,
+      activeStreams: streamMetrics.activeStreams,
+      uniqueStreamWallets: streamMetrics.uniqueWallets,
+      onchainDau: streamMetrics.dau,
+      onchainMau: streamMetrics.mau,
+      // ── Off-chain platform KPIs ─────────────────────────────────────────────
       platformDau,
-      totalTransactions: activity.totalTransactions,
-      uniqueWalletsAllTime: activity.uniqueWalletsAllTime,
       totalRegisteredUsers: totalUsers.count,
       totalDistinctWallets: platformUsers.totalDistinctWallets,
       questParticipants: platformUsers.bySystem.questParticipants,
       questRegistrations: questMetrics.registrations,
       questCompletions: questMetrics.completions,
       contributorCount: contributorMetrics.participants,
+      // Backend-logged volume (narrow; retained for cross-reference).
+      backendLoggedVolumeUsd: {
+        last24h: activity.volumeUsd.last24h,
+        last7d: activity.volumeUsd.last7d,
+        last30d: activity.volumeUsd.last30d,
+      },
     },
     freshness: {
       ...freshness,
@@ -1323,7 +1503,8 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     coverage: {
       tvlSource: 'onchain_balanceof_live',
       streamCountsSource: 'onchain_stream_core_queries',
-      onchainActivitySource: activity.source,
+      onchainActivitySource: streamMetrics.source, // onchain_state_polling
+      onchainActivityNote: 'Streams/volume/wallets/DAU/MAU reconstructed by polling StreamCore state; the contract emits no events (see docs/BLOCKER-onchain-events-and-fees.md). Protocol-fee KPI still blocked (no fee logic on-chain).',
       platformUsersSource: 'users + quest_registrations + participants (deduped by wallet, test-excluded)',
       notes: [
         'Two domains are reported separately: onchain (DeFi / Vara chain) and platform (off-chain GrowStreams app).',
