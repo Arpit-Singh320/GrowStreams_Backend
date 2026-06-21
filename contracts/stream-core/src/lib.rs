@@ -141,6 +141,23 @@ async fn super_token_stop_flow(
     call_super_token(super_token, payload).await
 }
 
+/// Skim the protocol fee from the sender's settled super-token balance to the
+/// treasury (internal ledger move inside the super-token contract). Mirrors the
+/// vault path's `VaultService.CollectFee`.
+async fn super_token_collect_fee(
+    super_token: ActorId,
+    from: ActorId,
+    amount: u128,
+    treasury: ActorId,
+) -> bool {
+    let payload = encode_call(
+        "SuperTokenService",
+        "CollectFee",
+        (from, amount, treasury),
+    );
+    call_super_token(super_token, payload).await
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -177,8 +194,8 @@ pub struct Config {
     pub token_vault: ActorId,
     /// Number of registered super tokens.
     pub super_token_count: u32,
-    /// Protocol fee in basis points (250 = 2.5%). Applied entry-side on the
-    /// legacy-vault path only; super-token streams are not charged.
+    /// Protocol fee in basis points (250 = 2.5%). Applied entry-side on both
+    /// the legacy-vault path and the super-token (gVARA) path.
     pub fee_bps: u16,
     /// Destination for collected protocol fees. Defaults to admin at init.
     pub treasury: ActorId,
@@ -403,14 +420,24 @@ impl StreamService {
 
         if let Some(super_token) = super_token_opt {
             // ---- Super Token path ------------------------------------------------
-            // No protocol fee (skimming would require a super-token redeploy that
-            // wipes balances). The full `initial_deposit` is escrowed as the flow
-            // buffer and becomes the hard ceiling on receiver accrual.
-            net_deposit = initial_deposit;
+            // Skim the protocol fee entry-side, same as the vault path. The flow
+            // buffer is funded by `net` (post-fee), which must still cover the
+            // minimum buffer so the stream stays solvent for min_buffer.
+            let fee = initial_deposit.saturating_mul(fee_bps as u128) / 10000;
+            let net = initial_deposit.saturating_sub(fee);
+            assert!(net >= min_deposit, "Deposit after fee must cover minimum buffer");
+            net_deposit = net;
+
             let ok = super_token_start_flow(
-                super_token, sender, receiver, flow_rate, initial_deposit,
+                super_token, sender, receiver, flow_rate, net,
             ).await;
             assert!(ok, "SuperToken start_flow failed (insufficient gVARA balance for buffer?)");
+
+            // Route the fee to treasury inside the super-token (internal ledger).
+            if fee > 0 {
+                let fee_ok = super_token_collect_fee(super_token, sender, fee, treasury).await;
+                assert!(fee_ok, "SuperToken fee collection failed");
+            }
         } else {
             // ---- Legacy vault path -----------------------------------------------
             let vault = state.config.token_vault;
@@ -696,12 +723,21 @@ impl StreamService {
 
         if let Some(super_token) = super_token_opt {
             // ---- Super Token path: top up the flow's escrowed buffer -------------
-            // No protocol fee (see create_stream rationale).
-            net_amount = amount;
+            // Skim the protocol fee entry-side, same as create_stream.
+            let fee = amount.saturating_mul(fee_bps as u128) / 10000;
+            let net = amount.saturating_sub(fee);
+            net_amount = net;
+
             let ok = super_token_add_flow_buffer(
-                super_token, sender, receiver, amount,
+                super_token, sender, receiver, net,
             ).await;
             assert!(ok, "SuperToken add_flow_buffer failed (insufficient gVARA balance?)");
+
+            // Route the fee to treasury inside the super-token (internal ledger).
+            if fee > 0 {
+                let fee_ok = super_token_collect_fee(super_token, sender, fee, treasury).await;
+                assert!(fee_ok, "SuperToken fee collection failed");
+            }
         } else {
             // ---- Legacy vault path -----------------------------------------------
             assert!(vault != ActorId::zero(), "Token vault not configured");

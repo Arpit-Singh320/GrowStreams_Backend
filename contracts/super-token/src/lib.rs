@@ -139,6 +139,24 @@ pub struct SuperTokenMeta {
 }
 
 // ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+// Variant order AND per-field order must mirror super-token.idl exactly — the
+// off-chain indexer decodes by SCALE variant index and positional fields.
+// There is no `token` field: the super-token IS the token (gVARA), so the
+// indexer resolves the token contextually from the emitting program id.
+
+#[event]
+#[derive(Encode, TypeInfo)]
+pub enum SuperTokenEvent {
+    FeeCollected {
+        payer: ActorId,
+        amount: u128,
+        treasury: ActorId,
+    },
+}
+
+// ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
@@ -341,7 +359,7 @@ impl<'a> SuperTokenService<'a> {
     }
 }
 
-#[service]
+#[service(events = SuperTokenEvent)]
 impl<'a> SuperTokenService<'a> {
     // -----------------------------------------------------------------------
     // Wrap / Unwrap
@@ -649,6 +667,37 @@ impl<'a> SuperTokenService<'a> {
         let now = exec::block_timestamp() / 1000;
         let mut state = self.state.borrow_mut();
         state.settle_incoming(account, now);
+    }
+
+    /// Move a protocol fee from `from`'s settled balance to `treasury`'s settled
+    /// balance, as an internal ledger transfer (no mint/burn, so the
+    /// conservation invariant `Σ balances + Σ buffers == total_supply` holds).
+    ///
+    /// Mirrors `token-vault::collect_fee`: stream-core skims the fee entry-side
+    /// and calls this so gVARA streams become fee-bearing. Incoming flows are
+    /// settled first so a payer can pay the fee out of gVARA that streamed in.
+    ///
+    /// Authorisation: caller must be a registered flow controller (stream-core).
+    #[export]
+    pub fn collect_fee(
+        &mut self,
+        from: ActorId,
+        amount: u128,
+        treasury: ActorId,
+    ) -> Result<(), &'static str> {
+        if amount == 0 { return Ok(()); }
+        let caller = msg::source();
+        let now = exec::block_timestamp() / 1000;
+        {
+            let mut state = self.state.borrow_mut();
+            if !state.is_flow_controller(&caller) { return Err("Unauthorized"); }
+            state.settle_incoming(from, now);
+            if !state.debit(from, amount) { return Err("InsufficientFee"); }
+            state.credit(treasury, amount);
+        }
+        self.emit_event(SuperTokenEvent::FeeCollected { payer: from, amount, treasury })
+            .map_err(|_| "EventFailed")?;
+        Ok(())
     }
 
     // -----------------------------------------------------------------------
@@ -990,5 +1039,24 @@ mod tests {
         assert_conserved(&s);
         assert_eq!(s.balance(&sender), 30);
         assert!(s.flows.is_empty());
+    }
+
+    /// collect_fee moves the fee from payer to treasury as a pure internal
+    /// transfer — total_supply is unchanged and conservation still holds.
+    #[test]
+    fn collect_fee_moves_fee_and_conserves() {
+        let payer = actor(1);
+        let treasury = actor(9);
+        let mut s = fresh(payer, 1000);
+
+        // Simulate collect_fee's state mutation: debit payer, credit treasury.
+        let fee = 25u128; // 2.5% of 1000
+        assert!(s.debit(payer, fee));
+        s.credit(treasury, fee);
+
+        assert_eq!(s.balance(&payer), 975);
+        assert_eq!(s.balance(&treasury), 25);
+        assert_eq!(s.total_supply, 1000, "fee transfer must not change supply");
+        assert_conserved(&s);
     }
 }

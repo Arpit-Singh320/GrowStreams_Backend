@@ -13,6 +13,7 @@ import {
   bigIntToString,
   buildStreamEventLog,
   buildVaultEventLog,
+  buildSuperTokenEventLog,
 } from '../../src/services/event-indexer.mjs';
 
 // ─── actorIdToHex ────────────────────────────────────────────
@@ -167,4 +168,40 @@ test('buildVaultEventLog defaults to 18 decimals when token unknown', () => {
   }, null);
   assert.equal(out.tokenSymbol, null);
   assert.equal(out.amountDisplay, '1');
+});
+
+// ─── buildSuperTokenEventLog (gVARA fees) ────────────────────
+
+test('SuperToken FeeCollected maps treasury->wallet as a fee row', () => {
+  const treasury = '0x' + 'aa'.repeat(32);
+  const payer = '0x' + 'bb'.repeat(32);
+  const gvaraAddr = '0x' + 'cc'.repeat(32);
+  const out = buildSuperTokenEventLog('FeeCollected', {
+    payer,
+    amount: 250000000000n,   // 0.25 at 12 decimals (gVARA)
+    treasury,
+  }, { symbol: 'gVARA', decimals: 12 }, gvaraAddr);
+
+  assert.equal(out.eventType, 'fee');           // counted by getProtocolFees
+  assert.equal(out.wallet, treasury);           // treasury -> wallet (recipient)
+  assert.equal(out.tokenAddress, gvaraAddr);
+  assert.equal(out.tokenSymbol, 'gVARA');
+  assert.equal(out.amount, '250000000000');
+  assert.equal(out.amountDisplay, '0.25');      // 12 decimals
+  assert.equal(out.metadata.payer, payer);      // payer preserved
+});
+
+test('SuperToken FeeCollected falls back to gVARA symbol + 12 decimals', () => {
+  const out = buildSuperTokenEventLog('FeeCollected', {
+    payer: '0x' + '01'.repeat(32),
+    amount: 1000000000000n,  // 1.0 at 12 decimals
+    treasury: '0x' + '02'.repeat(32),
+  }, null, null);
+  assert.equal(out.tokenSymbol, 'gVARA');
+  assert.equal(out.amountDisplay, '1');
+});
+
+test('buildSuperTokenEventLog returns null for unknown events / missing data', () => {
+  assert.equal(buildSuperTokenEventLog('SomethingElse', { amount: 1n }), null);
+  assert.equal(buildSuperTokenEventLog('FeeCollected', null), null);
 });

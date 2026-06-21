@@ -10,7 +10,7 @@
 
 import { getApi, getContract } from '../sails-client.mjs';
 import { logStreamEvent, logVaultEvent } from './stream-history.mjs';
-import { getTokenByVaraAddress } from '../config/tokens.mjs';
+import { getToken, getTokenByVaraAddress } from '../config/tokens.mjs';
 import { toDisplayUnits } from '../utils/decimals.mjs';
 
 let isRunning = false;
@@ -193,6 +193,35 @@ export function buildVaultEventLog(eventName, data, tokenInfo = null) {
   }
 }
 
+/**
+ * Build the logVaultEvent() argument object for a decoded SuperToken (gVARA)
+ * event. The super-token contract IS the token, so its events carry no `token`
+ * field — the caller supplies the resolved gVARA registry entry as `tokenInfo`
+ * and its on-chain address as `tokenAddress`. Fee rows land in vault_events with
+ * event_type 'fee' so getProtocolFees() sums them alongside vault-path fees.
+ * @returns {object|null}
+ */
+export function buildSuperTokenEventLog(eventName, data, tokenInfo = null, tokenAddress = null) {
+  if (!data) return null;
+  const decimals = tokenInfo?.decimals ?? 12;
+  const amount = bigIntToString(data.amount);
+
+  switch (eventName) {
+    case 'FeeCollected':
+      return {
+        wallet: actorIdToHex(data.treasury),
+        eventType: 'fee',
+        tokenAddress,
+        tokenSymbol: tokenInfo?.symbol ?? 'gVARA',
+        amount,
+        amountDisplay: toDisplayUnits(amount, decimals),
+        metadata: { source: 'on_chain_event', payer: actorIdToHex(data.payer) },
+      };
+    default:
+      return null;
+  }
+}
+
 // ─── Async event processing ──────────────────────────────────
 
 async function handleStreamEvent(eventName, data) {
@@ -244,11 +273,35 @@ async function handleVaultEvent(eventName, data) {
   }
 }
 
+async function handleSuperTokenEvent(eventName, data, contract) {
+  try {
+    // The super-token IS the token (gVARA); its events carry no token field.
+    // Resolve the token from this contract's program id, falling back to the
+    // gVARA registry entry so symbol/decimals are always available.
+    const tokenAddress = contract?.programId
+      ? actorIdToHex(contract.programId)
+      : (getToken('gVARA')?.vara ?? null);
+    const tokenInfo = (tokenAddress ? getTokenByVaraAddress(tokenAddress) : null)
+      ?? getToken('gVARA');
+
+    const logArgs = buildSuperTokenEventLog(eventName, data, tokenInfo, tokenAddress);
+    if (!logArgs) {
+      console.log(`[event-indexer] Unhandled SuperToken event: ${eventName}`);
+      return;
+    }
+    await logVaultEvent(logArgs);
+    console.log(`[event-indexer] SuperToken ${eventName}: ${logArgs.wallet} ${logArgs.amountDisplay} ${logArgs.tokenSymbol || ''}`);
+  } catch (err) {
+    console.error(`[event-indexer] Error processing SuperToken ${eventName}: ${err.message}`);
+  }
+}
+
 const STREAM_EVENTS = [
   'StreamCreated', 'StreamUpdated', 'StreamStopped', 'StreamPaused',
   'StreamResumed', 'Withdrawn', 'Deposited', 'StreamLiquidated',
 ];
 const VAULT_EVENTS = ['TokensDeposited', 'TokensWithdrawn', 'FeeCollected'];
+const SUPER_TOKEN_EVENTS = ['FeeCollected'];
 
 async function subscribeEvents(contract, serviceName, eventNames, handler) {
   const service = contract?.services?.[serviceName];
@@ -303,6 +356,17 @@ export async function startEventIndexer() {
 
   await subscribeEvents(streamCore, 'StreamService', STREAM_EVENTS, handleStreamEvent);
   await subscribeEvents(tokenVault, 'VaultService', VAULT_EVENTS, handleVaultEvent);
+
+  // gVARA super-token fees (optional — only if the contract is configured).
+  const gvaraToken = getContract('gvaraToken');
+  if (gvaraToken?.programId) {
+    await subscribeEvents(
+      gvaraToken, 'SuperTokenService', SUPER_TOKEN_EVENTS,
+      (name, payload) => handleSuperTokenEvent(name, payload, gvaraToken),
+    );
+  } else {
+    console.warn('[event-indexer] gVARA super-token not configured — skipping fee subscription');
+  }
 
   if (unsubscribers.length === 0) {
     console.warn('[event-indexer] No subscriptions established — indexer inactive');

@@ -48,6 +48,7 @@ service SuperTokenService {
   SetFlowRate : (sender: actor_id, receiver: actor_id, new_rate: u128) -> result(null, str);
   StopFlow : (sender: actor_id, receiver: actor_id) -> result(null, str);
   SettleAccount : (account: actor_id) -> null;
+  CollectFee : (from: actor_id, amount: u128, treasury: actor_id) -> result(null, str);
 
   // --- Pure token: admin mint/burn ---
   Mint : (to: actor_id, amount: u128) -> result(null, str);
@@ -76,4 +77,13 @@ service SuperTokenService {
   query IsPaused : () -> bool;
   query IsFlowController : (account: actor_id) -> bool;
   query GetMeta : () -> SuperTokenMeta;
+
+  // --- Events ---
+  events {
+    FeeCollected: struct {
+      payer: actor_id,
+      amount: u128,
+      treasury: actor_id,
+    };
+  }
 };

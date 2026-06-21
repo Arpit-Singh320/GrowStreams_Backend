@@ -1,8 +1,8 @@
 {
   "stream-core": {
-    "programId": "0xe84917a47826e945e62b267560905c840643f1aacdf0536be520d954a5d0ef7d",
+    "programId": "0x8298c2eea5c6bbe55a9cfe72283b5399098fd6a54d9a2a14c2bedba8eea50659",
     "codeId": "0xd65c7f3d3ca8320d426c8de0fe75aed9102227bc31bfaa70df6aa1bc2155875a",
-    "deployedAt": "2026-06-20T12:17:07.856Z",
+    "deployedAt": "2026-06-21T11:28:22.002Z",
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network",
     "note": "Buffered flow-aware redeploy (solvency fix)"
@@ -80,8 +80,8 @@
     "streamCore": "0x7faee98f78cb710ab2d5ada7b364e2b8eb7513e4cd1e769d109b83fe7872329d"
   },
   "gvara-token": {
-    "programId": "0x1edcac5125401f93a1b08be8464c84ad94f24af7d4a31efa32237d0738991af7",
-    "deployedAt": "2026-06-20T12:17:07.856Z",
+    "programId": "0x04314af41b7dbac322e3e66920211d2f799719e1cdc3122a99752f72b6ae84ee",
+    "deployedAt": "2026-06-21T11:28:22.002Z",
     "network": "vara-mainnet",
     "node": "wss://rpc.vara.network",
     "underlyingToken": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",

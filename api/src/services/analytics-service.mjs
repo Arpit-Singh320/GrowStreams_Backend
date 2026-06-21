@@ -1593,7 +1593,7 @@ export async function getProtocolFees(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     last7dUsd: roundNumber(last7dUsd),
     last30dUsd: roundNumber(last30dUsd),
     byToken,
-    note: 'Protocol fee (2.5%) collected on stream create/deposit for vault/VFT and native VARA paths. gVARA super-token streams are fee-exempt. Sourced from on-chain FeeCollected events.',
+    note: 'Protocol fee (2.5%) collected on stream create/deposit across all paths — vault/VFT, native VARA, and gVARA super-token streams. Sourced from on-chain FeeCollected events.',
   };
 }
 
