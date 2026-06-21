@@ -27,7 +27,7 @@ interface CreateStreamProps {
 export default function CreateStream({ onCreated }: CreateStreamProps) {
   const { account } = useAccount();
   const actions = useStreamActions();
-  const { selectedToken, selectToken, streamableTokens } = useTokenSelector('WUSDC');
+  const { selectedToken, selectToken, streamableTokens } = useTokenSelector('GVARA');
   const { balances: walletBalances } = useWalletBalances();
   const { balances: vaultBals } = useVaultBalances();
 

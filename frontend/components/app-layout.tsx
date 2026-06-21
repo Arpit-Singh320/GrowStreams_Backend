@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Waves, Vault, GitFork, Shield,
   Trophy, Fingerprint, Wallet, LogOut, Menu, Coins,
   Medal, Zap, Smartphone, Sprout, ArrowLeftRight,
-  Activity, Wallet2,
+  Activity, Wallet2, Gift,
 } from 'lucide-react';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -24,6 +24,7 @@ const comingSoonRoutes = ['/app/splits', '/app/bounties', '/app/identity', '/app
 
 const varaNavItems = [
   { href: '/app',            label: 'Dashboard',   icon: LayoutDashboard },
+  { href: '/app/reward',     label: 'Reward',      icon: Gift },
   { href: '/app/streams',    label: 'Streams',     icon: Waves },
   { href: '/app/grow',       label: 'GROW Token',  icon: Coins,        soon: true },
   { href: '/app/vault',      label: 'Vault',       icon: Vault },

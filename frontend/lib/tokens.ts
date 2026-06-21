@@ -163,7 +163,12 @@ export function listStablecoins(): TokenConfig[] {
 }
 
 export function listStreamableTokens(): TokenConfig[] {
-  return listTokens().filter(t => !t.comingSoon && t.key !== 'VARA' && t.key !== 'WTVARA');
+  const tokens = listTokens().filter(t => !t.comingSoon && t.key !== 'VARA' && t.key !== 'WTVARA');
+  return tokens.sort((a, b) => {
+    if (a.key === 'GVARA') return -1;
+    if (b.key === 'GVARA') return 1;
+    return 0;
+  });
 }
 
 // ─── Decimal conversion ──────────────────────────────────────

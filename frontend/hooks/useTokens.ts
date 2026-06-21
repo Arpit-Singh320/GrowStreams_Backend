@@ -103,7 +103,7 @@ export function useTokenAllowance(symbol: string, spender: string) {
 // ─── Token selector state ────────────────────────────────────
 
 export function useTokenSelector(initialToken?: string) {
-  const [selectedKey, setSelectedKey] = useState(initialToken || 'WUSDC');
+  const [selectedKey, setSelectedKey] = useState(initialToken || 'GVARA');
   const { tokens, streamableTokens } = useTokenList();
 
   const selectedToken = tokens.find(t => t.key === selectedKey) || tokens[0];

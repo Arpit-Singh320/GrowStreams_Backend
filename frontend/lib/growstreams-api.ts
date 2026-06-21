@@ -1175,4 +1175,17 @@ export const api = {
     programIds: () =>
       get<{ programIds: Record<string, string>; timestamp: string }>('/api/config/program-ids'),
   },
+
+  // ─── Reward (one-time 50 VARA claim) ────────────────────────────────────────
+  reward: {
+    status: (wallet: string) =>
+      get<{ claimed: boolean; claimed_at: string | null; tx_hash: string | null; amount: string | null }>(
+        `/api/reward/status/${wallet}`,
+      ),
+    claim: (wallet: string) =>
+      post<{ success: boolean; wallet: string; amount: number; amountHuman: string; tx_hash: string; block_hash: string }>(
+        '/api/reward/claim',
+        { wallet },
+      ),
+  },
 };
