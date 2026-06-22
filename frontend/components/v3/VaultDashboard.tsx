@@ -100,13 +100,18 @@ export default function VaultDashboard() {
     const raw = parseFloat(gvaraAmount);
     if (isNaN(raw) || raw <= 0) { toast.error('Enter a valid amount'); return; }
 
-    // Pre-flight balance check for wrap: user needs amount + 1 VARA reserved for gas
+    // Pre-flight balance check for wrap: fetch live VARA balance from API
     if (gvaraMode === 'wrap') {
-      const varaBalance = parseFloat(walletBalMap['VARA'] || '0');
-      const required = raw + 1;
-      if (varaBalance < required) {
-        toast.error(`Insufficient VARA. You need at least ${required.toFixed(2)} VARA (${raw} to wrap + 1 for gas fees). Your balance: ${varaBalance.toFixed(4)} VARA.`);
-        return;
+      try {
+        const varaBal = await api.tokens.balance('VARA', account.decodedAddress);
+        const varaBalance = parseFloat(varaBal.balance || '0');
+        const required = raw + 1; // 1 VARA reserved for gas
+        if (varaBalance < required) {
+          toast.error(`Insufficient VARA. Need ${required.toFixed(2)} VARA (${raw} to wrap + 1 for gas). Balance: ${varaBalance.toFixed(4)} VARA.`);
+          return;
+        }
+      } catch {
+        // If balance check fails, allow tx and let chain handle it
       }
     }
     setGvaraBusy(true);
