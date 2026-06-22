@@ -99,6 +99,16 @@ export default function VaultDashboard() {
     if (!account?.decodedAddress) return;
     const raw = parseFloat(gvaraAmount);
     if (isNaN(raw) || raw <= 0) { toast.error('Enter a valid amount'); return; }
+
+    // Pre-flight balance check for wrap: user needs amount + 1 VARA reserved for gas
+    if (gvaraMode === 'wrap') {
+      const varaBalance = parseFloat(walletBalMap['VARA'] || '0');
+      const required = raw + 1;
+      if (varaBalance < required) {
+        toast.error(`Insufficient VARA. You need at least ${required.toFixed(2)} VARA (${raw} to wrap + 1 for gas fees). Your balance: ${varaBalance.toFixed(4)} VARA.`);
+        return;
+      }
+    }
     setGvaraBusy(true);
     try {
       if (gvaraMode === 'wrap') {
@@ -115,7 +125,12 @@ export default function VaultDashboard() {
       setTimeout(fetchGvaraBalance, 8000);
       setTimeout(fetchGvaraBalance, 15000);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Transaction failed');
+      const msg = err instanceof Error ? err.message : 'Transaction failed';
+      if (msg.includes('InsufficientBalance') || msg.includes('Insufficient')) {
+        toast.error('Insufficient VARA balance. Keep at least 1 VARA for gas fees.');
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setGvaraBusy(false);
     }
@@ -228,7 +243,7 @@ export default function VaultDashboard() {
         <>
           {/* Token balance cards */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            {vaultBals.filter(b => !b.error).map(bal => {
+            {vaultBals.filter(b => !b.error && b.key !== 'GVARA').map(bal => {
               const tok = getToken(bal.key);
               if (!tok) return null;
               const isSelected = selectedToken.key === bal.key;
