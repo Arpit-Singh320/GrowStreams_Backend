@@ -1,5 +1,4 @@
 import { query as contractQuery, getProgramIds, getApi } from '../sails-client.mjs';
-import { getVftBalance } from './token-service.mjs';
 import { getPool, queryAll, queryOne } from './db.mjs';
 import { getToken, getTokenByVaraAddress, listTokens } from '../config/tokens.mjs';
 import { toDisplayUnits } from '../utils/decimals.mjs';
@@ -17,6 +16,12 @@ const FALLBACK_ACTIVITY_SOURCE = 'backend_command_logs_fallback';
 const TVL_PRICING_SOURCE = 'coingecko_realtime_pricing';
 const GEAR_PROGRAMS_EXPLORER_BASE = process.env.VARA_PROGRAMS_EXPLORER_URL || 'https://idea.gear-tech.io/programs';
 const VARA_RPC_URL = process.env.VARA_NODE || 'wss://rpc.vara.network';
+const EXPLORER_API = 'https://explorer-idea.gear-tech.io/api';
+const VARA_GENESIS = '0xfe1b4c55fd4d668101126434206571a7838a8b6b93a6d1b95d607e78e6c53763';
+const FEE_EVENTS_BATCH_SIZE = 20;
+const ANALYTICS_SNAPSHOT_VERSION = '2026-06-wrapper-supply-current-contracts-v1';
+const ANALYTICS_TVL_METHODOLOGY = 'wrapper_total_supply_plus_native_vara';
+const ANALYTICS_ACTIVITY_METHODOLOGY = 'live_stream_state_plus_quest_seeds';
 
 // Test/QA accounts pollute public KPIs (e.g. seeded 'test-xss' users and XSS
 // probe rows). Exclude them from every analytics user query. Fabricated event
@@ -64,32 +69,176 @@ function startOfUtcDay(date = new Date()) {
 
 function getProgramExplorerUrl(address) {
   if (!address) return null;
-  return `${GEAR_PROGRAMS_EXPLORER_BASE}/${address}?node=${encodeURIComponent(VARA_RPC_URL)}`;
+  return `${GEAR_PROGRAMS_EXPLORER_BASE}/${address}?node=${VARA_RPC_URL}`;
+}
+
+function normalizeHexAddress(value) {
+  const raw = toStringValue(value || '').trim();
+  if (!raw) return null;
+  const normalized = raw.startsWith('0x') ? raw.toLowerCase() : `0x${raw.toLowerCase()}`;
+  return /^0x0+$/.test(normalized) ? null : normalized;
 }
 
 function getResolvedProgramIds() {
   const liveProgramIds = getProgramIds() || {};
+  const envProgramIds = {
+    'stream-core': process.env.STREAM_CORE_ID || null,
+    'token-vault': process.env.TOKEN_VAULT_ID || null,
+    'grow-token': process.env.GROW_TOKEN_ID || null,
+    'gvara-token': process.env.GVARA_TOKEN_ID || null,
+    'wvara-token': process.env.WVARA_TOKEN_ID || null,
+    'super-token': process.env.SUPER_TOKEN_ID || null,
+    'quest-seeds': process.env.QUEST_SEEDS_ID || null,
+    'splits-router': process.env.SPLITS_ROUTER_ID || null,
+    'distribution-pool': process.env.DISTRIBUTION_POOL_ID || null,
+    'liquidation-manager': process.env.LIQUIDATION_MANAGER_ID || null,
+  };
   try {
     const deployStatePath = resolve(__dirname, '../../deploy-state.json');
     const deployState = JSON.parse(readFileSync(deployStatePath, 'utf-8'));
     return {
-      'stream-core': liveProgramIds['stream-core'] || deployState['stream-core']?.programId || null,
-      'token-vault': liveProgramIds['token-vault'] || deployState['token-vault']?.programId || null,
-      'grow-token': liveProgramIds['grow-token'] || deployState['grow-token']?.programId || null,
-      'splits-router': liveProgramIds['splits-router'] || deployState['splits-router']?.programId || null,
-      'distribution-pool': liveProgramIds['distribution-pool'] || deployState['distribution-pool']?.programId || null,
-      'liquidation-manager': liveProgramIds['liquidation-manager'] || deployState['liquidation-manager']?.programId || null,
+      'stream-core': envProgramIds['stream-core'] || liveProgramIds['stream-core'] || deployState['stream-core']?.programId || null,
+      'token-vault': envProgramIds['token-vault'] || liveProgramIds['token-vault'] || deployState['token-vault']?.programId || null,
+      'grow-token': envProgramIds['grow-token'] || liveProgramIds['grow-token'] || deployState['grow-token']?.programId || null,
+      'gvara-token': envProgramIds['gvara-token'] || liveProgramIds['gvara-token'] || deployState['gvara-token']?.programId || null,
+      'wvara-token': envProgramIds['wvara-token'] || liveProgramIds['wvara-token'] || null,
+      'super-token': envProgramIds['super-token'] || liveProgramIds['super-token'] || deployState['super-token']?.programId || null,
+      'quest-seeds': envProgramIds['quest-seeds'] || liveProgramIds['quest-seeds'] || deployState['quest-seeds']?.programId || null,
+      'splits-router': envProgramIds['splits-router'] || liveProgramIds['splits-router'] || deployState['splits-router']?.programId || null,
+      'distribution-pool': envProgramIds['distribution-pool'] || liveProgramIds['distribution-pool'] || deployState['distribution-pool']?.programId || null,
+      'liquidation-manager': envProgramIds['liquidation-manager'] || liveProgramIds['liquidation-manager'] || deployState['liquidation-manager']?.programId || null,
     };
   } catch {
     return {
-      'stream-core': liveProgramIds['stream-core'] || null,
-      'token-vault': liveProgramIds['token-vault'] || null,
-      'grow-token': liveProgramIds['grow-token'] || null,
-      'splits-router': liveProgramIds['splits-router'] || null,
-      'distribution-pool': liveProgramIds['distribution-pool'] || null,
-      'liquidation-manager': liveProgramIds['liquidation-manager'] || null,
+      'stream-core': envProgramIds['stream-core'] || liveProgramIds['stream-core'] || null,
+      'token-vault': envProgramIds['token-vault'] || liveProgramIds['token-vault'] || null,
+      'grow-token': envProgramIds['grow-token'] || liveProgramIds['grow-token'] || null,
+      'gvara-token': envProgramIds['gvara-token'] || liveProgramIds['gvara-token'] || null,
+      'wvara-token': envProgramIds['wvara-token'] || liveProgramIds['wvara-token'] || null,
+      'super-token': envProgramIds['super-token'] || liveProgramIds['super-token'] || null,
+      'quest-seeds': envProgramIds['quest-seeds'] || liveProgramIds['quest-seeds'] || null,
+      'splits-router': envProgramIds['splits-router'] || liveProgramIds['splits-router'] || null,
+      'distribution-pool': envProgramIds['distribution-pool'] || liveProgramIds['distribution-pool'] || null,
+      'liquidation-manager': envProgramIds['liquidation-manager'] || liveProgramIds['liquidation-manager'] || null,
     };
   }
+}
+
+async function getAuthoritativeVaultResolution() {
+  const configuredVault = normalizeHexAddress(getResolvedProgramIds()['token-vault']);
+  let liveVault = null;
+  try {
+    const streamConfig = await contractQuery('streamCore', 'GetConfig');
+    liveVault = normalizeHexAddress(streamConfig?.token_vault);
+  } catch {
+  }
+  return {
+    vaultAddress: configuredVault || liveVault,
+    configuredVaultAddress: configuredVault,
+    liveStreamCoreVaultAddress: liveVault,
+    source: 'resolved_program_ids',
+  };
+}
+
+function getQuestSeedsProgramId() {
+  return getResolvedProgramIds()['quest-seeds'] || null;
+}
+
+function questSeedsProgramExplorerUrl() {
+  return getProgramExplorerUrl(getQuestSeedsProgramId());
+}
+
+async function getSnapshotCompatibilityContext() {
+  const programIds = getResolvedProgramIds();
+  const vaultResolution = await getAuthoritativeVaultResolution();
+  return {
+    snapshotVersion: ANALYTICS_SNAPSHOT_VERSION,
+    tvlMethodology: ANALYTICS_TVL_METHODOLOGY,
+    activityMethodology: ANALYTICS_ACTIVITY_METHODOLOGY,
+    streamCoreProgramId: normalizeHexAddress(programIds['stream-core']),
+    tokenVaultProgramId: normalizeHexAddress(programIds['token-vault']),
+    questSeedsProgramId: normalizeHexAddress(programIds['quest-seeds']),
+    streamCoreVaultAddress: normalizeHexAddress(vaultResolution.liveStreamCoreVaultAddress),
+  };
+}
+
+function decodeU128LE(bytes, offset) {
+  let value = 0n;
+  for (let i = 0; i < 16; i += 1) {
+    value += BigInt(bytes[offset + i] || 0) << (BigInt(i) * 8n);
+  }
+  return value;
+}
+
+function decodeFeeCollectedPayload(payloadHex) {
+  try {
+    const hex = payloadHex?.startsWith('0x') ? payloadHex.slice(2) : payloadHex;
+    if (!hex) return null;
+    const bytes = Buffer.from(hex, 'hex');
+    const marker = Buffer.from('FeeCollected');
+    const idx = bytes.indexOf(marker);
+    if (idx === -1) return null;
+    const amountOffset = idx + marker.length + 32;
+    return decodeU128LE(bytes, amountOffset);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchExplorerFeeRows() {
+  const programId = normalizeHexAddress(getResolvedProgramIds()['gvara-token']);
+  if (!programId) return [];
+
+  const events = [];
+  let offset = 0;
+  let totalCount = null;
+
+  while (totalCount == null || events.length < totalCount) {
+    const response = await fetch(EXPLORER_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'event.all',
+        params: {
+          source: programId,
+          service: '',
+          name: '',
+          offset,
+          genesis: VARA_GENESIS,
+        },
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`Explorer fee query failed with HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    if (payload?.error) {
+      throw new Error(payload.error.message || 'Explorer fee query failed');
+    }
+    const batch = Array.isArray(payload?.result?.result) ? payload.result.result : [];
+    totalCount = Number.parseInt(String(payload?.result?.count ?? batch.length), 10) || batch.length;
+    events.push(...batch);
+    offset += FEE_EVENTS_BATCH_SIZE;
+    if (batch.length < FEE_EVENTS_BATCH_SIZE) break;
+  }
+
+  return events
+    .filter((event) => event?.service === 'SuperTokenService' && event?.name === 'FeeCollected')
+    .map((event) => {
+      const amount = decodeFeeCollectedPayload(event.payload);
+      if (amount == null) return null;
+      return {
+        event_id: event.id,
+        block_number: Number.parseInt(String(event.blockNumber || '0'), 10) || null,
+        token_symbol: 'gVARA',
+        token_address: programId,
+        amount: amount.toString(),
+        event_at: event.timestamp,
+      };
+    })
+    .filter(Boolean);
 }
 
 async function getEventSourceMode() {
@@ -366,14 +515,14 @@ function getVaultProgramId() {
 }
 
 function getTrackedVaultTokens() {
-  return listTokens().filter((token) => {
-    if (token.key === 'VARA') return false;       // native handled separately
-    if (!token.vara) return false;                // undeployed (gUSDC/gGROW have null vara)
-    // Super tokens (gVARA) ARE tracked: they are the streaming wrappers whose
-    // vault balance represents value locked in streams. Only super tokens with a
-    // deployed on-chain address (vara != null) reach here.
-    return true;
-  });
+  return [
+    { ...getToken('WTVARA'), contractName: 'wvara' },
+    { ...getToken('gVARA'), contractName: 'gvaraToken' },
+  ].filter((token) => token?.key && token?.contractName);
+}
+
+function getNativeTvlTokens() {
+  return [...getTrackedVaultTokens(), getToken('VARA')].filter(Boolean);
 }
 
 /**
@@ -388,9 +537,9 @@ function getTrackedVaultTokens() {
  * the wrapped tokens already counted via BalanceOf. We now read the true native
  * balance instead.
  */
-async function getNativeVaultBalance() {
+async function getNativeVaultBalance(vaultAddressOverride = null) {
   const varaToken = getToken('VARA');
-  const vaultAddress = getVaultProgramId();
+  const vaultAddress = vaultAddressOverride || getVaultProgramId();
   const api = getApi();
 
   let rawBalance = '0';
@@ -424,7 +573,7 @@ async function getNativeVaultBalance() {
  * Calculate TVL from indexed vault_events (deposits - withdrawals)
  * This is more reliable than on-chain balance queries for production analytics
  */
-async function getIndexedTvl(trackedTokens, prices) {
+async function getIndexedTvl(trackedTokens, prices, vaultAddressOverride = null) {
   const pool = getPool();
   console.log('[indexed-tvl] Pool available:', !!pool);
 
@@ -522,7 +671,7 @@ async function getIndexedTvl(trackedTokens, prices) {
     return {
       hasData: true,
       data: {
-        vaultAddress: getVaultProgramId(),
+        vaultAddress: vaultAddressOverride || getVaultProgramId(),
         pricing: {
           source: TVL_PRICING_SOURCE,
           coverage: 'all_tokens_from_indexed_events',
@@ -565,7 +714,8 @@ export async function getCurrentTvl({ force = false } = {}) {
     return tvlCache.data;
   }
 
-  const vaultAddress = getVaultProgramId();
+  const vaultResolution = await getAuthoritativeVaultResolution();
+  const vaultAddress = vaultResolution.vaultAddress;
   if (!vaultAddress) {
     const err = new Error('Token vault program ID unavailable');
     err.status = 503;
@@ -573,23 +723,26 @@ export async function getCurrentTvl({ force = false } = {}) {
   }
 
   const trackedTokens = getTrackedVaultTokens();
+  const tvlTokens = getNativeTvlTokens();
 
-  // Real-time prices for all tracked tokens plus native VARA, with explicit
-  // source tagging (coingecko | fallback_constant | unpriced).
-  const priceSymbols = [...new Set([...trackedTokens.map(t => t.symbol), 'VARA'])];
+  // TVL is the sum of the configured vault's VARA-denominated custody only:
+  // native VARA + wVARA + gVARA. All three price off the same VARA market.
+  const priceSymbols = ['VARA'];
   const priced = await getBatchPricesDetailed(priceSymbols);
 
-  const priceInfoFor = (symbol) => priced[symbol] ?? { price: null, source: 'unpriced' };
+  const varaPriceInfo = priced.VARA ?? { price: null, source: 'unpriced' };
+  const priceInfoFor = () => varaPriceInfo;
   const usdFor = (price, balanceDisplay) =>
     price != null ? roundNumber(Number.parseFloat(balanceDisplay || '0') * price) : null;
 
-  // Authoritative: live on-chain BalanceOf(vault) per token.
+  // Authoritative wrapper custody: live on-chain TotalSupply per token.
   const tokenRows = await Promise.all(
     trackedTokens.map(async (token) => {
       const { price, source: priceSource } = priceInfoFor(token.symbol);
       try {
-        const balance = await getVftBalance(token.key, vaultAddress);
-        const deployed = balance.deployed !== false;
+        const totalSupply = await contractQuery(token.contractName, 'TotalSupply');
+        const balanceRaw = toStringValue(totalSupply);
+        const balanceDisplay = toDisplayUnits(balanceRaw, token.decimals);
         return {
           key: token.key,
           symbol: token.symbol,
@@ -598,13 +751,13 @@ export async function getCurrentTvl({ force = false } = {}) {
           category: token.category,
           isStablecoin: token.isStablecoin,
           decimals: token.decimals,
-          balanceRaw: balance.balanceRaw,
-          balanceDisplay: balance.balance,
-          estimatedUsd: usdFor(price, balance.balance),
+          balanceRaw,
+          balanceDisplay,
+          estimatedUsd: usdFor(price, balanceDisplay),
           pricingSource: priceSource,
           price,
-          deployed,
-          source: deployed ? 'onchain_balanceof' : 'contract_not_deployed',
+          deployed: true,
+          source: 'onchain_total_supply',
         };
       } catch (err) {
         return {
@@ -622,14 +775,14 @@ export async function getCurrentTvl({ force = false } = {}) {
           price,
           deployed: null,
           error: err.message,
-          source: 'onchain_query_failed',
+          source: 'onchain_total_supply_query_failed',
         };
       }
     })
   );
 
   // Native VARA held by the vault (from vault GetConfig.total_tokens_held).
-  const nativeRow = await getNativeVaultBalance();
+  const nativeRow = await getNativeVaultBalance(vaultAddress);
   const { price: nativePrice, source: nativePriceSource } = priceInfoFor('VARA');
   const nativeRowPriced = {
     ...nativeRow,
@@ -642,17 +795,29 @@ export async function getCurrentTvl({ force = false } = {}) {
 
   const tokens = [...tokenRows, nativeRowPriced];
 
-  let estimatedUsd = 0;
-  let estimatedStablecoinUsd = 0;
-  for (const t of tokens) {
-    if (t.estimatedUsd) {
-      estimatedUsd += t.estimatedUsd;
-      if (t.isStablecoin) estimatedStablecoinUsd += t.estimatedUsd;
+  const aggregateVaraEquivalentRaw = tokens.reduce((sum, token) => {
+    try {
+      return sum + BigInt(token.balanceRaw || '0');
+    } catch {
+      return sum;
     }
-  }
+  }, 0n);
+  const aggregateVaraEquivalentDisplay = toDisplayUnits(aggregateVaraEquivalentRaw.toString(), getToken('VARA').decimals);
+  const varaFamilyComponents = tokens.map((token) => ({
+    symbol: token.symbol,
+    address: token.address,
+    balanceRaw: token.balanceRaw,
+    balanceDisplay: token.balanceDisplay,
+    varaPriceUsd: nativePrice,
+    estimatedUsd: usdFor(nativePrice, token.balanceDisplay),
+    source: token.source,
+  }));
 
-  const deployedCount = tokenRows.filter(t => t.deployed === true).length;
-  const notDeployed = tokenRows.filter(t => t.deployed === false).map(t => t.symbol);
+  let estimatedUsd = usdFor(nativePrice, aggregateVaraEquivalentDisplay) || 0;
+  let estimatedStablecoinUsd = 0;
+
+  const deployedCount = tokens.filter(t => t.deployed === true).length;
+  const notDeployed = tokenRows.filter(t => t.deployed !== true).map(t => t.symbol);
 
   // Non-authoritative cross-check from indexed events (deposits − withdrawals).
   // getIndexedTvl expects a plain symbol -> price number map.
@@ -665,7 +830,7 @@ export async function getCurrentTvl({ force = false } = {}) {
   }
   let reconciliation = null;
   try {
-    const indexed = await getIndexedTvl(trackedTokens, priceMap);
+    const indexed = await getIndexedTvl(tvlTokens.filter((token) => token.key !== 'VARA'), priceMap, vaultAddress);
     if (indexed && indexed.hasData) {
       reconciliation = {
         source: 'indexed_vault_events',
@@ -684,7 +849,9 @@ export async function getCurrentTvl({ force = false } = {}) {
     vaultAddress,
     pricing: {
       source: TVL_PRICING_SOURCE,
-      coverage: 'live_onchain_balanceof_all_deployed_tokens_plus_native_vara',
+      coverage: 'wrapper_total_supply_plus_native_vara',
+      varaPriceUsd: nativePrice,
+      varaPriceSource: nativePriceSource,
       liveMarketPriced: tokens.filter(t => t.pricingSource === 'coingecko').map(t => t.symbol),
       placeholderPriced: unpricedSymbols,
     },
@@ -694,10 +861,16 @@ export async function getCurrentTvl({ force = false } = {}) {
     },
     tokens,
     meta: {
-      tvlSource: 'onchain_balanceof',
-      trackedTokenCount: trackedTokens.length,
+      tvlSource: 'wrapper_total_supply_plus_native_vara',
+      vaultAddressSource: vaultResolution.source,
+      configuredVaultAddress: vaultResolution.configuredVaultAddress,
+      liveStreamCoreVaultAddress: vaultResolution.liveStreamCoreVaultAddress,
+      trackedTokenCount: tvlTokens.length,
       deployedTokenCount: deployedCount,
       tokensNotDeployedOnChain: notDeployed,
+      varaFamilyComponents,
+      aggregateVaraEquivalentRaw: aggregateVaraEquivalentRaw.toString(),
+      aggregateVaraEquivalentDisplay,
       reconciliation,
       asOf: new Date().toISOString(),
     },
@@ -768,10 +941,12 @@ export async function getDefiLlamaTvl() {
     vaultAddress: tvl.vaultAddress,
     chain: 'vara',
     balances,
+    components: tvl.meta?.varaFamilyComponents || [],
+    varaPriceUsd: tvl.pricing?.varaPriceUsd ?? null,
     excluded,
     methodology:
-      'TVL is the live on-chain token balance held by the GrowStreams TokenVault on Vara Network ' +
-      '(VFT BalanceOf of the vault per token) plus native VARA held by the vault. ' +
+      'TVL is the live on-chain total supply of the VARA wrapper contracts (gVARA and wVARA) ' +
+      'plus native VARA held by the configured TokenVault account. ' +
       'GROW token is excluded as it is a platform/utility token with no public market. ' +
       'TVL reflects only VARA, wVARA, and gVARA (the actual streaming value). ' +
       'Balances are read from current chain state and keyed by CoinGecko asset id for DeFiLlama pricing.',
@@ -1236,18 +1411,42 @@ export async function getObservedActivity(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     uniqueWalletsAllTime: activeWalletsAllTime,
     lastObservedActivityAt: latestRow?.latest_at || null,
     lastUpdatedAt: latestRow?.latest_at || null,
+    note: 'Observed activity windows come from indexed/backend-logged transaction tables. This endpoint reflects windowed event activity, while /summary on-chain volume comes from live StreamCore state polling plus on-chain quest-seeds mint activity.',
   };
 }
 
 export async function getAnalyticsContracts() {
   const programIds = getResolvedProgramIds();
+  const vaultResolution = await getAuthoritativeVaultResolution();
+  let tokenVaultConfiguredStreamCore = null;
+  try {
+    const vaultConfig = await contractQuery('tokenVault', 'GetConfig');
+    tokenVaultConfiguredStreamCore = normalizeHexAddress(vaultConfig?.stream_core);
+  } catch {
+  }
+
+  const configuredVaultAddress = vaultResolution.configuredVaultAddress || programIds['token-vault'] || null;
+  const liveStreamCoreVaultAddress = vaultResolution.liveStreamCoreVaultAddress || null;
   return {
     streamCore: programIds['stream-core'] || null,
-    tokenVault: programIds['token-vault'] || null,
+    tokenVault: configuredVaultAddress,
+    liveStreamCoreVault: liveStreamCoreVaultAddress,
+    tokenVaultConfiguredStreamCore,
     growToken: programIds['grow-token'] || null,
+    gvaraToken: programIds['gvara-token'] || null,
+    wvaraToken: programIds['wvara-token'] || getToken('WTVARA')?.vara || null,
+    questSeeds: getQuestSeedsProgramId(),
     splitsRouter: programIds['splits-router'] || null,
     distributionPool: programIds['distribution-pool'] || null,
     liquidationManager: programIds['liquidation-manager'] || null,
+    contractWiring: {
+      streamCoreUsesConfiguredVault: configuredVaultAddress != null && liveStreamCoreVaultAddress != null
+        ? configuredVaultAddress === liveStreamCoreVaultAddress
+        : null,
+      tokenVaultUsesConfiguredStreamCore: tokenVaultConfiguredStreamCore != null && programIds['stream-core'] != null
+        ? tokenVaultConfiguredStreamCore === normalizeHexAddress(programIds['stream-core'])
+        : null,
+    },
   };
 }
 
@@ -1257,6 +1456,9 @@ export async function getAnalyticsExplorerLinks() {
     { key: 'streamCore', name: 'StreamCore', address: contracts.streamCore, explorerUrl: getProgramExplorerUrl(contracts.streamCore), network: 'vara-mainnet' },
     { key: 'tokenVault', name: 'TokenVault', address: contracts.tokenVault, explorerUrl: getProgramExplorerUrl(contracts.tokenVault), network: 'vara-mainnet' },
     { key: 'growToken', name: 'Grow Token', address: contracts.growToken, explorerUrl: getProgramExplorerUrl(contracts.growToken), network: 'vara-mainnet' },
+    { key: 'gvaraToken', name: 'gVARA', address: contracts.gvaraToken, explorerUrl: getProgramExplorerUrl(contracts.gvaraToken), network: 'vara-mainnet' },
+    { key: 'wvaraToken', name: 'wVARA', address: contracts.wvaraToken, explorerUrl: getProgramExplorerUrl(contracts.wvaraToken), network: 'vara-mainnet' },
+    { key: 'questSeeds', name: 'Quest Seeds', address: contracts.questSeeds, explorerUrl: getProgramExplorerUrl(contracts.questSeeds), network: 'vara-mainnet' },
     { key: 'splitsRouter', name: 'SplitsRouter', address: contracts.splitsRouter, explorerUrl: getProgramExplorerUrl(contracts.splitsRouter), network: 'vara-mainnet' },
     { key: 'distributionPool', name: 'DistributionPool', address: contracts.distributionPool, explorerUrl: getProgramExplorerUrl(contracts.distributionPool), network: 'vara-mainnet' },
     { key: 'liquidationManager', name: 'LiquidationManager', address: contracts.liquidationManager, explorerUrl: getProgramExplorerUrl(contracts.liquidationManager), network: 'vara-mainnet' },
@@ -1268,7 +1470,13 @@ export async function getTotalRegisteredUsers() {
     return { count: 0, available: false };
   }
   try {
-    const result = await queryOne(`SELECT COUNT(*)::bigint AS count FROM users WHERE ${USERS_EXCLUDE_TEST_SQL}`);
+    const result = await queryOne(`
+      SELECT COUNT(DISTINCT w)::bigint AS count FROM (
+        SELECT LOWER(wallet) AS w FROM users WHERE wallet IS NOT NULL AND ${USERS_EXCLUDE_TEST_SQL}
+        UNION
+        SELECT LOWER(wallet) AS w FROM quest_registrations WHERE wallet IS NOT NULL
+      ) AS registered_wallets
+    `);
     return { count: Number.parseInt(result?.count || '0', 10), available: true };
   } catch (err) {
     console.error('[analytics] Failed to get total registered users:', err.message);
@@ -1506,11 +1714,42 @@ export async function getCampaignMetrics() {
  */
 export async function getProtocolFees(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   const windowDays = clampInt(days, 1, 365, DEFAULT_ACTIVITY_WINDOW_DAYS);
-  if (!getPool()) {
+  let rows = [];
+  let source = 'on_chain_event_indexer';
+  let feeBps = null;
+
+  try {
+    const streamConfig = await contractQuery('streamCore', 'GetConfig');
+    const rawFeeBps = Number.parseInt(toStringValue(streamConfig?.fee_bps), 10);
+    feeBps = Number.isFinite(rawFeeBps) ? rawFeeBps : null;
+  } catch {
+  }
+
+  if (getPool()) {
+    rows = await queryAll(
+      `SELECT token_symbol, token_address, amount, created_at AS event_at
+       FROM vault_events
+       WHERE event_type = 'fee' AND amount IS NOT NULL`
+    ).catch(() => []);
+  }
+
+  if (!rows.length) {
+    rows = await fetchExplorerFeeRows().catch((err) => {
+      console.warn('[analytics] Explorer fee fallback failed:', err.message);
+      return [];
+    });
+    if (rows.length) source = 'explorer_api_fee_events';
+  }
+
+  if (!rows.length) {
     return {
       available: false,
       windowDays,
-      source: 'on_chain_event_indexer',
+      source,
+      totalEvents: 0,
+      last24hEvents: 0,
+      last7dEvents: 0,
+      last30dEvents: 0,
       totalFeesUsd: 0,
       last24hUsd: 0,
       last7dUsd: 0,
@@ -1518,12 +1757,6 @@ export async function getProtocolFees(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
       byToken: [],
     };
   }
-
-  const rows = await queryAll(
-    `SELECT token_symbol, token_address, amount, created_at AS event_at
-     FROM vault_events
-     WHERE event_type = 'fee' AND amount IS NOT NULL`
-  ).catch(() => []);
 
   const now = Date.now();
   const windows = {
@@ -1571,29 +1804,43 @@ export async function getProtocolFees(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
 
   // Windowed USD totals (per-row, so each fee lands in the correct bucket).
   let last24hUsd = 0, last7dUsd = 0, last30dUsd = 0;
+  let last24hEvents = 0, last7dEvents = 0, last30dEvents = 0;
   for (const row of rows) {
     const token = getToken(row.token_symbol);
     const decimals = token?.decimals ?? 12;
     const amountDisplay = toDisplayUnits(row.amount, decimals);
     const usd = toNumberValue(amountDisplay) * priceFor(row.token_symbol, token);
     const at = new Date(row.event_at).getTime();
-    if (at >= windows.last24h) last24hUsd += usd;
-    if (at >= windows.last7d) last7dUsd += usd;
-    if (at >= windows.last30d) last30dUsd += usd;
+    if (at >= windows.last24h) {
+      last24hUsd += usd;
+      last24hEvents += 1;
+    }
+    if (at >= windows.last7d) {
+      last7dUsd += usd;
+      last7dEvents += 1;
+    }
+    if (at >= windows.last30d) {
+      last30dUsd += usd;
+      last30dEvents += 1;
+    }
   }
 
   return {
     available: true,
     windowDays,
-    source: 'on_chain_event_indexer',
-    feeBps: 250,
-    feePercent: 2.5,
+    source,
+    feeBps,
+    feePercent: feeBps != null ? roundNumber(feeBps / 100, 4) : null,
+    totalEvents: rows.length,
+    last24hEvents,
+    last7dEvents,
+    last30dEvents,
     totalFeesUsd: roundNumber(totalFeesUsd),
     last24hUsd: roundNumber(last24hUsd),
     last7dUsd: roundNumber(last7dUsd),
     last30dUsd: roundNumber(last30dUsd),
     byToken,
-    note: 'Protocol fee (2.5%) collected on stream create/deposit across all paths — vault/VFT, native VARA, and gVARA super-token streams. Sourced from on-chain FeeCollected events.',
+    note: `Protocol fee${feeBps != null ? ` (${roundNumber(feeBps / 100, 4)}%)` : ''} collected on stream create/deposit across all paths — vault/VFT, native VARA, and gVARA super-token streams. Sourced from on-chain FeeCollected events or explorer fallback when index data is absent.`,
   };
 }
 
@@ -1821,6 +2068,7 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
       totalRegistered: totalUsers.count,
       totalDistinctWallets: platformUsers.totalDistinctWallets,
       available: totalUsers.available,
+      note: 'totalRegistered counts wallets registered in the users + quest_registrations systems. totalDistinctWallets is broader and dedupes across users, quest_registrations, and contributor participants.',
     },
     quests: {
       registrations: questMetrics.registrations,
@@ -1877,14 +2125,17 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
       lastUpdatedAt: freshness.lastUpdatedAt || activity.lastUpdatedAt,
     },
     coverage: {
-      tvlSource: 'onchain_balanceof_live',
+      tvlSource: tvl.meta?.tvlSource || 'wrapper_total_supply_plus_native_vara',
       streamCountsSource: 'onchain_stream_core_queries',
       onchainActivitySource: streamMetrics.source, // onchain_state_polling
-      onchainActivityNote: 'Streams/volume/wallets/DAU/MAU reconstructed by polling StreamCore state; the contract emits no events (see docs/BLOCKER-onchain-events-and-fees.md). Protocol-fee KPI still blocked (no fee logic on-chain).',
+      onchainActivityNote: 'Streams/volume/wallets/DAU/MAU are reconstructed from live StreamCore state polling plus on-chain quest-seeds mint activity from seeds_ledger. Protocol fees are sourced from FeeCollected events via the indexer or explorer fallback.',
       platformUsersSource: 'users + quest_registrations + participants (deduped by wallet, test-excluded)',
       notes: [
         'Two domains are reported separately: onchain (DeFi / Vara chain) and platform (off-chain GrowStreams app).',
-        'TVL is read live from on-chain VFT BalanceOf of the vault per deployed token, plus native VARA held by the vault.',
+        'TVL is read live from wrapper contract total supply for wVARA and gVARA, plus native VARA held by the configured TokenVault account.',
+        contracts.contractWiring?.streamCoreUsesConfiguredVault === false
+          ? `Contract wiring mismatch detected: configured TokenVault (${contracts.tokenVault}) differs from StreamCore-linked vault (${contracts.liveStreamCoreVault}).`
+          : 'Configured TokenVault matches the vault currently linked from StreamCore.',
         tvl.meta?.tokensNotDeployedOnChain?.length
           ? `Tokens not yet deployed on Vara mainnet (reported as 0): ${tvl.meta.tokensNotDeployedOnChain.join(', ')}.`
           : 'All tracked token contracts are deployed on-chain.',
@@ -1893,7 +2144,13 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
           : 'USD estimates use CoinGecko real-time pricing for all tokens with balances.',
         activity.capturesPayloadSignedTransactions
           ? 'On-chain activity includes payload-signed transactions captured via the chain event indexer.'
-          : 'On-chain volume / DAU / unique-wallet counts await the chain event indexer (Task C); they currently reflect backend-logged transactions only.',
+          : 'The /activity endpoint is currently sourced from indexed/backend-logged rows when authoritative chain-event rows are absent. /summary.onchain.activity remains live StreamCore state polling plus quest-seeds mint activity.',
+        'Windowed /activity volume is derived from indexed/backend-logged events. /summary.onchain.activity.volumeUsd is the live cumulative streamed value from StreamCore state and will not match /activity windows exactly.',
+        `XP mint explorer links point to the quest-seeds program messages page: ${questSeedsProgramExplorerUrl() || 'unavailable'}.`,
+        protocolFees.available
+          ? `Protocol fee KPI is active and currently sourced from ${protocolFees.source}.`
+          : 'Protocol fee KPI is currently unavailable because no fee events were found from the indexer or explorer fallback.',
+        'Historical snapshot endpoints return persisted rows as recorded at snapshot time; older points are not backfilled after contract migrations or methodology changes.',
         'GrowStreams has TWO independent registration systems that do not sync: Campaign (users table) and Quest (quest_registrations). The same wallet may exist in both. platform.users.totalDistinctWallets dedupes across both plus the contributor track.',
         'platform.dau counts distinct wallets with any off-chain action today (quest completions, seeds/XP); onchain.activity.dau counts on-chain transactions only.',
         'Quest metrics: registrations, verified completions, XP/seeds distributed, active quests. Engagement: invites, referrals, vouchers, campaign likes. Plus seasons and Vara.eth (EVM) streams.',
@@ -1908,11 +2165,12 @@ export async function persistAnalyticsSnapshot(days = DEFAULT_ACTIVITY_WINDOW_DA
     return { saved: false, reason: 'database_not_configured' };
   }
 
-  const [tvl, activity, streamMetrics, freshness] = await Promise.all([
+  const [tvl, activity, streamMetrics, freshness, snapshotCompatibility] = await Promise.all([
     getCurrentTvl(),
     getObservedActivity(days),
     getOnchainStreamMetrics(),
     getLatestFreshness(),
+    getSnapshotCompatibilityContext(),
   ]);
 
   const client = await pool.connect();
@@ -1947,9 +2205,16 @@ export async function persistAnalyticsSnapshot(days = DEFAULT_ACTIVITY_WINDOW_DA
           onchain_dau,
           onchain_mau,
           seeds_active_wallets,
-          stream_wallets
+          stream_wallets,
+          snapshot_version,
+          tvl_methodology,
+          activity_methodology,
+          stream_core_program_id,
+          token_vault_program_id,
+          quest_seeds_program_id,
+          stream_core_vault_address
         )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)`,
       [
         snappedAt,
         tvl.totals.estimatedUsd,
@@ -1976,6 +2241,13 @@ export async function persistAnalyticsSnapshot(days = DEFAULT_ACTIVITY_WINDOW_DA
         streamMetrics.mau,
         streamMetrics.seedsActiveWalletsAllTime,
         streamMetrics.streamWallets,
+        snapshotCompatibility.snapshotVersion,
+        snapshotCompatibility.tvlMethodology,
+        snapshotCompatibility.activityMethodology,
+        snapshotCompatibility.streamCoreProgramId,
+        snapshotCompatibility.tokenVaultProgramId,
+        snapshotCompatibility.questSeedsProgramId,
+        snapshotCompatibility.streamCoreVaultAddress,
       ]
     );
 
@@ -2034,6 +2306,8 @@ export async function getAnalyticsHistory(hours = 24 * 7) {
     };
   }
 
+  const snapshotCompatibility = await getSnapshotCompatibilityContext();
+
   const snapshots = await queryAll(
     `SELECT
         snapped_at,
@@ -2057,13 +2331,30 @@ export async function getAnalyticsHistory(hours = 24 * 7) {
         last_updated_at
       FROM analytics_protocol_snapshots
       WHERE snapped_at >= NOW() - ($1 * INTERVAL '1 hour')
+        AND snapshot_version = $2
+        AND COALESCE(tvl_methodology, '') = COALESCE($3, '')
+        AND COALESCE(activity_methodology, '') = COALESCE($4, '')
+        AND COALESCE(stream_core_program_id, '') = COALESCE($5, '')
+        AND COALESCE(token_vault_program_id, '') = COALESCE($6, '')
+        AND COALESCE(quest_seeds_program_id, '') = COALESCE($7, '')
       ORDER BY snapped_at ASC`,
-    [lookbackHours]
+    [
+      lookbackHours,
+      snapshotCompatibility.snapshotVersion,
+      snapshotCompatibility.tvlMethodology,
+      snapshotCompatibility.activityMethodology,
+      snapshotCompatibility.streamCoreProgramId,
+      snapshotCompatibility.tokenVaultProgramId,
+      snapshotCompatibility.questSeedsProgramId,
+    ]
   );
 
   return {
     available: true,
     lookbackHours,
+    source: 'analytics_protocol_snapshots',
+    snapshotVersion: snapshotCompatibility.snapshotVersion,
+    note: 'Only snapshots matching the current methodology and current contract set are returned. Older persisted rows remain stored but are excluded until they are backfilled or replaced.',
     snapshots,
   };
 }
@@ -2078,6 +2369,8 @@ export async function getTvlHistory(days = 30) {
     };
   }
 
+  const snapshotCompatibility = await getSnapshotCompatibilityContext();
+
   const points = await queryAll(
     `SELECT DISTINCT ON (DATE(snapped_at))
         DATE(snapped_at) AS date,
@@ -2086,13 +2379,26 @@ export async function getTvlHistory(days = 30) {
         snapped_at
       FROM analytics_protocol_snapshots
       WHERE snapped_at >= NOW() - ($1 * INTERVAL '1 day')
+        AND snapshot_version = $2
+        AND COALESCE(tvl_methodology, '') = COALESCE($3, '')
+        AND COALESCE(stream_core_program_id, '') = COALESCE($4, '')
+        AND COALESCE(token_vault_program_id, '') = COALESCE($5, '')
       ORDER BY DATE(snapped_at), snapped_at DESC`,
-    [lookbackDays]
+    [
+      lookbackDays,
+      snapshotCompatibility.snapshotVersion,
+      snapshotCompatibility.tvlMethodology,
+      snapshotCompatibility.streamCoreProgramId,
+      snapshotCompatibility.tokenVaultProgramId,
+    ]
   );
 
   return {
     available: true,
     lookbackDays,
+    source: 'analytics_protocol_snapshots',
+    snapshotVersion: snapshotCompatibility.snapshotVersion,
+    methodology: 'Only snapshots matching the current live TVL methodology are returned. Current live TVL methodology is wrapper total supply (wVARA + gVARA) plus native VARA in the configured TokenVault account.',
     points,
   };
 }
@@ -2107,6 +2413,8 @@ export async function getActivityHistory(days = 30) {
   if (!getPool()) {
     return { available: false, lookbackDays, points: [] };
   }
+
+  const snapshotCompatibility = await getSnapshotCompatibilityContext();
 
   const points = await queryAll(
     `SELECT DISTINCT ON (DATE(snapped_at))
@@ -2123,13 +2431,26 @@ export async function getActivityHistory(days = 30) {
         active_streams
       FROM analytics_protocol_snapshots
       WHERE snapped_at >= NOW() - ($1 * INTERVAL '1 day')
+        AND snapshot_version = $2
+        AND COALESCE(activity_methodology, '') = COALESCE($3, '')
+        AND COALESCE(stream_core_program_id, '') = COALESCE($4, '')
+        AND COALESCE(quest_seeds_program_id, '') = COALESCE($5, '')
       ORDER BY DATE(snapped_at), snapped_at DESC`,
-    [lookbackDays]
+    [
+      lookbackDays,
+      snapshotCompatibility.snapshotVersion,
+      snapshotCompatibility.activityMethodology,
+      snapshotCompatibility.streamCoreProgramId,
+      snapshotCompatibility.questSeedsProgramId,
+    ]
   );
 
   return {
     available: true,
     lookbackDays,
+    source: 'analytics_protocol_snapshots',
+    snapshotVersion: snapshotCompatibility.snapshotVersion,
+    note: 'Daily points are taken from persisted hourly snapshots, but only rows matching the current on-chain activity methodology and current contract set are returned.',
     points,
   };
 }
@@ -2232,7 +2553,8 @@ export async function getRecentTransactions(limit = 50, offset = 0) {
       reason: tx.reason,
       extrinsic_hash: tx.tx_hash,
       source: 'xp_mint',
-      explorerUrl: extrinsicExplorerUrl(tx.tx_hash),
+      explorerUrl: questSeedsProgramExplorerUrl(),
+      transactionExplorerUrl: extrinsicExplorerUrl(tx.tx_hash),
     })),
   ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
@@ -2247,7 +2569,7 @@ export async function getRecentTransactions(limit = 50, offset = 0) {
     limit,
     offset,
     hasMore: offset + page.length < total,
-    note: 'Includes on-chain XP mints (seeds_ledger) with verifiable explorer links. explorerUrl points to idea.gear-tech.io for any row with a transaction hash.',
+    note: 'Includes on-chain XP mints (seeds_ledger). For xp_mint rows, explorerUrl points to the quest-seeds program messages page and transactionExplorerUrl points to the specific extrinsic when a tx hash is present.',
   };
 }
 
