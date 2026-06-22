@@ -319,14 +319,29 @@ export default function VaultDashboard() {
                   </button>
                 ))}
               </div>
-              {gvaraMode === 'wrap' && (
-                <p className="text-[10px] text-provn-muted flex items-center gap-1">
-                  <Info className="w-3 h-3" /> Native VARA is sent directly — no approval needed. 1 VARA = 1 gVARA.
-                </p>
-              )}
+              {gvaraMode === 'wrap' && (() => {
+                const wrapAmt = parseFloat(gvaraAmount) || 0;
+                const estimatedGas = 0.05;
+                const minRequired = wrapAmt + estimatedGas;
+                const hasEnough = minRequired === estimatedGas || (parseFloat(walletBalMap['VARA'] || '0') >= minRequired);
+                return (
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-1.5 text-[11px]">
+                    <p className="text-emerald-400 font-medium flex items-center gap-1"><Info className="w-3 h-3" /> Fee Calculator</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-provn-muted">
+                      <span>Wrap amount</span>
+                      <span className="text-provn-text font-mono">{wrapAmt > 0 ? wrapAmt.toFixed(4) : '—'} VARA</span>
+                      <span>Est. gas fee</span>
+                      <span className="text-provn-text font-mono">~{estimatedGas} VARA</span>
+                      <span className="font-medium text-provn-text">Min. wallet balance</span>
+                      <span className={`font-mono font-bold ${wrapAmt > 0 ? 'text-amber-400' : 'text-provn-muted'}`}>{wrapAmt > 0 ? minRequired.toFixed(4) : '—'} VARA</span>
+                    </div>
+                    <p className="text-provn-muted pt-0.5">1 VARA = 1 gVARA · No approval needed</p>
+                  </div>
+                );
+              })()}
               {gvaraMode === 'unwrap' && (
                 <p className="text-[10px] text-provn-muted flex items-center gap-1">
-                  <Info className="w-3 h-3" /> Burns gVARA and returns native VARA to your wallet.
+                  <Info className="w-3 h-3" /> Burns gVARA and returns native VARA to your wallet. Keep ~0.05 VARA for gas.
                 </p>
               )}
           </div>

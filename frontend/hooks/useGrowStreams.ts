@@ -123,16 +123,20 @@ export function useGearSign() {
         // Forcing 100B on unwrap made the gas-bank reserve more VARA than a
         // low-balance wallet has free → gearBank.InsufficientBalance.
         const isAsyncCall = programId === PROGRAM_IDS.streamCore;
+        const isGvaraCall = programId === PROGRAM_IDS.gvaraToken;
 
         let gasLimit = isAsyncCall ? ASYNC_GAS : FIXED_GAS;
-        if (!hasValue && !isAsyncCall) {
-          // Only estimate gas for simple zero-value messages without async calls
+        // Estimate gas for: (a) zero-value non-async calls, or (b) gVARA value calls
+        // For gVARA wrap we MUST estimate with the actual value so Gear can correctly
+        // account for gas from the remaining balance (avoids gearBank.InsufficientBalance)
+        const shouldEstimate = (!hasValue && !isAsyncCall) || (isGvaraCall && hasValue);
+        if (shouldEstimate) {
           try {
             const gas = await api.program.calculateGas.handle(
               account.decodedAddress as `0x${string}`,
               programId,
               payloadHex as `0x${string}`,
-              0,
+              hasValue ? valueStr : 0,
               true,
             );
             const minGas = BigInt(gas.min_limit.toString());
@@ -144,7 +148,6 @@ export function useGearSign() {
 
         // Skip voucher for gVARA contract — UnwrapNative sends VARA back via msg::send,
         // which is incompatible with voucher-wrapped calls on Vara mainnet.
-        const isGvaraCall = programId === PROGRAM_IDS.gvaraToken;
         // Try to get a gasless voucher (but skip if sending value or calling gVARA)
         const voucherId = (hasValue || isGvaraCall) ? null : await getOrIssueVoucher(account.decodedAddress);
 
