@@ -1,8 +1,29 @@
 "use client"
 
 import React, { useEffect, useState, useCallback } from "react"
+import { ExternalLink } from "lucide-react"
 import { api } from "@/lib/growstreams-api"
-import { Card, SectionTitle, ExplorerLink, Pagination, formatTimestamp, shortHash, formatNumber } from "./shared"
+import { Card, SectionTitle, ExplorerLink, Pagination, formatTimestamp, shortHash } from "./shared"
+
+const STREAM_CORE_GEAR_URL =
+  "https://idea.gear-tech.io/programs/0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4?node=wss://rpc.vara.network"
+
+function normaliseSymbol(raw: string | undefined | null): string {
+  if (!raw) return "—"
+  if (raw.toLowerCase() === "wvara") return "gVARA"
+  return raw
+}
+
+function formatAmount(amount: string | number | null | undefined, source: string): string {
+  if (amount == null || amount === "") return "—"
+  const n = Number(amount)
+  if (isNaN(n)) return String(amount)
+  if (source === "xp_mint") return n.toLocaleString()
+  const display = n / 1e12
+  if (display === 0) return "0"
+  if (display < 0.0001) return display.toExponential(3)
+  return display.toLocaleString(undefined, { maximumFractionDigits: 4 })
+}
 
 const SOURCE_STYLES: Record<string, string> = {
   xp_mint: "bg-purple-500/15 text-purple-300",
@@ -73,10 +94,20 @@ export function TransactionsTable() {
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-300">{shortHash(tx.wallet || tx.sender || tx.receiver)}</td>
-                    <td className="px-4 py-3 text-gray-300">{tx.amount != null ? formatNumber(tx.amount) : "—"}</td>
-                    <td className="px-4 py-3 text-gray-400">{tx.token_symbol || tx.token || "—"}</td>
+                    <td className="px-4 py-3 text-gray-300">{formatAmount(tx.amount, tx.source)}</td>
+                    <td className="px-4 py-3 text-gray-400">{normaliseSymbol(tx.token_symbol || tx.token)}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{formatTimestamp(tx.timestamp)}</td>
-                    <td className="px-4 py-3"><ExplorerLink url={tx.explorerUrl} /></td>
+                    <td className="px-4 py-3">
+                      {tx.explorerUrl
+                        ? <ExplorerLink url={tx.explorerUrl} />
+                        : (tx.source === 'stream' || tx.source === 'vault')
+                          ? <a href={STREAM_CORE_GEAR_URL} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300">
+                              verify <ExternalLink className="w-3 h-3" />
+                            </a>
+                          : <span className="text-gray-600">—</span>
+                      }
+                    </td>
                   </tr>
                 ))
               )}
