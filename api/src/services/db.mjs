@@ -450,6 +450,13 @@ export async function migrate() {
     ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS onchain_mau INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS seeds_active_wallets INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS stream_wallets INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS snapshot_version TEXT;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS tvl_methodology TEXT;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS activity_methodology TEXT;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS stream_core_program_id TEXT;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS token_vault_program_id TEXT;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS quest_seeds_program_id TEXT;
+    ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS stream_core_vault_address TEXT;
   `);
 
   // Add user_id column to participants if it does not exist

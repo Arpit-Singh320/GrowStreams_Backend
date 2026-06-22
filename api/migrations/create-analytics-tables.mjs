@@ -59,6 +59,13 @@ async function runMigration() {
       ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS unique_wallets_all_time INTEGER NOT NULL DEFAULT 0;
       ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ;
       ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMPTZ;
+      ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS snapshot_version TEXT;
+      ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS tvl_methodology TEXT;
+      ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS activity_methodology TEXT;
+      ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS stream_core_program_id TEXT;
+      ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS token_vault_program_id TEXT;
+      ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS quest_seeds_program_id TEXT;
+      ALTER TABLE analytics_protocol_snapshots ADD COLUMN IF NOT EXISTS stream_core_vault_address TEXT;
     `);
     console.log('[migration] analytics_protocol_snapshots columns upgraded if needed');
 
