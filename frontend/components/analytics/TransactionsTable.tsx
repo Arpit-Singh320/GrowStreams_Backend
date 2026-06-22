@@ -6,7 +6,7 @@ import { api } from "@/lib/growstreams-api"
 import { Card, SectionTitle, ExplorerLink, Pagination, formatTimestamp, shortHash } from "./shared"
 
 const STREAM_CORE_GEAR_URL =
-  "https://idea.gear-tech.io/programs/0xfbd656f8082749bc4d8949718d539b5affd76f3004857f889d73fba61013cfe4?node=wss://rpc.vara.network"
+  "https://idea.gear-tech.io/programs/0x8298c2eea5c6bbe55a9cfe72283b5399098fd6a54d9a2a14c2bedba8eea50659?node=wss://rpc.vara.network"
 
 function normaliseSymbol(raw: string | undefined | null): string {
   if (!raw) return "—"
