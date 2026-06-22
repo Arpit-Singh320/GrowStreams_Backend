@@ -23,9 +23,9 @@ export default function VaultDashboard() {
   const [paused, setPaused] = useState(false);
 
   const streamableTokens = listStreamableTokens();
-  const allTokens = streamableTokens;
+  const allTokens = streamableTokens.filter(t => t.key !== 'GVARA');
 
-  const [selectedToken, setSelectedToken] = useState<TokenConfig>(streamableTokens[0] || allTokens[0]);
+  const [selectedToken, setSelectedToken] = useState<TokenConfig>(allTokens[0]);
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
