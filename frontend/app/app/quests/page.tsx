@@ -990,22 +990,30 @@ function QuestDashboard({ wallet }: { wallet: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {specialProjects.map((proj: any) => (
               <div key={proj.slug}
-                className="relative bg-provn-surface border border-violet-500/20 rounded-2xl p-5 hover:border-violet-500/40 hover:shadow-lg transition-all cursor-pointer"
+                className="relative bg-provn-surface border border-violet-500/20 rounded-2xl overflow-hidden hover:border-violet-500/40 hover:shadow-lg transition-all cursor-pointer"
                 onClick={() => router.push(`/app/projects/${proj.slug}`)}
               >
-                <div className="absolute top-4 right-4">
-                  {proj.status === 'ACTIVE' && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">ACTIVE</span>
-                  )}
-                  {proj.status === 'UPCOMING' && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-400 font-medium">UPCOMING</span>
-                  )}
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
-                    <Star className="w-5 h-5 text-violet-400" />
+                {/* Banner */}
+                {proj.banner_url ? (
+                  <div className="w-full" style={{ aspectRatio: '3/1' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={proj.banner_url} alt={proj.title} className="w-full h-full object-cover" />
                   </div>
-                  <div className="min-w-0 pr-16">
+                ) : (
+                  <div className="w-full bg-violet-500/5 flex items-center justify-center" style={{ aspectRatio: '3/1' }}>
+                    <Star className="w-8 h-8 text-violet-500/20" />
+                  </div>
+                )}
+                <div className="p-5">
+                  <div className="absolute top-4 right-4">
+                    {proj.status === 'ACTIVE' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium">ACTIVE</span>
+                    )}
+                    {proj.status === 'UPCOMING' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-400 font-medium">UPCOMING</span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
                     {proj.badge_label && (
                       <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-violet-500/10 text-violet-400 mb-1 uppercase tracking-wider">
                         {proj.badge_label}
@@ -1018,11 +1026,11 @@ function QuestDashboard({ wallet }: { wallet: string }) {
                       <span className="flex items-center gap-1"><Trophy className="w-3.5 h-3.5 text-amber-400/70" />Own leaderboard</span>
                     </div>
                   </div>
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-violet-500/15 text-violet-300 text-xs font-semibold hover:bg-violet-500/25 transition-colors">
-                    View Project <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
+                  <div className="mt-4 flex justify-end">
+                    <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-violet-500/15 text-violet-300 text-xs font-semibold hover:bg-violet-500/25 transition-colors">
+                      View Project <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
