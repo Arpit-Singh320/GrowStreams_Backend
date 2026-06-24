@@ -1475,6 +1475,8 @@ export async function getTotalRegisteredUsers() {
         SELECT LOWER(wallet) AS w FROM users WHERE wallet IS NOT NULL AND ${USERS_EXCLUDE_TEST_SQL}
         UNION
         SELECT LOWER(wallet) AS w FROM quest_registrations WHERE wallet IS NOT NULL
+        UNION
+        SELECT LOWER(wallet) AS w FROM vara_rewards WHERE wallet IS NOT NULL
       ) AS registered_wallets
     `);
     return { count: Number.parseInt(result?.count || '0', 10), available: true };
@@ -1503,10 +1505,11 @@ export async function getPlatformUserMetrics() {
     };
   }
   try {
-    const [campaignUsers, questParticipants, contributors, distinct] = await Promise.all([
+    const [campaignUsers, questParticipants, contributors, rewardClaimants, distinct] = await Promise.all([
       queryOne(`SELECT COUNT(*)::bigint AS count FROM users WHERE ${USERS_EXCLUDE_TEST_SQL}`),
       queryOne('SELECT COUNT(DISTINCT wallet)::bigint AS count FROM quest_registrations WHERE wallet IS NOT NULL'),
       queryOne('SELECT COUNT(DISTINCT wallet)::bigint AS count FROM participants WHERE wallet IS NOT NULL'),
+      queryOne('SELECT COUNT(DISTINCT wallet)::bigint AS count FROM vara_rewards WHERE wallet IS NOT NULL'),
       queryOne(`
         SELECT COUNT(DISTINCT w)::bigint AS count FROM (
           SELECT LOWER(wallet) AS w FROM users WHERE wallet IS NOT NULL AND ${USERS_EXCLUDE_TEST_SQL}
@@ -1514,6 +1517,8 @@ export async function getPlatformUserMetrics() {
           SELECT LOWER(wallet) AS w FROM quest_registrations WHERE wallet IS NOT NULL
           UNION
           SELECT LOWER(wallet) AS w FROM participants WHERE wallet IS NOT NULL
+          UNION
+          SELECT LOWER(wallet) AS w FROM vara_rewards WHERE wallet IS NOT NULL
         ) AS all_wallets
       `),
     ]);
@@ -1523,8 +1528,9 @@ export async function getPlatformUserMetrics() {
         campaignUsers: Number.parseInt(campaignUsers?.count || '0', 10),
         questParticipants: Number.parseInt(questParticipants?.count || '0', 10),
         contributors: Number.parseInt(contributors?.count || '0', 10),
+        rewardClaimants: Number.parseInt(rewardClaimants?.count || '0', 10),
       },
-      note: 'Campaign and Quest are separate registration systems; the same wallet may appear in both. totalDistinctWallets dedupes by wallet across all systems.',
+      note: 'Campaign, Quest, Reward are separate systems; the same wallet may appear in multiple. totalDistinctWallets dedupes by wallet across all systems including VARA reward claimants.',
       available: true,
     };
   } catch (err) {
