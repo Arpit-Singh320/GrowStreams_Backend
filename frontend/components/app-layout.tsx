@@ -235,7 +235,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-1.5 px-1">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-[10px] text-provn-muted">
-              {isVaraEth ? 'Hoodi Testnet (EVM)' : 'Vara Mainnet'}
+              {isVaraEth ? 'ETH Mainnet' : 'Vara Mainnet'}
             </span>
           </div>
         </div>

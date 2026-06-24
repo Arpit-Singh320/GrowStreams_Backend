@@ -167,6 +167,15 @@ export default function CreateStream({ onCreated }: CreateStreamProps) {
           className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-sm font-mono focus:border-emerald-500/50 focus:outline-none"
           placeholder="kGk... or 0x..."
         />
+        <p className="text-[10px] text-provn-muted/70 mt-1">
+          No address to test? Try: <button
+            type="button"
+            onClick={() => setReceiver('kGiaMA7wophBP4BuJRyCUPTrkrgMfYFL78KaZmAF44WYjuPM2')}
+            className="text-emerald-400 hover:text-emerald-300 font-mono underline"
+          >
+            kGiaMA7wophBP4BuJRyCUPTrkrgMfYFL78KaZmAF44WYjuPM2
+          </button>
+        </p>
       </div>
 
       {/* Flow rate with interval selector */}

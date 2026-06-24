@@ -49,7 +49,7 @@ const STEPS = [
     bg: 'bg-blue-500/10',
     border: 'border-blue-500/20',
     title: 'Create a Stream with gVARA',
-    desc: 'Go to the Streams page, click New Stream. gVARA is the default streaming token. Enter a receiver address, flow rate and deposit amount, then create your first stream.',
+    desc: 'Go to the Streams page, click New Stream. gVARA is the default streaming token. Enter a receiver address (or use kGiaMA7wophBP4BuJRyCUPTrkrgMfYFL78KaZmAF44WYjuPM2 for testing), flow rate and deposit amount, then create your first stream.',
     href: '/app/streams',
     linkLabel: 'Open Streams',
     screenshot: '/screenshots/create-stream.png',
