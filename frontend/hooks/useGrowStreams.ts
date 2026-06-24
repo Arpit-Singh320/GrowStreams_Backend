@@ -149,6 +149,12 @@ export function useGearSign() {
         // Try to get a gasless voucher (but skip if sending value or calling gVARA)
         const voucherId = (hasValue || isGvaraCall) ? null : await getOrIssueVoucher(account.decodedAddress);
 
+        // Fetch a fresh nonce right before signing. Gas estimation + voucher
+        // issuance + the wallet approval prompt can take several seconds, during
+        // which the api's cached nonce/mortal-era can go stale, producing
+        // "1010: Invalid Transaction: Transaction is outdated" (InvalidTransaction::Stale).
+        const nonce = await api.rpc.system.accountNextIndex(account.address);
+
         return new Promise((resolve, reject) => {
           let tx;
           if (voucherId) {
@@ -170,8 +176,10 @@ export function useGearSign() {
             });
           }
 
+          // era: 0 makes the extrinsic immortal so it can't expire while the user
+          // is still approving it in their wallet. nonce is fetched fresh above.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          tx.signAndSend(account.address, { signer: injector.signer as any }, ({ status, events }: any) => {
+          tx.signAndSend(account.address, { signer: injector.signer as any, nonce, era: 0 }, ({ status, events }: any) => {
             if (status.isInBlock) {
               const failedEvent = events?.find((e: any) =>
                 api.events.system.ExtrinsicFailed.is(e.event)
