@@ -114,8 +114,15 @@ export default function RewardPage() {
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState('');
   const [justClaimed, setJustClaimed] = useState(false);
+  const [faucetBalance, setFaucetBalance] = useState<string | null>(null);
 
   const wallet = account?.address || null;
+
+  useEffect(() => {
+    api.reward.walletBalance()
+      .then(b => setFaucetBalance(b.balance))
+      .catch(() => setFaucetBalance(null));
+  }, []);
 
   useEffect(() => {
     if (!wallet) return;
@@ -139,6 +146,10 @@ export default function RewardPage() {
         amount: result.amount.toString(),
       });
       setJustClaimed(true);
+      // Refresh faucet balance
+      api.reward.walletBalance()
+        .then(b => setFaucetBalance(b.balance))
+        .catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Claim failed. Try again.');
     } finally {
@@ -159,6 +170,12 @@ export default function RewardPage() {
           </h1>
           <p className="text-provn-muted text-sm mt-1">Claim your starter VARA tokens and start streaming</p>
         </div>
+        {faucetBalance && (
+          <div className="text-right">
+            <p className="text-xs text-provn-muted uppercase tracking-wider">Faucet Balance</p>
+            <p className="text-lg font-bold text-emerald-400">{parseFloat(faucetBalance).toLocaleString()} VARA</p>
+          </div>
+        )}
       </div>
 
       {/* Hero Claim Card */}

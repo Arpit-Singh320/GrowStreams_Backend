@@ -24,6 +24,25 @@ async function ensureRewardTable() {
 
 ensureRewardTable().catch(err => console.warn('[reward] Table ensure failed:', err.message));
 
+router.get('/wallet-balance', async (req, res, next) => {
+  try {
+    const api = getApi();
+    const keyring = getKeyring();
+    if (!api || !keyring) {
+      return res.json({ balance: '0', address: null });
+    }
+    
+    const { data: { free } } = await api.query.system.account(keyring.address);
+    const balanceVara = Number(free.toString()) / 1e12;
+    
+    res.json({
+      balance: balanceVara.toFixed(4),
+      balanceRaw: free.toString(),
+      address: keyring.address,
+    });
+  } catch (err) { next(err); }
+});
+
 router.get('/status/:wallet', async (req, res, next) => {
   try {
     const { wallet } = req.params;

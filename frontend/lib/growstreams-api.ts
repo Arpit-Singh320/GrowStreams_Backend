@@ -1178,6 +1178,8 @@ export const api = {
 
   // ─── Reward (one-time 50 VARA claim) ────────────────────────────────────────
   reward: {
+    walletBalance: () =>
+      get<{ balance: string; balanceRaw: string; address: string | null }>('/api/reward/wallet-balance'),
     status: (wallet: string) =>
       get<{ claimed: boolean; claimed_at: string | null; tx_hash: string | null; amount: string | null }>(
         `/api/reward/status/${wallet}`,
