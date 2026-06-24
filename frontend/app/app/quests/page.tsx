@@ -263,7 +263,7 @@ function QuestCard({
 }: {
   quest: QuestData;
   wallet: string;
-  onClaim: (slug: string, payload?: { x_username?: string; tweet_url?: string; image_data?: string }) => void;
+  onClaim: (slug: string, payload?: { x_username?: string; tweet_url?: string; image_data?: string; project_url?: string }) => void;
   claiming: boolean;
 }) {
   const isCompleted = quest.completed;
@@ -276,7 +276,8 @@ function QuestCard({
   const isTweetKeyword = quest.quest_type === 'X_TWEET_KEYWORD';
   const isPartnerContract = quest.quest_type === 'PARTNER_CONTRACT';
   const isImageUpload = quest.quest_type === 'IMAGE_UPLOAD';
-  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword || isPartnerContract || isImageUpload;
+  const isProjectSubmit = quest.quest_type === 'PROJECT_SUBMIT';
+  const needsManualInput = isFollowX || isMentionX || isRetweet || isTweetKeyword || isPartnerContract || isImageUpload || isProjectSubmit;
   const needsTweetUrl = isMentionX || isRetweet || isTweetKeyword;
   const xRef = X_HANDLE_BY_SLUG[quest.slug];
   const [xUsername, setXUsername] = useState('');
@@ -285,6 +286,7 @@ function QuestCard({
   const [contractId, setContractId] = useState('');
   const [imageData, setImageData] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState('');
+  const [projectUrl, setProjectUrl] = useState('');
   const questMeta = (quest.meta || {}) as Record<string, unknown>;
   const inputLabel = (questMeta.input_label as string) || (isFollowX ? 'Your X username' : 'Tweet URL');
   const inputPlaceholder = (questMeta.input_placeholder as string) || (isFollowX ? '@yourhandle' : 'https://x.com/yourhandle/status/123...');
@@ -298,6 +300,8 @@ function QuestCard({
       ? partyId.trim().length > 0 || contractId.trim().length > 0
       : isImageUpload
       ? imageData !== null
+      : isProjectSubmit
+      ? /^https?:\/\//i.test(projectUrl.trim())
       : /^https?:\/\/(x\.com|twitter\.com)\//i.test(tweetUrl.trim())
     : true;
 
@@ -314,6 +318,9 @@ function QuestCard({
     } else if (isImageUpload) {
       if (!imageData) return;
       onClaim(quest.slug, { image_data: imageData });
+    } else if (isProjectSubmit) {
+      if (!projectUrl.trim()) return;
+      onClaim(quest.slug, { project_url: projectUrl.trim() });
     } else if (needsTweetUrl) {
       if (!tweetUrl.trim()) return;
       onClaim(quest.slug, { tweet_url: tweetUrl.trim() });
@@ -472,6 +479,20 @@ function QuestCard({
               />
             </>
           )}
+          {isProjectSubmit && (
+            <div className="space-y-2">
+              <div className="text-[11px] text-provn-muted">
+                {(questMeta.instructions as string) || 'Submit your project URL for admin review.'}
+              </div>
+              <input
+                type="url"
+                value={projectUrl}
+                onChange={e => setProjectUrl(e.target.value)}
+                placeholder="https://your-project.com"
+                className="w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-xs focus:border-emerald-500/50 focus:outline-none"
+              />
+            </div>
+          )}
           {isImageUpload && (
             <div className="space-y-2">
               <div className="text-[11px] text-provn-muted">
@@ -546,6 +567,19 @@ function QuestCard({
               alt="Submitted proof"
               className="max-h-32 rounded-lg border border-amber-500/20 object-contain mt-1"
             />
+          )}
+          {(quest.pendingSubmission.proof as { project_url?: string })?.project_url && (
+            <p className="text-[11px] text-provn-muted">
+              Project URL:{' '}
+              <a
+                href={(quest.pendingSubmission.proof as { project_url?: string }).project_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400 hover:text-emerald-300 underline break-all"
+              >
+                {(quest.pendingSubmission.proof as { project_url?: string }).project_url}
+              </a>
+            </p>
           )}
         </div>
       )}

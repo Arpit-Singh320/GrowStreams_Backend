@@ -25,6 +25,7 @@ const QUEST_TYPES = [
   { value: 'WELCOME',         label: 'Welcome Bonus',               icon: '🎁', hint: 'One-time, auto-awarded on join' },
   { value: 'PARTNER_CONTRACT', label: 'Partner — Deploy Contract',    icon: '📄', hint: 'User pastes their Party ID + Contract ID from a partner platform (e.g. Canton/Ginie). Admin verifies on-chain.' },
   { value: 'IMAGE_UPLOAD',     label: 'Image Upload — Screenshot Proof', icon: '🖼️', hint: 'User uploads a screenshot as proof. Admin reviews the image and approves manually.' },
+  { value: 'PROJECT_SUBMIT',  label: 'Project Submit — URL Review',     icon: '🔗', hint: 'User submits a project URL. Admin reviews and approves manually.' },
 ];
 
 const DIFFICULTIES = ['EASY', 'MEDIUM', 'HARD'];
@@ -107,10 +108,11 @@ function SubmissionRow({
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [error, setError] = useState('');
 
-  const proof = (submission.proof || {}) as { x_username?: string; tweet_url?: string; party_id?: string; contract_id?: string; partner_url?: string; image_data?: string };
+  const proof = (submission.proof || {}) as { x_username?: string; tweet_url?: string; party_id?: string; contract_id?: string; partner_url?: string; image_data?: string; project_url?: string };
   const isFollow = submission.quest_slug === 'follow-x';
   const isPartnerContract = submission.quest_slug?.startsWith('partner-') || (submission as any).quest_type === 'PARTNER_CONTRACT';
   const isImageUpload = (submission as any).quest_type === 'IMAGE_UPLOAD';
+  const isProjectSubmit = (submission as any).quest_type === 'PROJECT_SUBMIT';
 
   const handleApprove = async () => {
     if (busy) return;
@@ -235,7 +237,26 @@ function SubmissionRow({
             )}
           </div>
         )}
-        {!isFollow && !isPartnerContract && !isImageUpload && proof.tweet_url && (
+        {isProjectSubmit && (
+          <div className="space-y-1 text-sm">
+            {proof.project_url ? (
+              <div className="flex items-center gap-2">
+                <span className="text-provn-muted w-24 flex-shrink-0">Project URL:</span>
+                <a
+                  href={proof.project_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1 break-all font-mono text-xs"
+                >
+                  {proof.project_url} <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                </a>
+              </div>
+            ) : (
+              <p className="text-provn-muted text-xs">No project URL submitted.</p>
+            )}
+          </div>
+        )}
+        {!isFollow && !isPartnerContract && !isImageUpload && !isProjectSubmit && proof.tweet_url && (
           <div className="flex items-start gap-2 text-sm">
             <span className="text-provn-muted">Tweet URL:</span>
             <a

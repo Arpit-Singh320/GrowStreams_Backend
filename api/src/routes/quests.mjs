@@ -210,7 +210,7 @@ router.get('/seeds/:wallet', async (req, res, next) => {
 router.post('/:slug/claim', async (req, res, next) => {
   try {
     const { slug } = req.params;
-    const { wallet, x_username, tweet_url, party_id, contract_id, partner_url, image_data } = req.body;
+    const { wallet, x_username, tweet_url, party_id, contract_id, partner_url, image_data, project_url } = req.body;
 
     if (!wallet) return res.status(400).json({ error: 'Wallet is required' });
 
@@ -349,6 +349,27 @@ router.post('/:slug/claim', async (req, res, next) => {
       });
       return res.json({
         message: 'Submitted for review. An admin will verify your contract and award XP shortly.',
+        slug,
+        wallet,
+        status: 'PENDING_REVIEW',
+        submission: result,
+      });
+    }
+
+    // Project submit quests: user submits a project URL for admin review
+    if (quest.quest_type === 'PROJECT_SUBMIT') {
+      const url = (project_url || '').trim();
+      if (!url) return res.status(400).json({ error: 'Please enter your project URL' });
+      if (!/^https?:\/\//i.test(url)) {
+        return res.status(400).json({ error: 'Please enter a valid URL starting with http:// or https://' });
+      }
+
+      const result = await submitQuestProof(wallet, slug, {
+        project_url: url,
+        source: 'manual-review',
+      });
+      return res.json({
+        message: 'Project submitted for review. An admin will verify it and award XP shortly.',
         slug,
         wallet,
         status: 'PENDING_REVIEW',

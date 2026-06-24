@@ -976,7 +976,7 @@ export const api = {
       get<QuestProgress>(`/api/quests/me?wallet=${wallet}`),
     seeds: (wallet: string) =>
       get<{ wallet: string; seeds: number }>(`/api/quests/seeds/${wallet}`),
-    claim: (slug: string, wallet: string, payload?: { x_username?: string; tweet_url?: string; party_id?: string; contract_id?: string; partner_url?: string; image_data?: string }) =>
+    claim: (slug: string, wallet: string, payload?: { x_username?: string; tweet_url?: string; party_id?: string; contract_id?: string; partner_url?: string; image_data?: string; project_url?: string }) =>
       post<{ message: string; slug: string; wallet: string; status: string }>(
         `/api/quests/${slug}/claim`,
         { wallet, ...(payload || {}) } as Record<string, unknown>
