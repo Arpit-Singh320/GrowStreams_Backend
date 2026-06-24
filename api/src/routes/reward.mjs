@@ -62,11 +62,6 @@ router.post('/claim', async (req, res, next) => {
     const { wallet } = req.body;
     if (!wallet) return res.status(400).json({ error: 'Missing: wallet' });
 
-    const registered = await queryOne('SELECT id FROM quest_registrations WHERE wallet = $1', [wallet]);
-    if (!registered) {
-      return res.status(403).json({ error: 'Wallet not registered. Complete quest registration first.' });
-    }
-
     const existing = await queryOne('SELECT id FROM vara_rewards WHERE wallet = $1', [wallet]);
     if (existing) {
       return res.status(409).json({ error: 'Reward already claimed for this wallet.' });
