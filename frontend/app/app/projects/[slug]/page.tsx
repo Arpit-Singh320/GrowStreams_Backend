@@ -165,21 +165,30 @@ export default function ProjectPage() {
       </button>
 
       {/* Header */}
-      <div className="bg-provn-surface border border-provn-border rounded-2xl p-6 space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            {project.badge_label && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-violet-500/15 text-violet-400 uppercase tracking-wider">
-                {project.badge_label as string}
-              </span>
-            )}
-            <h1 className="text-2xl font-bold">{project.title as string}</h1>
-            <p className="text-sm text-provn-muted">{project.description as string}</p>
+      <div className="bg-provn-surface border border-provn-border rounded-2xl overflow-hidden space-y-0">
+        {/* Banner */}
+        {project.banner_url && (
+          <div className="w-full" style={{ aspectRatio: '3/1' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={project.banner_url} alt={project.title as string} className="w-full h-full object-cover" />
           </div>
-          <div className="text-right flex-shrink-0 space-y-1">
-            <div className="text-2xl font-bold text-violet-400">{projectXp}</div>
-            <div className="text-xs text-provn-muted">Project XP</div>
-            <div className="text-xs text-provn-muted">{completedCount}/{quests.length} quests</div>
+        )}
+        <div className="p-6 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              {project.badge_label && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-violet-500/15 text-violet-400 uppercase tracking-wider">
+                  {project.badge_label as string}
+                </span>
+              )}
+              <h1 className="text-2xl font-bold">{project.title as string}</h1>
+              <p className="text-sm text-provn-muted">{project.description as string}</p>
+            </div>
+            <div className="text-right flex-shrink-0 space-y-1">
+              <div className="text-2xl font-bold text-violet-400">{projectXp}</div>
+              <div className="text-xs text-provn-muted">Project XP</div>
+              <div className="text-xs text-provn-muted">{completedCount}/{quests.length} quests</div>
+            </div>
           </div>
         </div>
       </div>
