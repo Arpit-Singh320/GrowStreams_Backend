@@ -138,16 +138,7 @@ export async function listInvites(status = null) {
  * Requires: display_name, email, invite_code, and at least one of wallet (SS58) or evm_address (0x).
  * Pass refCode (from ?ref=GSR-XXXXXX in the referral link) to link referrals.
  */
-export async function registerForQuests(wallet, email, displayName, evmAddress = null, refCode = null, inviteCode = null) {
-  // Validate invite code (required)
-  if (!inviteCode || !inviteCode.trim()) {
-    throw Object.assign(new Error('Invite code is required'), { status: 400 });
-  }
-  const invite = await validateInvite(inviteCode.trim().toUpperCase());
-  if (!invite.valid) {
-    throw Object.assign(new Error(invite.error), { status: 400 });
-  }
-
+export async function registerForQuests(wallet, email, displayName, evmAddress = null, refCode = null) {
   // Determine wallet type and normalise addresses
   const normalizedWallet = wallet ? wallet.trim() : null;
   const normalizedEvm = evmAddress ? evmAddress.toLowerCase().trim() : null;
@@ -174,19 +165,11 @@ export async function registerForQuests(wallet, email, displayName, evmAddress =
   if (existingEmail) throw new Error('Email already registered for quests');
 
   const primaryIdentifier = normalizedWallet || normalizedEvm;
-  const normalizedInvite = inviteCode.trim().toUpperCase();
 
   const reg = await queryOne(
-    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, display_name, email, invite_code)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [normalizedWallet, normalizedEvm, walletType, normalizedName, normalizedEmail, normalizedInvite]
-  );
-
-  // Consume the invite code
-  await query(
-    `UPDATE quest_invites SET current_uses = current_uses + 1, used_by_wallet = COALESCE(used_by_wallet, $1)
-     WHERE code = $2`,
-    [primaryIdentifier, normalizedInvite]
+    `INSERT INTO quest_registrations (wallet, evm_address, wallet_type, display_name, email)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [normalizedWallet, normalizedEvm, walletType, normalizedName, normalizedEmail]
   );
 
   // Generate and store the new user's personal referral code

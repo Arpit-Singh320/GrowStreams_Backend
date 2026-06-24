@@ -968,7 +968,7 @@ export const api = {
       post<{ sent: boolean }>('/api/quests/otp/send', { email } as Record<string, unknown>),
     verifyOtp: (email: string, code: string) =>
       post<{ valid: boolean }>('/api/quests/otp/verify', { email, code } as Record<string, unknown>),
-    register: (params: { wallet?: string; evm_address?: string; email: string; display_name: string; ref_code?: string; invite_code: string }) =>
+    register: (params: { wallet?: string; evm_address?: string; email: string; display_name: string; ref_code?: string; invite_code?: string }) =>
       post<{ message: string; registration: Record<string, unknown> }>('/api/quests/register', params as unknown as Record<string, unknown>),
     list: () =>
       get<{ quests: QuestData[] }>('/api/quests'),
