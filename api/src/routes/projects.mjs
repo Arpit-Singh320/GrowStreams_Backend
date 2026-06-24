@@ -6,8 +6,16 @@ import {
   getSpecialProjectLeaderboard,
   upsertSpecialProject,
 } from '../services/quest-service.mjs';
-import { requireAdmin } from '../middleware/auth.mjs';
 import { queryOne } from '../services/db.mjs';
+
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || process.env.ADMIN_SECRET || 'admin-secret';
+function requireAdmin(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || auth !== `Bearer ${ADMIN_TOKEN}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
 
 const router = Router();
 
