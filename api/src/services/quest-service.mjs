@@ -519,12 +519,14 @@ export async function submitQuestProof(wallet, questSlug, proof = {}) {
   // Get current season ID for tracking
   const seasonId = await getCurrentSeasonId();
 
+  const projectId = quest.project_id || null;
+
   const completion = await queryOne(
-    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, season_id)
-     VALUES ($1, $2, 'PENDING', $3, 0, $4) RETURNING *`,
-    [wallet, quest.id, JSON.stringify(proof), seasonId]
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, season_id, project_id)
+     VALUES ($1, $2, 'PENDING', $3, 0, $4, $5) RETURNING *`,
+    [wallet, quest.id, JSON.stringify(proof), seasonId, projectId]
   );
-  console.log(`[quest] Submitted PENDING ${questSlug} for ${wallet}`);
+  console.log(`[quest] Submitted PENDING ${questSlug} for ${wallet}${projectId ? ` [project_id=${projectId}]` : ''}`);
   return { status: 'SUBMITTED', completion };
 }
 
@@ -575,11 +577,14 @@ export async function approvePendingSubmission(completionId) {
   // Use the season_id from the completion row (preserves original season)
   const seasonId = row.season_id || await getCurrentSeasonId();
 
+  // Resolve project_id from the quest completion row (preserves project scoping)
+  const projectId = row.project_id || null;
+
   // Insert seeds ledger entry
   await queryOne(
-    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash, season_id)
-     VALUES ($1, $2, 'QUEST_COMPLETE', $3, NULL, $4)`,
-    [wallet, seedsReward, row.quest_id, seasonId]
+    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash, season_id, project_id)
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, NULL, $4, $5)`,
+    [wallet, seedsReward, row.quest_id, seasonId, projectId]
   );
 
   console.log(`[quest] Approved submission ${completionId}: ${seedsReward} XP to ${wallet} — minting on-chain async`);
