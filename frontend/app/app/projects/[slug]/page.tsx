@@ -47,6 +47,25 @@ function StatusBadge({ quest }: { quest: QuestData }) {
   );
 }
 
+interface SpecialProject {
+  id: number;
+  slug: string;
+  title: string;
+  description: string;
+  banner_url?: string;
+  badge_label?: string;
+  status: string;
+  sort_order: number;
+  quest_count?: number;
+}
+
+interface LeaderboardRow {
+  wallet: string;
+  display_name?: string;
+  total_xp: number;
+  quests_completed: number;
+}
+
 export default function ProjectPage() {
   const { account } = useAccount();
   const params = useParams();
@@ -54,8 +73,8 @@ export default function ProjectPage() {
   const slug = params?.slug as string;
   const wallet = account?.address ?? '';
 
-  const [data, setData] = useState<{ project: Record<string, unknown>; quests: QuestData[]; projectXp: number } | null>(null);
-  const [leaderboard, setLeaderboard] = useState<Array<Record<string, unknown>>>([]);
+  const [data, setData] = useState<{ project: SpecialProject; quests: QuestData[]; projectXp: number } | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [claimMsg, setClaimMsg] = useState<{ slug: string; text: string; ok: boolean } | null>(null);
@@ -68,8 +87,8 @@ export default function ProjectPage() {
         api.projects.progress(slug, wallet),
         api.projects.leaderboard(slug),
       ]);
-      setData(prog);
-      setLeaderboard((lb.leaderboard || []) as Array<Record<string, unknown>>);
+      setData(prog as unknown as { project: SpecialProject; quests: QuestData[]; projectXp: number });
+      setLeaderboard((lb.leaderboard || []) as unknown as LeaderboardRow[]);
     } catch {
       // project not found
     } finally {
