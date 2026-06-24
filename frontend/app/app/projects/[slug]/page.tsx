@@ -118,7 +118,7 @@ export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug as string;
-  const wallet = account?.address ?? '';
+  const wallet = account?.decodedAddress ?? '';
 
   const [data, setData] = useState<{ project: SpecialProject; quests: QuestData[]; projectXp: number } | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
