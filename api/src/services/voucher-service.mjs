@@ -137,6 +137,11 @@ export async function issueVoucher(userWallet) {
   };
 }
 
+// Minimum balance threshold for auto-top-up (5 VARA in base units)
+const TOPUP_THRESHOLD = BigInt(process.env.VOUCHER_TOPUP_THRESHOLD || '5000000000000');
+// Amount to top up (15 VARA in base units)
+const TOPUP_AMOUNT = BigInt(process.env.VOUCHER_TOPUP_AMOUNT || '15000000000000');
+
 export async function getVoucherForUser(userWallet) {
   const api = getApi();
 
@@ -164,13 +169,35 @@ export async function getVoucherForUser(userWallet) {
     return null;
   }
 
-  // Verify on-chain it's still valid
+  // Verify on-chain it's still valid + check remaining balance
   if (api) {
     try {
       const details = await api.voucher.getDetails(userWallet, dbVoucher.voucher_id);
       if (!details || details.expiry === 0) {
         await query(`UPDATE vouchers SET status = 'EXPIRED' WHERE id = $1`, [dbVoucher.id]);
         return null;
+      }
+
+      // Auto-top-up: if voucher balance is below threshold, top it up
+      const voucherBalance = BigInt(details.balance?.toString() || '0');
+      if (voucherBalance < TOPUP_THRESHOLD) {
+        const keyring = getKeyring();
+        if (keyring) {
+          try {
+            const updateTx = api.voucher.update(userWallet, dbVoucher.voucher_id, {
+              balanceTopUp: TOPUP_AMOUNT.toString(),
+            });
+            await new Promise((resolve, reject) => {
+              updateTx.signAndSend(keyring, ({ status }) => {
+                if (status.isInBlock || status.isFinalized) resolve();
+                else if (status.isInvalid) reject(new Error('top-up tx invalid'));
+              }).catch(reject);
+            });
+            console.log(`[voucher] Auto-topped-up ${dbVoucher.voucher_id} for ${userWallet} (+${Number(TOPUP_AMOUNT) / 1e12} VARA)`);
+          } catch (topUpErr) {
+            console.warn(`[voucher] Auto-top-up failed for ${dbVoucher.voucher_id}: ${topUpErr.message}`);
+          }
+        }
       }
     } catch {
       // If we can't verify, trust the DB expiry

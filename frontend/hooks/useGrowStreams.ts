@@ -111,39 +111,37 @@ export function useGearSign() {
         }
 
         const FIXED_GAS = '50000000000';       // 50B — safe for simple calls
-        const ASYNC_GAS  = '100000000000';      // 100B — for async cross-contract calls (stream-core, gVARA)
+        const ASYNC_GAS  = '100000000000';      // 100B — fallback cap for async cross-contract calls
         // Convert value to string for API compatibility
         const valueStr = typeof value === 'string' ? value : String(value);
         const hasValue = BigInt(valueStr) > BigInt(0);
 
-        // Skip gas estimation only for contracts that make async cross-contract
-        // calls: stream-core (calls gVARA.UpdateFlow / vault). gVARA's own
-        // wrap/unwrap are SYNCHRONOUS handlers (no .await — just a debit and a
-        // fire-and-forget msg::send), so they don't need the 100B async limit.
-        // Forcing 100B on unwrap made the gas-bank reserve more VARA than a
-        // low-balance wallet has free → gearBank.InsufficientBalance.
         const isAsyncCall = programId === PROGRAM_IDS.streamCore;
         const isGvaraCall = programId === PROGRAM_IDS.gvaraToken;
 
+        // Always estimate gas to minimize gearBank reservation (avoids InsufficientBalance).
+        // For gVARA wrap we pass the actual value so Gear accounts for remaining balance.
+        // Only skip estimation if it's impossible (no fallback needed — we use caps).
         let gasLimit = isAsyncCall ? ASYNC_GAS : FIXED_GAS;
-        // Estimate gas for: (a) zero-value non-async calls, or (b) gVARA value calls
-        // For gVARA wrap we MUST estimate with the actual value so Gear can correctly
-        // account for gas from the remaining balance (avoids gearBank.InsufficientBalance)
-        const shouldEstimate = (!hasValue && !isAsyncCall) || (isGvaraCall && hasValue);
-        if (shouldEstimate) {
-          try {
-            const gas = await api.program.calculateGas.handle(
-              account.decodedAddress as `0x${string}`,
-              programId,
-              payloadHex as `0x${string}`,
-              hasValue ? valueStr : 0,
-              true,
-            );
-            const minGas = BigInt(gas.min_limit.toString());
-            gasLimit = (minGas * BigInt(6) / BigInt(5)).toString();
-          } catch {
-            gasLimit = FIXED_GAS;
+        try {
+          const gas = await api.program.calculateGas.handle(
+            account.decodedAddress as `0x${string}`,
+            programId,
+            payloadHex as `0x${string}`,
+            hasValue ? valueStr : 0,
+            true,
+          );
+          const minGas = BigInt(gas.min_limit.toString());
+          const estimated = (minGas * BigInt(6) / BigInt(5)).toString();
+          // For async calls, use the estimate but cap at ASYNC_GAS to be safe
+          if (isAsyncCall) {
+            gasLimit = BigInt(estimated) < BigInt(ASYNC_GAS) ? estimated : ASYNC_GAS;
+          } else {
+            gasLimit = estimated;
           }
+        } catch {
+          // Estimation failed — keep the safe fallback
+          gasLimit = isAsyncCall ? ASYNC_GAS : FIXED_GAS;
         }
 
         // Skip voucher for gVARA contract — UnwrapNative sends VARA back via msg::send,
