@@ -310,6 +310,7 @@ export async function upsertQuest(data) {
     'WELCOME', 'X_FOLLOW', 'X_MENTION', 'X_RETWEET', 'X_TWEET_KEYWORD',
     'GITHUB_STAR', 'GITHUB_PR', 'ONCHAIN_STREAM', 'VISIT_URL',
     'TELEGRAM_JOIN', 'REFERRAL', 'PARTNER_CONTRACT', 'IMAGE_UPLOAD',
+    'PROJECT_SUBMIT',
   ];
   if (!VALID_TYPES.includes(quest_type)) {
     throw Object.assign(new Error(`Invalid quest_type. Must be one of: ${VALID_TYPES.join(', ')}`), { status: 400 });
