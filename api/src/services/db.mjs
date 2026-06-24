@@ -1090,5 +1090,48 @@ export async function migrate() {
     ON CONFLICT (slug) DO NOTHING
   `);
 
+  // -----------------------------------------------------------------------
+  // Special Projects — scoped quest collections with their own leaderboard
+  // XP earned here is NOT counted in the main leaderboard (project_id IS NULL)
+  // -----------------------------------------------------------------------
+  await p.query(`
+    CREATE TABLE IF NOT EXISTS special_projects (
+      id          SERIAL PRIMARY KEY,
+      slug        TEXT UNIQUE NOT NULL,
+      title       TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      banner_url  TEXT,
+      badge_label TEXT,
+      status      TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('UPCOMING','ACTIVE','ENDED')),
+      sort_order  INTEGER NOT NULL DEFAULT 0,
+      meta        JSONB NOT NULL DEFAULT '{}',
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_special_projects_slug   ON special_projects(slug);
+    CREATE INDEX IF NOT EXISTS idx_special_projects_status ON special_projects(status);
+  `);
+
+  await p.query(`
+    ALTER TABLE quests
+      ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES special_projects(id)
+  `);
+
+  await p.query(`
+    ALTER TABLE seeds_ledger
+      ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES special_projects(id)
+  `);
+
+  await p.query(`
+    ALTER TABLE quest_completions
+      ADD COLUMN IF NOT EXISTS project_id INTEGER REFERENCES special_projects(id)
+  `);
+
+  await p.query(`
+    CREATE INDEX IF NOT EXISTS idx_quests_project_id             ON quests(project_id);
+    CREATE INDEX IF NOT EXISTS idx_seeds_ledger_project_id       ON seeds_ledger(project_id);
+    CREATE INDEX IF NOT EXISTS idx_quest_completions_project_id  ON quest_completions(project_id);
+  `);
+
   console.log('[db] Migrations complete');
 }

@@ -1121,17 +1121,151 @@ function SubmissionsTab({ token, onLogout }: { token: string; onLogout: () => vo
   );
 }
 
+// ─── Special Projects Tab ────────────────────────────────────────────────────
+function SpecialProjectsTab({ token }: { token: string }) {
+  const [projects, setProjects] = useState<Array<any>>([]);
+  const [allQuests, setAllQuests] = useState<Array<any>>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ slug: '', title: '', description: '', banner_url: '', badge_label: '', status: 'ACTIVE', sort_order: 0 });
+  const [assignQuestSlug, setAssignQuestSlug] = useState('');
+  const [assignProjectSlug, setAssignProjectSlug] = useState('');
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+
+  const inp = 'w-full px-3 py-2 bg-provn-bg border border-provn-border rounded-lg text-sm focus:border-violet-500/50 focus:outline-none';
+  const sel = inp + ' appearance-none';
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [projs, qs] = await Promise.all([
+        api.projects.list(),
+        api.quests.adminListQuests(token),
+      ]);
+      setProjects((projs.projects || []) as any[]);
+      setAllQuests(((qs as any).quests || []) as any[]);
+    } catch { }
+    finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleUpsert = async () => {
+    setMsg(''); setErr('');
+    try {
+      await api.projects.adminUpsert(token, form as any);
+      setMsg('Project saved!');
+      setForm({ slug: '', title: '', description: '', banner_url: '', badge_label: '', status: 'ACTIVE', sort_order: 0 });
+      load();
+    } catch (e: any) { setErr(e.message || 'Failed'); }
+  };
+
+  const handleAssign = async () => {
+    setMsg(''); setErr('');
+    try {
+      await api.projects.adminAssignQuest(token, { quest_slug: assignQuestSlug, project_slug: assignProjectSlug || undefined });
+      setMsg(assignProjectSlug ? `Assigned to project` : 'Quest unassigned from project');
+      setAssignQuestSlug(''); setAssignProjectSlug('');
+      load();
+    } catch (e: any) { setErr(e.message || 'Failed'); }
+  };
+
+  if (loading) return <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-violet-400" /></div>;
+
+  return (
+    <div className="space-y-8">
+      {/* Create / Edit Project */}
+      <div className="bg-provn-surface border border-provn-border rounded-xl p-5 space-y-4">
+        <p className="text-sm font-semibold">Create / Update Special Project</p>
+        <div className="grid grid-cols-2 gap-3">
+          <input className={inp} placeholder="Slug (e.g. solana-hackathon)" value={form.slug} onChange={e => setForm(f => ({ ...f, slug: e.target.value }))} />
+          <input className={inp} placeholder="Title" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
+        </div>
+        <textarea className={inp + ' resize-none'} rows={2} placeholder="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+        <div className="grid grid-cols-2 gap-3">
+          <input className={inp} placeholder="Banner URL (optional)" value={form.banner_url} onChange={e => setForm(f => ({ ...f, banner_url: e.target.value }))} />
+          <input className={inp} placeholder="Badge label (optional, e.g. HACKATHON)" value={form.badge_label} onChange={e => setForm(f => ({ ...f, badge_label: e.target.value }))} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <select className={sel} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+            <option value="UPCOMING">UPCOMING</option>
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="ENDED">ENDED</option>
+          </select>
+          <input type="number" className={inp} placeholder="Sort order" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: Number(e.target.value) }))} />
+        </div>
+        {msg && <p className="text-emerald-400 text-xs">{msg}</p>}
+        {err && <p className="text-red-400 text-xs">{err}</p>}
+        <button onClick={handleUpsert} disabled={!form.slug || !form.title}
+          className="px-4 py-2 rounded-lg text-sm font-medium bg-violet-500/15 text-violet-400 border border-violet-500/20 hover:bg-violet-500/25 disabled:opacity-40 transition-colors">
+          Save Project
+        </button>
+      </div>
+
+      {/* Assign Quest to Project */}
+      <div className="bg-provn-surface border border-provn-border rounded-xl p-5 space-y-4">
+        <p className="text-sm font-semibold">Assign Quest to Special Project</p>
+        <p className="text-xs text-provn-muted">Pick a quest and a project. Leave project empty to remove the quest from its current project.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <select className={sel} value={assignQuestSlug} onChange={e => setAssignQuestSlug(e.target.value)}>
+            <option value="">— Select quest —</option>
+            {allQuests.map((q: any) => (
+              <option key={q.slug} value={q.slug}>{q.title} ({q.slug}){q.project_id ? ` [project ${q.project_id}]` : ''}</option>
+            ))}
+          </select>
+          <select className={sel} value={assignProjectSlug} onChange={e => setAssignProjectSlug(e.target.value)}>
+            <option value="">— Unassign (main leaderboard) —</option>
+            {projects.map((p: any) => (
+              <option key={p.slug} value={p.slug}>{p.title}</option>
+            ))}
+          </select>
+        </div>
+        <button onClick={handleAssign} disabled={!assignQuestSlug}
+          className="px-4 py-2 rounded-lg text-sm font-medium bg-violet-500/15 text-violet-400 border border-violet-500/20 hover:bg-violet-500/25 disabled:opacity-40 transition-colors">
+          Assign
+        </button>
+      </div>
+
+      {/* Projects list */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold text-provn-muted uppercase tracking-wider">Existing Special Projects</p>
+        {projects.length === 0 && <p className="text-xs text-provn-muted">No special projects yet.</p>}
+        {projects.map((p: any) => (
+          <div key={p.slug} className="bg-provn-bg border border-provn-border rounded-xl p-4 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm">{p.title}</span>
+                <span className="text-[10px] font-mono text-provn-muted">{p.slug}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                  p.status === 'ACTIVE' ? 'bg-violet-500/10 text-violet-400'
+                  : p.status === 'UPCOMING' ? 'bg-slate-500/10 text-slate-400'
+                  : 'bg-red-500/10 text-red-400'
+                }`}>{p.status}</span>
+              </div>
+              <p className="text-xs text-provn-muted mt-0.5 truncate max-w-md">{p.description}</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-xs font-bold text-violet-400">{p.quest_count} quests</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Admin Dashboard (tabs shell) ────────────────────────────────────────────
-type Tab = 'submissions' | 'create-quest' | 'projects' | 'analytics';
+type Tab = 'submissions' | 'create-quest' | 'projects' | 'special-projects' | 'analytics';
 
 function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('submissions');
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'submissions',  label: 'Submissions',  icon: <CheckCircle2 className="w-4 h-4" /> },
-    { id: 'create-quest', label: 'Create Quest', icon: <Plus className="w-4 h-4" /> },
-    { id: 'projects',     label: 'Projects',     icon: <FolderOpen className="w-4 h-4" /> },
-    { id: 'analytics',    label: 'Analytics',    icon: <BarChart2 className="w-4 h-4" /> },
+    { id: 'submissions',      label: 'Submissions',       icon: <CheckCircle2 className="w-4 h-4" /> },
+    { id: 'create-quest',     label: 'Create Quest',      icon: <Plus className="w-4 h-4" /> },
+    { id: 'projects',         label: 'Campaigns',         icon: <FolderOpen className="w-4 h-4" /> },
+    { id: 'special-projects', label: 'Special Projects',  icon: <Star className="w-4 h-4" /> },
+    { id: 'analytics',        label: 'Analytics',         icon: <BarChart2 className="w-4 h-4" /> },
   ];
 
   return (
@@ -1163,10 +1297,11 @@ function AdminDashboard({ token, onLogout }: { token: string; onLogout: () => vo
       </div>
 
       {/* Tab content */}
-      {tab === 'submissions'  && <SubmissionsTab token={token} onLogout={onLogout} />}
-      {tab === 'create-quest' && <CreateQuestTab token={token} />}
-      {tab === 'projects'     && <ManageProjectsTab token={token} />}
-      {tab === 'analytics'    && <AnalyticsTab token={token} />}
+      {tab === 'submissions'      && <SubmissionsTab token={token} onLogout={onLogout} />}
+      {tab === 'create-quest'     && <CreateQuestTab token={token} />}
+      {tab === 'projects'         && <ManageProjectsTab token={token} />}
+      {tab === 'special-projects' && <SpecialProjectsTab token={token} />}
+      {tab === 'analytics'        && <AnalyticsTab token={token} />}
     </div>
   );
 }

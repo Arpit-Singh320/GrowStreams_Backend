@@ -401,13 +401,16 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
   // Get current season ID for tracking
   const seasonId = await getCurrentSeasonId();
 
+  // Resolve project_id from the quest (null = main leaderboard)
+  const projectId = quest.project_id || null;
+
   // Insert completion immediately so the user gets an instant response
   const completion = await queryOne(
-    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at, season_id)
-     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW(), $6)
+    `INSERT INTO quest_completions (wallet, quest_id, status, proof, seeds_awarded, tx_hash, verified_at, season_id, project_id)
+     VALUES ($1, $2, 'VERIFIED', $3, $4, $5, NOW(), $6, $7)
      ON CONFLICT DO NOTHING
      RETURNING *`,
-    [wallet, quest.id, JSON.stringify(proof), quest.seeds_reward, txHash, seasonId]
+    [wallet, quest.id, JSON.stringify(proof), quest.seeds_reward, txHash, seasonId, projectId]
   );
 
   // If another concurrent request already inserted, bail out gracefully
@@ -416,16 +419,21 @@ export async function awardSeeds(wallet, questSlug, proof = {}, txHash = null) {
     return null;
   }
 
-  // Insert seeds ledger entry
+  // Insert seeds ledger entry (project_id scopes it out of the main leaderboard)
   await queryOne(
-    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash, season_id)
-     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4, $5)
+    `INSERT INTO seeds_ledger (wallet, delta, reason, quest_id, tx_hash, season_id, project_id)
+     VALUES ($1, $2, 'QUEST_COMPLETE', $3, $4, $5, $6)
      ON CONFLICT DO NOTHING
      RETURNING *`,
-    [wallet, quest.seeds_reward, quest.id, txHash, seasonId]
+    [wallet, quest.seeds_reward, quest.id, txHash, seasonId, projectId]
   );
 
-  console.log(`[quest] Awarded ${quest.seeds_reward} Seeds to ${wallet} for ${questSlug} (db-instant)`);
+  console.log(`[quest] Awarded ${quest.seeds_reward} Seeds to ${wallet} for ${questSlug} (db-instant)${projectId ? ` [project_id=${projectId}]` : ''}`);
+
+  // Skip on-chain mint for special project quests (off-chain only)
+  if (projectId) {
+    return completion;
+  }
 
   // Mint on-chain in background — updates tx_hash once confirmed
   if (!txHash) {
@@ -903,6 +911,7 @@ export async function getQuestLeaderboard() {
     LEFT JOIN (
       SELECT wallet, SUM(delta) AS total_xp
       FROM seeds_ledger
+      WHERE project_id IS NULL
       GROUP BY wallet
     ) s ON s.wallet = r.wallet
     LEFT JOIN (
@@ -910,7 +919,7 @@ export async function getQuestLeaderboard() {
              COUNT(DISTINCT quest_id) AS completed_count,
              MAX(verified_at)         AS last_completed_at
       FROM quest_completions
-      WHERE status = 'VERIFIED'
+      WHERE status = 'VERIFIED' AND project_id IS NULL
       GROUP BY wallet
     ) c ON c.wallet = r.wallet
     ORDER BY total_xp DESC, r.registered_at ASC
@@ -943,6 +952,127 @@ export async function getQuestLeaderboard() {
   }
 
   return rows.map(row => ({ ...row, onchain_xp: null }));
+}
+
+// ---------------------------------------------------------------------------
+// Special Projects
+// ---------------------------------------------------------------------------
+
+export async function listSpecialProjects() {
+  return queryAll(`
+    SELECT sp.*,
+      COUNT(q.id)::int AS quest_count
+    FROM special_projects sp
+    LEFT JOIN quests q ON q.project_id = sp.id AND q.active = TRUE
+    GROUP BY sp.id
+    ORDER BY sp.sort_order ASC, sp.created_at ASC
+  `);
+}
+
+export async function getSpecialProjectBySlug(slug) {
+  return queryOne(`SELECT * FROM special_projects WHERE slug = $1`, [slug]);
+}
+
+export async function getSpecialProjectProgress(slug, wallet) {
+  const project = await getSpecialProjectBySlug(slug);
+  if (!project) return null;
+
+  const quests = await queryAll(
+    `SELECT * FROM quests WHERE project_id = $1 AND active = TRUE ORDER BY sort_order ASC`,
+    [project.id]
+  );
+
+  const completions = await queryAll(
+    `SELECT * FROM quest_completions WHERE wallet = $1 AND project_id = $2 ORDER BY created_at DESC`,
+    [wallet, project.id]
+  );
+
+  const now = new Date();
+  const day = now.getUTCDay();
+  const daysSinceMonday = (day + 6) % 7;
+  const weekStart = new Date(Date.UTC(
+    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday
+  ));
+  const isThisWeek = (c) => { const t = c.verified_at || c.created_at; return t && new Date(t) >= weekStart; };
+
+  const completionMap = {};
+  for (const c of completions) {
+    if (!completionMap[c.quest_id]) completionMap[c.quest_id] = [];
+    completionMap[c.quest_id].push(c);
+  }
+
+  const seedsRow = await queryOne(
+    `SELECT COALESCE(SUM(delta), 0) AS total FROM seeds_ledger WHERE wallet = $1 AND project_id = $2`,
+    [wallet, project.id]
+  );
+  const projectXp = parseInt(seedsRow?.total || '0', 10);
+
+  const questsWithStatus = quests.map(q => {
+    const qc = completionMap[q.id] || [];
+    const verifiedAll = qc.filter(c => c.status === 'VERIFIED');
+    const verifiedThisWeek = verifiedAll.filter(isThisWeek);
+    const isAutoApprove = q.quest_type === 'TELEGRAM_JOIN' || q.quest_type === 'VISIT_URL';
+    const pendingThisWeek = (!isAutoApprove && qc.find(c => c.status === 'PENDING' && isThisWeek(c))) || null;
+    const rejectedThisWeek = qc.find(c => c.status === 'REJECTED' && isThisWeek(c)) || null;
+    const isCompleted = !q.repeatable ? verifiedAll.length > 0 : verifiedThisWeek.length > 0;
+    return {
+      ...q,
+      completed: isCompleted,
+      completionCount: verifiedAll.length,
+      pendingSubmission: pendingThisWeek,
+      rejectedSubmission: rejectedThisWeek && !pendingThisWeek && !isCompleted ? rejectedThisWeek : null,
+    };
+  });
+
+  return { project, quests: questsWithStatus, projectXp };
+}
+
+export async function getSpecialProjectLeaderboard(slug) {
+  const project = await getSpecialProjectBySlug(slug);
+  if (!project) return null;
+
+  const rows = await queryAll(`
+    SELECT
+      r.wallet,
+      r.display_name,
+      r.registered_at,
+      COALESCE(s.total_xp, 0)::int       AS total_xp,
+      COALESCE(c.completed_count, 0)::int AS quests_completed
+    FROM quest_registrations r
+    INNER JOIN (
+      SELECT wallet, SUM(delta) AS total_xp
+      FROM seeds_ledger
+      WHERE project_id = $1
+      GROUP BY wallet
+    ) s ON s.wallet = r.wallet
+    LEFT JOIN (
+      SELECT wallet, COUNT(DISTINCT quest_id) AS completed_count
+      FROM quest_completions
+      WHERE project_id = $1 AND status = 'VERIFIED'
+      GROUP BY wallet
+    ) c ON c.wallet = r.wallet
+    ORDER BY total_xp DESC, r.registered_at ASC
+    LIMIT 100
+  `, [project.id]);
+
+  return { project, leaderboard: rows };
+}
+
+export async function upsertSpecialProject(data) {
+  const { slug, title, description, banner_url, badge_label, status, sort_order, meta } = data;
+  return queryOne(`
+    INSERT INTO special_projects (slug, title, description, banner_url, badge_label, status, sort_order, meta)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    ON CONFLICT (slug) DO UPDATE SET
+      title       = EXCLUDED.title,
+      description = EXCLUDED.description,
+      banner_url  = EXCLUDED.banner_url,
+      badge_label = EXCLUDED.badge_label,
+      status      = EXCLUDED.status,
+      sort_order  = EXCLUDED.sort_order,
+      meta        = EXCLUDED.meta
+    RETURNING *
+  `, [slug, title, description || '', banner_url || null, badge_label || null, status || 'ACTIVE', sort_order || 0, JSON.stringify(meta || {})]);
 }
 
 /**

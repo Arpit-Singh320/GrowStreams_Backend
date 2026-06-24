@@ -1176,6 +1176,22 @@ export const api = {
       get<{ programIds: Record<string, string>; timestamp: string }>('/api/config/program-ids'),
   },
 
+  // ─── Special Projects ───────────────────────────────────────────────────────
+  projects: {
+    list: () =>
+      get<{ projects: Array<Record<string, unknown>> }>('/api/projects'),
+    get: (slug: string) =>
+      get<{ project: Record<string, unknown> }>(`/api/projects/${slug}`),
+    progress: (slug: string, wallet: string) =>
+      get<{ project: Record<string, unknown>; quests: QuestData[]; projectXp: number }>(`/api/projects/${slug}/progress?wallet=${wallet}`),
+    leaderboard: (slug: string) =>
+      get<{ project: Record<string, unknown>; leaderboard: Array<Record<string, unknown>> }>(`/api/projects/${slug}/leaderboard`),
+    adminUpsert: (token: string, data: Record<string, unknown>) =>
+      authedRequest<{ message: string; project: Record<string, unknown> }>(token, '/api/projects/admin/upsert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+    adminAssignQuest: (token: string, data: { quest_slug: string; project_slug?: string }) =>
+      authedRequest<{ message: string; quest: Record<string, unknown> }>(token, '/api/projects/admin/assign-quest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+  },
+
   // ─── Reward (one-time 50 VARA claim) ────────────────────────────────────────
   reward: {
     walletBalance: () =>
