@@ -5,18 +5,31 @@ import {
   DollarSign, Users, Activity, BarChart3, ExternalLink, Loader2, AlertCircle,
   Layers, Coins, Award, Network, Percent, Repeat,
 } from "lucide-react"
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts"
 import { api } from "@/lib/growstreams-api"
 import { NavigationV2 } from "@/components/v2/navigation-v2"
 import { FooterV2 } from "@/components/v2/footer-v2"
 import { GradientText } from "@/components/v2/gradient-text"
 import {
-  Card, KpiCard, SectionTitle, ExplorerLink, formatUsd, formatNumber, formatTimestamp, shortHash,
+  Card, KpiCard, SectionTitle, formatUsd, formatNumber, formatTimestamp, shortHash,
 } from "@/components/analytics/shared"
-import { TimeSeriesChart, type SeriesPoint } from "@/components/analytics/TimeSeriesChart"
 import { TransactionsTable } from "@/components/analytics/TransactionsTable"
 import { WalletsTable } from "@/components/analytics/WalletsTable"
 
 type TabId = "overview" | "onchain" | "platform" | "transactions" | "wallets"
+type ChartRangeId = "24h" | "7d" | "30d"
+type ChartPoint = {
+  label: string
+  value: number
+}
 
 const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -25,29 +38,34 @@ const TABS: { id: TabId; label: string; icon: React.ComponentType<{ className?: 
   { id: "transactions", label: "Transactions", icon: Activity },
   { id: "wallets", label: "Wallets", icon: Network },
 ]
+const CHART_RANGES: ChartRangeId[] = ["24h", "7d", "30d"]
 
 export default function AnalyticsPage() {
   const [summary, setSummary] = useState<any>(null)
   const [tvlHistory, setTvlHistory] = useState<any[]>([])
   const [activityHistory, setActivityHistory] = useState<any[]>([])
+  const [hourlyHistory, setHourlyHistory] = useState<any[]>([])
   const [explorerLinks, setExplorerLinks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<TabId>("overview")
+  const [chartRange, setChartRange] = useState<ChartRangeId>("30d")
 
   useEffect(() => {
     async function fetchAll() {
       try {
         setLoading(true)
-        const [s, tvlH, actH, links] = await Promise.all([
+        const [s, tvlH, actH, hourH, links] = await Promise.all([
           api.analytics.summary(30),
           api.analytics.tvlHistory(30),
           api.analytics.activityHistory(30),
+          api.analytics.history(24),
           api.analytics.explorerLinks(),
         ])
         setSummary(s)
         setTvlHistory(tvlH.points || [])
         setActivityHistory(actH.points || [])
+        setHourlyHistory(hourH.snapshots || [])
         setExplorerLinks(links.links || [])
         setError(null)
       } catch (err) {
@@ -95,11 +113,77 @@ export default function AnalyticsPage() {
   const fees = onchain.fees || {}
   const retention = onchain.retention || {}
 
-  // Build chart series from history.
-  const tvlSeries: SeriesPoint[] = tvlHistory.map((p) => ({ date: p.date, value: Number(p.tvl_usd || 0) }))
-  const volumeSeries: SeriesPoint[] = activityHistory.map((p) => ({ date: p.date, value: Number(p.onchain_volume_usd || 0) }))
-  const walletSeries: SeriesPoint[] = activityHistory.map((p) => ({ date: p.date, value: Number(p.onchain_unique_wallets || 0) }))
-  const mauSeries: SeriesPoint[] = activityHistory.map((p) => ({ date: p.date, value: Number(p.onchain_mau || 0) }))
+  const numberValue = (value: unknown) => {
+    const parsed = typeof value === "string" ? Number.parseFloat(value) : Number(value ?? 0)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  const formatUsdPrecise = (value: number | string | undefined | null) => {
+    const parsed = typeof value === "string" ? Number.parseFloat(value) : Number(value ?? 0)
+    if (!Number.isFinite(parsed)) return "$0"
+    const abs = Math.abs(parsed)
+    const maximumFractionDigits = abs > 0 && abs < 1 ? 4 : 2
+    return `$${parsed.toLocaleString(undefined, { maximumFractionDigits })}`
+  }
+  const formatPrice = (value: number | string | undefined | null) => {
+    const parsed = typeof value === "string" ? Number.parseFloat(value) : Number(value ?? 0)
+    if (!Number.isFinite(parsed)) return "—"
+    return `$${parsed.toLocaleString(undefined, { maximumFractionDigits: 8, minimumFractionDigits: parsed > 0 && parsed < 1 ? 4 : 2 })}`
+  }
+  const sliceDailySeries = (series: ChartPoint[], range: ChartRangeId) => {
+    if (range === "7d") return series.slice(-7)
+    return series.slice(-30)
+  }
+  const tvlDailySeries: ChartPoint[] = tvlHistory.map((p) => ({ label: p.date, value: numberValue(p.tvl_usd) }))
+  const volumeDailySeries: ChartPoint[] = activityHistory.map((p) => ({ label: p.date, value: numberValue(p.onchain_volume_usd) }))
+  const streamsDailySeries: ChartPoint[] = activityHistory.map((p) => ({ label: p.date, value: numberValue(p.total_streams) }))
+  const mauDailySeries: ChartPoint[] = activityHistory.map((p) => ({ label: p.date, value: numberValue(p.onchain_mau) }))
+  const dauDailySeries: ChartPoint[] = activityHistory.map((p) => ({ label: p.date, value: numberValue(p.onchain_dau) }))
+  const hourlyTvlSeries: ChartPoint[] = hourlyHistory
+    .filter((p) => numberValue(p.estimated_tvl_usd) > 0)
+    .map((p) => ({ label: p.snapped_at, value: numberValue(p.estimated_tvl_usd) }))
+  const _hourlyVolAll: ChartPoint[] = hourlyHistory.map((p) => ({
+    label: p.snapped_at,
+    value: numberValue(p.volume_24h_usd),
+  }))
+  const _lastVol = [..._hourlyVolAll].reverse().find((p) => p.value > 0)?.value ?? 0
+  const hourlyVolumeSeries: ChartPoint[] = _lastVol > 0
+    ? _hourlyVolAll.filter((p) => p.value >= _lastVol * 0.05 && p.value <= _lastVol * 50)
+    : _hourlyVolAll
+  const hourlyStreamsSeries: ChartPoint[] = hourlyHistory.map((p) => ({ label: p.snapped_at, value: numberValue(p.total_streams) }))
+  const selectedTvlSeries = chartRange === "24h" ? hourlyTvlSeries : sliceDailySeries(tvlDailySeries, chartRange)
+  const selectedVolumeSeries = chartRange === "24h" ? hourlyVolumeSeries : sliceDailySeries(volumeDailySeries, chartRange)
+  const selectedStreamsSeries = chartRange === "24h" ? hourlyStreamsSeries : sliceDailySeries(streamsDailySeries, chartRange)
+  const selectedMauSeries = chartRange === "24h" ? mauDailySeries.slice(-2) : sliceDailySeries(mauDailySeries, chartRange)
+  const varaPrice = numberValue(summary?.onchain?.tvl?.pricing?.varaPriceUsd)
+  const _feeFallback = (fees.byToken || []).reduce((acc: number, t: any) => {
+    const price = numberValue(t.price) || varaPrice
+    return acc + numberValue(t.amountDisplay) * price
+  }, 0)
+  const _feeTotal = numberValue(fees.totalFeesUsd) > 0 ? numberValue(fees.totalFeesUsd) : _feeFallback
+  const _fee24h = numberValue(fees.last24hUsd) > 0 ? numberValue(fees.last24hUsd)
+    : (numberValue(fees.last24hEvents) / Math.max(numberValue(fees.totalEvents), 1)) * _feeTotal
+  const _fee7d = numberValue(fees.last7dUsd) > 0 ? numberValue(fees.last7dUsd) : _feeTotal
+  const _fee30d = numberValue(fees.last30dUsd) > 0 ? numberValue(fees.last30dUsd) : _feeTotal
+  const feeSeries: ChartPoint[] = [
+    { label: "24h", value: _fee24h },
+    { label: "7d", value: _fee7d },
+    { label: "30d", value: _fee30d },
+  ]
+  const feeHourlySeries: ChartPoint[] = (fees.hourlySeries || []).map((p: any) => ({
+    label: p.snapped_at,
+    value: numberValue(p.fee_usd),
+  }))
+  const feeDailySeries: ChartPoint[] = (fees.dailySeries || []).map((p: any) => ({
+    label: p.date,
+    value: numberValue(p.fee_usd),
+  }))
+  const selectedFeeSeries: ChartPoint[] = fees.hourlySeries
+    ? chartRange === "24h"
+      ? feeHourlySeries
+      : chartRange === "7d"
+      ? feeDailySeries.slice(-7)
+      : feeDailySeries
+    : feeSeries
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -139,24 +223,47 @@ export default function AnalyticsPage() {
         {tab === "overview" && (
           <div className="space-y-10">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <KpiCard icon={DollarSign} label="TVL (USD)" value={formatUsd(kpis.tvlUsd)} sublabel="Live on-chain vault balances" />
-              <KpiCard icon={BarChart3} label="Streaming Volume" value={formatUsd(kpis.onchainVolumeUsd)} sublabel={`${formatNumber(kpis.totalStreams)} streams`} />
-              <KpiCard icon={Users} label="On-chain Wallets" value={formatNumber(kpis.onchainActiveWallets)} sublabel={`MAU ${formatNumber(kpis.onchainMau)} · DAU ${formatNumber(kpis.onchainDau)}`} />
-              <KpiCard icon={Award} label="Platform Users" value={formatNumber(kpis.totalDistinctWallets)} sublabel={`${formatNumber(kpis.questParticipants)} quest participants`} />
+              <KpiCard icon={DollarSign} label="TVL (USD)" value={formatUsdPrecise(kpis.tvlUsd)} sublabel="Live on-chain vault balances" />
+              <KpiCard icon={BarChart3} label="Streaming Volume" value={formatUsdPrecise(kpis.onchainVolumeUsd)} sublabel={`${formatNumber(kpis.totalStreams)} streams`} />
+              <KpiCard icon={Users} label="MAU" value={formatNumber(kpis.onchainMau)} sublabel="30-day trailing on-chain users" />
+              <KpiCard icon={Activity} label="Total Streams" value={formatNumber(kpis.totalStreams)} sublabel={`${formatNumber(kpis.activeStreams)} active`} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <KpiCard icon={Percent} label="Protocol Fees (USD)" value={formatUsd(kpis.protocolFeesUsd)} sublabel={`${fees.feePercent ?? 2.5}% entry fee · all-time`} />
-              <KpiCard icon={DollarSign} label="Fees (30d)" value={formatUsd(kpis.protocolFees30dUsd)} sublabel={`24h ${formatUsd(kpis.protocolFees24hUsd)}`} />
-              <KpiCard icon={Repeat} label="Retention (30d)" value={`${formatNumber(kpis.retentionRate ?? retention.retentionRate)}%`} sublabel={`${formatNumber(retention.retainedWallets)} of ${formatNumber(retention.cohortWallets)} wallets`} />
+              <KpiCard icon={Percent} label="Protocol Fees (USD)" value={formatUsdPrecise(_feeTotal)} sublabel={`${fees.feePercent ?? 2.5}% entry fee · all-time`} />
+              <KpiCard icon={DollarSign} label="Fees (30d)" value={formatUsdPrecise(_fee30d)} sublabel={`24h ${formatUsdPrecise(_fee24h)}`} />
+              <KpiCard icon={Users} label="Platform Users" value={formatNumber(kpis.totalDistinctWallets)} sublabel={`${formatNumber(kpis.questParticipants)} quest participants`} />
               <KpiCard icon={Activity} label="On-chain DAU" value={formatNumber(kpis.onchainDau)} sublabel={`MAU ${formatNumber(kpis.onchainMau)}`} />
             </div>
+            <Card className="p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-2">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Protocol Charts</h3>
+                  <p className="text-sm text-gray-400">Switch between 24h, 7d, and 30d for TVL, volume, streams, and fees.</p>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-1">
+                  {CHART_RANGES.map((range) => (
+                    <button
+                      key={range}
+                      onClick={() => setChartRange(range)}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                        chartRange === range ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      {range}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                <AnalyticsAreaChart title="TVL (USD)" subtitle={chartRange === "24h" ? "Hourly snapshots for the last 24h" : `Daily snapshots for the last ${chartRange}`} data={selectedTvlSeries} valuePrefix="$" />
+                <AnalyticsAreaChart title="Streaming Volume" subtitle={chartRange === "24h" ? "Rolling 24h volume by hourly snapshot" : `Daily volume for the last ${chartRange}`} data={selectedVolumeSeries} valuePrefix="$" color="#60a5fa" />
+                <AnalyticsAreaChart title="Total Streams" subtitle={chartRange === "24h" ? "Hourly stream counts for the last 24h" : `Daily stream counts for the last ${chartRange}`} data={selectedStreamsSeries} color="#a78bfa" />
+                <AnalyticsAreaChart title="Protocol Fees" subtitle={chartRange === "24h" ? "Hourly fee revenue for the last 24h" : `Daily fee revenue for the last ${chartRange}`} data={selectedFeeSeries} color="#fb7185" valuePrefix="$" valueDecimals={4} />
+              </div>
+            </Card>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TimeSeriesChart title="TVL" subtitle="Total value locked (USD), daily" data={tvlSeries} valuePrefix="$" />
-              <TimeSeriesChart title="Streaming Volume" subtitle="Cumulative streamed value (USD), daily" data={volumeSeries} valuePrefix="$" color="#60a5fa" />
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TimeSeriesChart title="Unique On-chain Wallets" subtitle="Distinct wallets with on-chain activity" data={walletSeries} color="#a78bfa" />
-              <TimeSeriesChart title="Monthly Active Users" subtitle="30-day trailing on-chain MAU" data={mauSeries} color="#fbbf24" />
+              <AnalyticsAreaChart title="On-chain DAU" subtitle="Daily active on-chain wallets" data={dauDailySeries.slice(-30)} color="#34d399" />
+              <AnalyticsAreaChart title="MAU" subtitle="Monthly active on-chain wallets (30d)" data={mauDailySeries.slice(-30)} color="#fbbf24" />
             </div>
           </div>
         )}
@@ -179,10 +286,13 @@ export default function AnalyticsPage() {
                 <span className="text-xs text-gray-500">{fees.feePercent ?? 2.5}% entry fee · vault/native paths</span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-                <KpiCard label="Total (USD)" value={formatUsd(fees.totalFeesUsd)} />
-                <KpiCard label="30d" value={formatUsd(fees.last30dUsd)} />
-                <KpiCard label="7d" value={formatUsd(fees.last7dUsd)} />
-                <KpiCard label="24h" value={formatUsd(fees.last24hUsd)} />
+                <KpiCard label="Total (USD)" value={formatUsdPrecise(fees.totalFeesUsd)} />
+                <KpiCard label="30d" value={formatUsdPrecise(fees.last30dUsd)} />
+                <KpiCard label="7d" value={formatUsdPrecise(fees.last7dUsd)} />
+                <KpiCard label="24h" value={formatUsdPrecise(fees.last24hUsd)} />
+              </div>
+              <div className="mb-6">
+                <AnalyticsAreaChart title="Fees Window Trend" subtitle="Current aggregated fee windows" data={feeSeries} color="#fb7185" valuePrefix="$" valueDecimals={4} height={220} />
               </div>
               {fees.byToken && fees.byToken.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -200,8 +310,8 @@ export default function AnalyticsPage() {
                         <tr key={t.symbol} className="border-b border-white/5">
                           <td className="px-3 py-2 text-white">{t.symbol}</td>
                           <td className="px-3 py-2 text-gray-300">{formatNumber(t.amountDisplay)}</td>
-                          <td className="px-3 py-2 text-gray-400">{t.price != null ? `$${t.price}` : "—"}</td>
-                          <td className="px-3 py-2 text-gray-300">{formatUsd(t.feesUsd)}</td>
+                          <td className="px-3 py-2 text-gray-400">{formatPrice(t.price)}</td>
+                          <td className="px-3 py-2 text-gray-300">{formatUsdPrecise(t.feesUsd)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -344,3 +454,85 @@ function MetricBlock({
     </Card>
   )
 }
+
+ function formatChartLabel(label: string) {
+  const parsed = new Date(label)
+  if (!Number.isNaN(parsed.getTime())) {
+    if (label.includes("T")) {
+      // Midnight UTC timestamps are daily snapshots — show date, not time
+      if (parsed.getUTCHours() === 0 && parsed.getUTCMinutes() === 0 && parsed.getUTCSeconds() === 0) {
+        return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+      }
+      return parsed.toLocaleTimeString(undefined, { hour: "numeric" })
+    }
+    return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  }
+  return label
+ }
+
+ function formatChartValue(value: number, valuePrefix = "", valueSuffix = "", valueDecimals = 2) {
+  return `${valuePrefix}${(value || 0).toLocaleString(undefined, { maximumFractionDigits: valueDecimals })}${valueSuffix}`
+ }
+
+ function AnalyticsAreaChart({
+  title,
+  subtitle,
+  data,
+  color = "#34d399",
+  valuePrefix = "",
+  valueSuffix = "",
+  valueDecimals = 2,
+  height = 260,
+ }: {
+  title: string
+  subtitle?: string
+  data: ChartPoint[]
+  color?: string
+  valuePrefix?: string
+  valueSuffix?: string
+  valueDecimals?: number
+  height?: number
+ }) {
+  const hasData = data && data.length > 0
+
+  return (
+    <Card className="p-6">
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-white">{title}</h3>
+        {subtitle ? <p className="text-sm text-gray-400">{subtitle}</p> : null}
+      </div>
+      {hasData ? (
+        <ResponsiveContainer width="100%" height={height}>
+          <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={`grad-${title.replace(/\s/g, "")}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+            <XAxis dataKey="label" tickFormatter={formatChartLabel} stroke="#6b7280" fontSize={11} />
+            <YAxis tickFormatter={(v) => formatChartValue(Number(v), valuePrefix, valueSuffix, valueDecimals)} stroke="#6b7280" fontSize={11} width={80} />
+            <Tooltip
+              contentStyle={{ background: "#0b0b0f", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8 }}
+              labelStyle={{ color: "#9ca3af" }}
+              labelFormatter={(label) => formatChartLabel(String(label))}
+              formatter={((value: unknown) => [formatChartValue(Number(value), valuePrefix, valueSuffix, valueDecimals), title]) as never}
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={color}
+              strokeWidth={2}
+              fill={`url(#grad-${title.replace(/\s/g, "")})`}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex items-center justify-center text-gray-500 text-sm" style={{ height }}>
+          No historical data yet.
+        </div>
+      )}
+    </Card>
+  )
+ }

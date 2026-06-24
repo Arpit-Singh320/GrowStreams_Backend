@@ -1808,9 +1808,11 @@ export async function getProtocolFees(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
   }
   byToken.sort((a, b) => b.feesUsd - a.feesUsd);
 
-  // Windowed USD totals (per-row, so each fee lands in the correct bucket).
+  // Windowed USD totals + time-series buckets (hourly for 24h, daily for 30d).
   let last24hUsd = 0, last7dUsd = 0, last30dUsd = 0;
   let last24hEvents = 0, last7dEvents = 0, last30dEvents = 0;
+  const hourlyBuckets = new Map(); // ISO hour string -> cumulative fee USD
+  const dailyBuckets = new Map();  // ISO day string  -> cumulative fee USD
   for (const row of rows) {
     const token = getToken(row.token_symbol);
     const decimals = token?.decimals ?? 12;
@@ -1829,6 +1831,34 @@ export async function getProtocolFees(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
       last30dUsd += usd;
       last30dEvents += 1;
     }
+    // Hourly bucket (UTC hour)
+    const hd = new Date(row.event_at);
+    hd.setUTCMinutes(0, 0, 0);
+    const hourKey = hd.toISOString();
+    hourlyBuckets.set(hourKey, (hourlyBuckets.get(hourKey) || 0) + usd);
+    // Daily bucket (UTC midnight)
+    const dd = new Date(row.event_at);
+    dd.setUTCHours(0, 0, 0, 0);
+    const dayKey = dd.toISOString();
+    dailyBuckets.set(dayKey, (dailyBuckets.get(dayKey) || 0) + usd);
+  }
+
+  // Build filled 24-bucket hourly series (last 24 one-hour slots).
+  const hourlySeries = [];
+  for (let i = 23; i >= 0; i--) {
+    const d = new Date(now - i * 60 * 60 * 1000);
+    d.setUTCMinutes(0, 0, 0);
+    const key = d.toISOString();
+    hourlySeries.push({ snapped_at: key, fee_usd: roundNumber(hourlyBuckets.get(key) || 0, 6) });
+  }
+
+  // Build filled 30-bucket daily series (last 30 UTC days).
+  const dailySeries = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now - i * 24 * 60 * 60 * 1000);
+    d.setUTCHours(0, 0, 0, 0);
+    const key = d.toISOString();
+    dailySeries.push({ date: key, fee_usd: roundNumber(dailyBuckets.get(key) || 0, 6) });
   }
 
   return {
@@ -1846,6 +1876,8 @@ export async function getProtocolFees(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     last7dUsd: roundNumber(last7dUsd),
     last30dUsd: roundNumber(last30dUsd),
     byToken,
+    hourlySeries,
+    dailySeries,
     note: `Protocol fee${feeBps != null ? ` (${roundNumber(feeBps / 100, 4)}%)` : ''} collected on stream create/deposit across all paths — vault/VFT, native VARA, and gVARA super-token streams. Sourced from on-chain FeeCollected events or explorer fallback when index data is absent.`,
   };
 }

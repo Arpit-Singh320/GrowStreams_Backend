@@ -33,9 +33,9 @@ const FALLBACK_PRICES = {
   'GROW': 0.01, // Placeholder — no market; update when GROW lists or a DEX TWAP is wired
 };
 
-// Price cache with TTL (5 minutes)
+// Price cache with TTL (15 minutes)
 const priceCache = new Map();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
  * Return the CoinGecko asset id for a token symbol, or null if it has no public
@@ -146,10 +146,21 @@ export async function getBatchPricesDetailed(tokenSymbols) {
   for (const symbol of tokenSymbols) {
     const upperSymbol = symbol.toUpperCase();
     const coinId = COINGECKO_TOKEN_IDS[upperSymbol];
+
+    // Check cache first — use fresh entry without making an API call.
+    const cached = priceCache.get(upperSymbol);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      result[symbol] = { price: cached.price, source: cached.source };
+      continue;
+    }
+
     if (coinId) {
       coinIds.add(coinId);
       symbolToCoinId[symbol] = coinId;
-      result[symbol] = { price: null, source: 'unpriced' };
+      // Pre-populate with stale cache so a failed API call still returns something.
+      result[symbol] = cached
+        ? { price: cached.price, source: cached.source }
+        : { price: null, source: 'unpriced' };
     } else {
       const fallbackPrice = FALLBACK_PRICES[upperSymbol];
       result[symbol] = fallbackPrice != null
