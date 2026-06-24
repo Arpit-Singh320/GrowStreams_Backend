@@ -1,6 +1,6 @@
 import { getAllRegisteredUsers, awardSeeds, isQuestCompleted } from '../services/quest-service.mjs';
 import { query as sailsQuery } from '../sails-client.mjs';
-import { queryOne } from '../services/db.mjs';
+import { queryOne, queryAll } from '../services/db.mjs';
 import { decodeAddress } from '@polkadot/util-crypto';
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -17,12 +17,25 @@ function walletToHexPubkey(wallet) {
 }
 
 // ---------------------------------------------------------------------------
-// Q5: Check if registered users have created a stream on GrowStreams
+// Check if registered users have created a stream on GrowStreams
+// Checks ALL active ONCHAIN_STREAM quests (not just 'create-stream')
 // Primary: polls the streamCore contract on-chain
 // Fallback: checks the stream_events DB table (indexed by the event-indexer)
 // ---------------------------------------------------------------------------
 export async function runStreamCheck() {
-  console.log('[quest-stream] Running stream creation check (Q5)...');
+  console.log('[quest-stream] Running stream creation check...');
+
+  // Dynamically load all active ONCHAIN_STREAM quest slugs
+  const onchainQuests = await queryAll(
+    `SELECT slug FROM quests WHERE quest_type = 'ONCHAIN_STREAM' AND active = TRUE`
+  );
+  const questSlugs = onchainQuests.map(q => q.slug);
+  if (!questSlugs.length) {
+    console.log('[quest-stream] No active ONCHAIN_STREAM quests found');
+    return;
+  }
+  console.log(`[quest-stream] Checking ${questSlugs.length} quest(s): ${questSlugs.join(', ')}`);
+
   const users = await getAllRegisteredUsers();
   if (!users.length) return;
 
@@ -31,8 +44,14 @@ export async function runStreamCheck() {
 
   for (const user of users) {
     try {
-      // Skip if already completed
-      if (await isQuestCompleted(user.wallet, 'create-stream')) continue;
+      // Determine which quests this user still needs to complete
+      const pendingSlugs = [];
+      for (const slug of questSlugs) {
+        if (!await isQuestCompleted(user.wallet, slug)) {
+          pendingSlugs.push(slug);
+        }
+      }
+      if (!pendingSlugs.length) continue;
 
       checked++;
 
@@ -77,10 +96,13 @@ export async function runStreamCheck() {
       }
 
       if (hasStream) {
-        const completion = await awardSeeds(user.wallet, 'create-stream', { source });
-        if (completion) {
-          awarded++;
-          console.log(`[quest-stream] Q5 Stream creation verified for ${user.wallet} via ${source}`);
+        // Award ALL pending ONCHAIN_STREAM quests for this user
+        for (const slug of pendingSlugs) {
+          const completion = await awardSeeds(user.wallet, slug, { source });
+          if (completion) {
+            awarded++;
+            console.log(`[quest-stream] Awarded "${slug}" to ${user.wallet} via ${source}`);
+          }
         }
       }
       await sleep(100);
