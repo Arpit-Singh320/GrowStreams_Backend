@@ -1170,6 +1170,27 @@ function SpecialProjectsTab({ token }: { token: string }) {
     } catch (e: any) { setErr(e.message || 'Failed'); }
   };
 
+  const handleDeleteProject = async (slug: string, title: string) => {
+    if (!window.confirm(`Delete special project "${title}" and ALL its quests? This cannot be undone.`)) return;
+    setMsg(''); setErr('');
+    try {
+      const res = await api.projects.adminDelete(token, slug);
+      const n = res.deleted_quests?.length || 0;
+      setMsg(`Deleted "${title}" and ${n} quest${n !== 1 ? 's' : ''}.`);
+      load();
+    } catch (e: any) { setErr(e.message || 'Delete failed'); }
+  };
+
+  const handleDeleteProjectQuest = async (slug: string, title: string) => {
+    if (!window.confirm(`Delete quest "${title}"? This cannot be undone.`)) return;
+    setMsg(''); setErr('');
+    try {
+      await api.quests.adminDeleteQuest(token, slug);
+      setMsg(`Quest "${title}" deleted.`);
+      load();
+    } catch (e: any) { setErr(e.message || 'Delete failed'); }
+  };
+
   if (loading) return <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin text-violet-400" /></div>;
 
   return (
@@ -1230,25 +1251,49 @@ function SpecialProjectsTab({ token }: { token: string }) {
       <div className="space-y-3">
         <p className="text-xs font-semibold text-provn-muted uppercase tracking-wider">Existing Special Projects</p>
         {projects.length === 0 && <p className="text-xs text-provn-muted">No special projects yet.</p>}
-        {projects.map((p: any) => (
-          <div key={p.slug} className="bg-provn-bg border border-provn-border rounded-xl p-4 flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-sm">{p.title}</span>
-                <span className="text-[10px] font-mono text-provn-muted">{p.slug}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                  p.status === 'ACTIVE' ? 'bg-violet-500/10 text-violet-400'
-                  : p.status === 'UPCOMING' ? 'bg-slate-500/10 text-slate-400'
-                  : 'bg-red-500/10 text-red-400'
-                }`}>{p.status}</span>
+        {projects.map((p: any) => {
+          const projectQuests = allQuests.filter((q: any) => q.project_id === p.id);
+          return (
+          <div key={p.slug} className="bg-provn-bg border border-provn-border rounded-xl p-4 space-y-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-sm">{p.title}</span>
+                  <span className="text-[10px] font-mono text-provn-muted">{p.slug}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                    p.status === 'ACTIVE' ? 'bg-violet-500/10 text-violet-400'
+                    : p.status === 'UPCOMING' ? 'bg-slate-500/10 text-slate-400'
+                    : 'bg-red-500/10 text-red-400'
+                  }`}>{p.status}</span>
+                </div>
+                <p className="text-xs text-provn-muted mt-0.5 truncate max-w-md">{p.description}</p>
               </div>
-              <p className="text-xs text-provn-muted mt-0.5 truncate max-w-md">{p.description}</p>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <p className="text-xs font-bold text-violet-400">{p.quest_count} quests</p>
+                <button onClick={() => handleDeleteProject(p.slug, p.title)}
+                  title="Delete project"
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-            <div className="text-right flex-shrink-0">
-              <p className="text-xs font-bold text-violet-400">{p.quest_count} quests</p>
-            </div>
+            {projectQuests.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-provn-border/50">
+                {projectQuests.map((q: any) => (
+                  <div key={q.slug} className="flex items-center justify-between gap-3 text-xs">
+                    <span className="truncate text-provn-muted"><span className="text-provn-text">{q.title}</span> <span className="font-mono">({q.slug})</span></span>
+                    <button onClick={() => handleDeleteProjectQuest(q.slug, q.title)}
+                      title="Delete quest"
+                      className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors flex-shrink-0">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

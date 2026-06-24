@@ -1190,6 +1190,8 @@ export const api = {
       authedRequest<{ message: string; project: Record<string, unknown> }>(token, '/api/projects/admin/upsert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
     adminAssignQuest: (token: string, data: { quest_slug: string; project_slug?: string }) =>
       authedRequest<{ message: string; quest: Record<string, unknown> }>(token, '/api/projects/admin/assign-quest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
+    adminDelete: (token: string, slug: string) =>
+      authedRequest<{ message: string; deleted: string; deleted_quests: string[] }>(token, `/api/projects/admin/${slug}`, { method: 'DELETE' }),
   },
 
   // ─── Reward (one-time 50 VARA claim) ────────────────────────────────────────

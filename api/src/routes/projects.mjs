@@ -5,6 +5,7 @@ import {
   getSpecialProjectProgress,
   getSpecialProjectLeaderboard,
   upsertSpecialProject,
+  deleteSpecialProject,
 } from '../services/quest-service.mjs';
 import { queryOne } from '../services/db.mjs';
 
@@ -87,6 +88,17 @@ router.post('/admin/assign-quest', requireAdmin, async (req, res, next) => {
 
     res.json({ message: projectId ? `Quest assigned to project` : 'Quest unassigned from project', quest: updated });
   } catch (err) { next(err); }
+});
+
+// DELETE /api/projects/admin/:slug — delete a special project and its quests (admin)
+router.delete('/admin/:slug', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await deleteSpecialProject(req.params.slug);
+    res.json({ message: 'Project deleted', ...result });
+  } catch (err) {
+    if (err.status === 404) return res.status(404).json({ error: err.message });
+    next(err);
+  }
 });
 
 export default router;

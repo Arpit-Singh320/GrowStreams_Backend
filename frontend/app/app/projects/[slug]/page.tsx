@@ -20,6 +20,53 @@ function QuestIcon({ icon }: { icon: string }) {
   return <Icon className="w-5 h-5" />;
 }
 
+// Parses [label](url) markdown links and bare http(s) URLs into safe anchors.
+// Each newline becomes its own line, so step-by-step descriptions render as a list.
+const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g;
+
+function renderInline(text: string, keyBase: string): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  LINK_RE.lastIndex = 0;
+  let i = 0;
+  while ((m = LINK_RE.exec(text)) !== null) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    const label = m[1] ?? m[3];
+    const href = m[2] ?? m[3];
+    nodes.push(
+      <a
+        key={`${keyBase}-l${i++}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-violet-400 underline underline-offset-2 hover:text-violet-300 break-all"
+      >
+        {label}
+      </a>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+function RichText({ text, className }: { text: string; className?: string }) {
+  if (!text) return null;
+  const lines = text.split(/\r?\n/);
+  return (
+    <div className={className}>
+      {lines.map((line, idx) =>
+        line.trim() === '' ? (
+          <div key={idx} className="h-2" />
+        ) : (
+          <p key={idx}>{renderInline(line, `ln${idx}`)}</p>
+        ),
+      )}
+    </div>
+  );
+}
+
 function XpBadge({ amount }: { amount: number }) {
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-violet-500/15 text-violet-400">
@@ -182,7 +229,7 @@ export default function ProjectPage() {
                 </span>
               )}
               <h1 className="text-2xl font-bold">{project.title as string}</h1>
-              <p className="text-sm text-provn-muted">{project.description as string}</p>
+              <RichText text={project.description as string} className="text-sm text-provn-muted space-y-0.5" />
             </div>
             <div className="text-right flex-shrink-0 space-y-1">
               <div className="text-2xl font-bold text-violet-400">{projectXp}</div>
@@ -218,7 +265,7 @@ export default function ProjectPage() {
                 </div>
                 <div className="min-w-0 pr-20">
                   <h3 className="font-semibold text-sm">{quest.title}</h3>
-                  <p className="text-xs text-provn-muted mt-0.5">{quest.description}</p>
+                  <RichText text={quest.description} className="text-xs text-provn-muted mt-0.5 space-y-0.5" />
                 </div>
               </div>
 

@@ -1080,6 +1080,26 @@ export async function upsertSpecialProject(data) {
   `, [slug, title, description || '', banner_url || null, badge_label || null, status || 'ACTIVE', sort_order || 0, JSON.stringify(meta || {})]);
 }
 
+export async function deleteSpecialProject(slug) {
+  const project = await queryOne(`SELECT id FROM special_projects WHERE slug = $1`, [slug]);
+  if (!project) throw Object.assign(new Error(`Project not found: ${slug}`), { status: 404 });
+
+  // Collect quests belonging to this project so we can remove their off-chain data.
+  const quests = await queryAll(`SELECT id, slug FROM quests WHERE project_id = $1`, [project.id]);
+  if (quests.length) {
+    const ids = quests.map(q => q.id);
+    await queryAll(`DELETE FROM quest_completions WHERE quest_id = ANY($1::int[])`, [ids]);
+    await queryAll(`DELETE FROM seeds_ledger WHERE quest_id = ANY($1::int[])`, [ids]);
+    await queryAll(`DELETE FROM quests WHERE id = ANY($1::int[])`, [ids]);
+  }
+  // Clear any remaining project references (completions/ledger keyed only by project_id).
+  await queryAll(`DELETE FROM quest_completions WHERE project_id = $1`, [project.id]);
+  await queryAll(`DELETE FROM seeds_ledger WHERE project_id = $1`, [project.id]);
+  await queryOne(`DELETE FROM special_projects WHERE id = $1`, [project.id]);
+
+  return { deleted: slug, deleted_quests: quests.map(q => q.slug) };
+}
+
 /**
  * Check if a quest has already been completed in the current week for a wallet.
  */
