@@ -1,7 +1,7 @@
 import { getApi, getKeyring, getProgramIds } from '../sails-client.mjs';
 import { queryOne, queryAll, query } from './db.mjs';
 
-const VOUCHER_AMOUNT = process.env.VOUCHER_AMOUNT || '20000000000000'; // 20 VARA (12 decimals) — refundable on expiry
+const VOUCHER_AMOUNT = process.env.VOUCHER_AMOUNT || '50000000000000'; // 50 VARA (12 decimals) — refundable on expiry
 const VOUCHER_DURATION_BLOCKS = parseInt(process.env.VOUCHER_DURATION_BLOCKS || '201600', 10); // ~7 days at 3s/block
 const MAX_VOUCHERS_PER_USER = parseInt(process.env.MAX_VOUCHERS_PER_USER || '5', 10);
 const VOUCHER_COOLDOWN_MS = parseInt(process.env.VOUCHER_COOLDOWN_MS || '60000', 10); // 1 min between requests
@@ -137,10 +137,10 @@ export async function issueVoucher(userWallet) {
   };
 }
 
-// Minimum balance threshold for auto-top-up (5 VARA in base units)
-const TOPUP_THRESHOLD = BigInt(process.env.VOUCHER_TOPUP_THRESHOLD || '5000000000000');
-// Amount to top up (15 VARA in base units)
-const TOPUP_AMOUNT = BigInt(process.env.VOUCHER_TOPUP_AMOUNT || '15000000000000');
+// Minimum balance threshold for auto-top-up (10 VARA in base units)
+const TOPUP_THRESHOLD = BigInt(process.env.VOUCHER_TOPUP_THRESHOLD || '10000000000000');
+// Amount to top up (25 VARA in base units)
+const TOPUP_AMOUNT = BigInt(process.env.VOUCHER_TOPUP_AMOUNT || '25000000000000');
 
 export async function getVoucherForUser(userWallet) {
   const api = getApi();

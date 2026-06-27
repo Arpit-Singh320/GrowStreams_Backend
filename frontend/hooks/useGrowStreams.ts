@@ -197,6 +197,11 @@ export function useGearSign() {
           }).catch((err: any) => {
             if (err?.message?.includes('Cancelled') || err?.message?.includes('Rejected')) {
               reject(new Error('Transaction was cancelled by the user.'));
+            } else if (err?.message?.includes('1010') && err?.message?.includes('pay')) {
+              // CantPay: voucher ran out of VARA or user has no free balance.
+              // Surface a clear message — backend auto-top-up will top the voucher
+              // for the next attempt.
+              reject(new Error('Insufficient gas balance. Please try again in a moment — your gas voucher is being topped up automatically.'));
             } else {
               reject(err);
             }
