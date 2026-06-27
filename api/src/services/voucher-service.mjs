@@ -95,6 +95,23 @@ export async function issueVoucher(userWallet) {
     throw Object.assign(new Error('No program IDs configured for voucher issuance'), { status: 500 });
   }
 
+  // Check relayer wallet has enough VARA to fund this voucher
+  if (api) {
+    try {
+      const relayerAddr = keyring.address;
+      const { data: { free } } = await api.query.system.account(relayerAddr);
+      const freeBalance = BigInt(free.toString());
+      const needed = BigInt(VOUCHER_AMOUNT);
+      if (freeBalance < needed) {
+        console.error(`[voucher] Relayer balance too low: ${Number(freeBalance) / 1e12} VARA, need ${Number(needed) / 1e12} VARA`);
+        throw Object.assign(new Error('Relayer wallet has insufficient VARA to issue vouchers. Please contact support.'), { status: 503 });
+      }
+    } catch (balErr) {
+      if (balErr.status === 503) throw balErr;
+      console.warn('[voucher] Could not check relayer balance:', balErr.message);
+    }
+  }
+
   // Issue voucher on-chain
   const { extrinsic, voucherId } = await api.voucher.issue(
     userWallet,
@@ -180,6 +197,12 @@ export async function getVoucherForUser(userWallet) {
 
       // Auto-top-up: if voucher balance is below threshold, top it up
       const voucherBalance = BigInt(details.balance?.toString() || '0');
+      if (voucherBalance === BigInt(0)) {
+        // Completely empty — expire it so the frontend issues a fresh full voucher
+        await query(`UPDATE vouchers SET status = 'EXPIRED' WHERE id = $1`, [dbVoucher.id]);
+        console.log(`[voucher] Expired empty voucher ${dbVoucher.voucher_id} for ${userWallet} — fresh one will be issued`);
+        return null;
+      }
       if (voucherBalance < TOPUP_THRESHOLD) {
         const keyring = getKeyring();
         if (keyring) {
@@ -196,6 +219,9 @@ export async function getVoucherForUser(userWallet) {
             console.log(`[voucher] Auto-topped-up ${dbVoucher.voucher_id} for ${userWallet} (+${Number(TOPUP_AMOUNT) / 1e12} VARA)`);
           } catch (topUpErr) {
             console.warn(`[voucher] Auto-top-up failed for ${dbVoucher.voucher_id}: ${topUpErr.message}`);
+            // Top-up failed (likely relayer is low) — expire this voucher so a fresh one is issued next call
+            await query(`UPDATE vouchers SET status = 'EXPIRED' WHERE id = $1`, [dbVoucher.id]);
+            return null;
           }
         }
       }
