@@ -131,9 +131,12 @@ export async function pollStreamState({ concurrency = 8 } = {}) {
     const maxRow = await queryOne('SELECT COALESCE(MAX(stream_id), 0)::bigint AS m FROM stream_state');
     const highestSeen = Number.parseInt(maxRow?.m || '0', 10);
 
+    const LOOKAHEAD_IDS = 32;
+    const probeUpperBound = Math.max(total, highestSeen) + LOOKAHEAD_IDS;
+
     // New ids (1-based) we have not persisted yet.
     const newIds = [];
-    for (let i = highestSeen + 1; i <= total; i++) newIds.push(i);
+    for (let i = highestSeen + 1; i <= probeUpperBound; i++) newIds.push(i);
 
     // Active ids to re-read (their streamed keeps growing).
     const activeRows = await dbQuery(`SELECT stream_id FROM stream_state WHERE status = 'Active'`);
@@ -156,7 +159,7 @@ export async function pollStreamState({ concurrency = 8 } = {}) {
       }));
     }
 
-    return { total, newCount: newIds.length, reReadActive: activeIds.length, upserted, errors };
+    return { total, highestSeen, probeUpperBound, newCount: newIds.length, reReadActive: activeIds.length, upserted, errors };
   } finally {
     isPolling = false;
   }
