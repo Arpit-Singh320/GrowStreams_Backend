@@ -17,6 +17,7 @@ import {
   getProtocolFees,
   getRetentionCohorts,
 } from '../services/analytics-service.mjs';
+import { pollStreamState } from '../services/state-indexer.mjs';
 
 const router = Router();
 
@@ -147,6 +148,14 @@ router.get('/wallets', async (req, res, next) => {
     const limit = parsePositiveInt(req.query.limit, 50, 1, 500);
     const offset = parsePositiveInt(req.query.offset, 0, 0, 1_000_000);
     const result = await getActiveWallets(limit, offset);
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+// POST /api/analytics/admin/trigger-state-poll — manually trigger stream state indexer (admin)
+router.post('/admin/trigger-state-poll', async (req, res, next) => {
+  try {
+    const result = await pollStreamState({ concurrency: 12 });
     res.json(result);
   } catch (err) { next(err); }
 });
