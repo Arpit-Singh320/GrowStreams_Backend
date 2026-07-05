@@ -231,7 +231,7 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <KpiCard icon={Percent} label="Protocol Fees (USD)" value={formatUsdPrecise(_feeTotal)} sublabel={`${fees.feePercent ?? 2.5}% entry fee · all-time`} />
               <KpiCard icon={DollarSign} label="Fees (30d)" value={formatUsdPrecise(_fee30d)} sublabel={`24h ${formatUsdPrecise(_fee24h)}`} />
-              <KpiCard icon={Users} label="Platform Users" value={formatNumber(kpis.totalDistinctWallets)} sublabel={`${formatNumber(kpis.questParticipants)} quest participants`} />
+              <KpiCard icon={DollarSign} label="Revenue" value="$1,500" sublabel="Hardcoded" />
               <KpiCard icon={Activity} label="On-chain DAU" value={formatNumber(kpis.onchainDau)} sublabel={`MAU ${formatNumber(kpis.onchainMau)}`} />
             </div>
             <Card className="p-6">
