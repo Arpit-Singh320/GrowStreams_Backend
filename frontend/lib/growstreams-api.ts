@@ -1,4 +1,4 @@
-﻿const API_BASE = (process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'https://growstreams-api-v3-production.up.railway.app').replace(/\/$/, '');
+﻿const API_BASE = (process.env.NEXT_PUBLIC_GROWSTREAMS_API || 'http://localhost:1337').replace(/\/$/, '');
 
 // ---------------------------------------------------------------------------
 // Connected-wallet holder.
@@ -677,6 +677,8 @@ export const api = {
     history: (hours = 24 * 7) => localRequest<{ available: boolean; lookbackHours: number; snapshots: AnalyticsHistoryPoint[] }>(`/api/analytics/history?hours=${hours}`),
     contracts: () => localRequest<AnalyticsContracts>('/api/analytics/contracts'),
     explorerLinks: () => localRequest<{ links: AnalyticsExplorerLink[]; count: number }>('/api/analytics/explorer-links'),
+    snapshotGvaraSupply: () =>
+      post<{ success: boolean; totalSupply?: string; reason?: string }>('/api/analytics/admin/snapshot-gvara-supply', {}),
     tvlHistory: (days = 30) => localRequest<{ available: boolean; lookbackDays: number; points: AnalyticsTvlHistoryPoint[] }>(`/api/analytics/tvl-history?days=${days}`),
     activityHistory: (days = 30) => localRequest<{ available: boolean; lookbackDays: number; points: any[] }>(`/api/analytics/activity-history?days=${days}`),
     volumeHistory: (days = 30) => localRequest<{ available: boolean; lookbackDays: number; source: string; coverage: string; points: AnalyticsVolumeHistoryPoint[] }>(`/api/analytics/volume-history?days=${days}`),

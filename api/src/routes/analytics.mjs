@@ -16,6 +16,7 @@ import {
   getActiveWallets,
   getProtocolFees,
   getRetentionCohorts,
+  snapshotGvaraSupply,
 } from '../services/analytics-service.mjs';
 import { pollStreamState } from '../services/state-indexer.mjs';
 
@@ -30,7 +31,8 @@ function parsePositiveInt(value, fallback, min, max) {
 router.get('/summary', async (req, res, next) => {
   try {
     const days = parsePositiveInt(req.query.days, 30, 1, 365);
-    const summary = await getAnalyticsSummary(days);
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const summary = await getAnalyticsSummary(days, force);
     res.json(summary);
   } catch (err) { next(err); }
 });
@@ -156,6 +158,15 @@ router.get('/wallets', async (req, res, next) => {
 router.post('/admin/trigger-state-poll', async (req, res, next) => {
   try {
     const result = await pollStreamState({ concurrency: 12 });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+// POST /api/analytics/admin/snapshot-gvara-supply — manually trigger gVARA TotalSupply snapshot (admin)
+// Used by frontend after successful wrap/unwrap to capture volume instantly
+router.post('/admin/snapshot-gvara-supply', async (req, res, next) => {
+  try {
+    const result = await snapshotGvaraSupply();
     res.json(result);
   } catch (err) { next(err); }
 });

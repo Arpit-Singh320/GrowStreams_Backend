@@ -2,7 +2,7 @@
 
 import { execSync } from 'child_process';
 
-const BASE_URL = 'http://127.0.0.1:1337/api/analytics';
+const BASE_URL = process.env.ANALYTICS_BASE_URL || 'http://127.0.0.1:1337/api/analytics';
 
 // `desc` documents what each endpoint is for so this audit doubles as a
 // frontend integration reference.
@@ -44,14 +44,14 @@ function fetchEndpoint(endpoint) {
     const lines = response.trim().split('\n');
     const statusCode = lines.pop();
     const body = lines.join('\n');
-    
+
     let json;
     try {
       json = JSON.parse(body);
     } catch (e) {
       json = null;
     }
-    
+
     return {
       endpoint: endpoint.path,
       name: endpoint.name,
@@ -115,7 +115,7 @@ ${result.body}
 
 async function main() {
   console.log('[audit] Starting analytics endpoint audit...');
-  
+
   const results = [];
   for (const endpoint of ENDPOINTS) {
     console.log(`[audit] Fetching ${endpoint.path}...`);
@@ -124,15 +124,15 @@ async function main() {
   }
 
   const markdown = generateMarkdown(results);
-  
+
   const fs = await import('fs');
   const path = await import('path');
   const { fileURLToPath } = await import('url');
-  
+
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const outputPath = path.join(__dirname, '../docs/analytics-endpoint-audit.md');
-  
+
   fs.writeFileSync(outputPath, markdown, 'utf-8');
   console.log(`[audit] Results written to ${outputPath}`);
   console.log('[audit] Done');

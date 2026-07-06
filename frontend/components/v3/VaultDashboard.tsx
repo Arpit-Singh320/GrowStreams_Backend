@@ -40,12 +40,23 @@ export default function VaultDashboard() {
     api.vault.paused().then(p => setPaused(p.paused)).catch(() => {});
   }, []);
 
-  const fetchGvaraBalance = useCallback(async () => {
+  const fetchGvaraBalance = useCallback(async (triggerSnapshot = false) => {
     if (!account?.decodedAddress) return;
     setGvaraLoading(true);
     try {
       const b = await api.gvara.balance(account.decodedAddress);
       setGvaraBalance(b.balance_display || '0');
+
+      // Trigger snapshot after successful balance refresh to ensure transaction finalized
+      if (triggerSnapshot) {
+        try {
+          console.log('[VaultDashboard] Triggering gVARA supply snapshot after balance refresh...');
+          const snapshotResult = await api.analytics.snapshotGvaraSupply();
+          console.log('[VaultDashboard] Snapshot result:', snapshotResult);
+        } catch (snapshotErr) {
+          console.error('[VaultDashboard] Snapshot failed:', snapshotErr);
+        }
+      }
     } catch {
       // ignore
     } finally {
@@ -126,9 +137,11 @@ export default function VaultDashboard() {
         toast.success(`Unwrapped ${gvaraAmount} gVARA → VARA!`);
       }
       setGvaraAmount('');
-      setTimeout(async () => { fetchGvaraBalance(); await refreshAll(); }, 3000);
-      setTimeout(fetchGvaraBalance, 8000);
-      setTimeout(fetchGvaraBalance, 15000);
+      // Trigger snapshot after balance refresh confirms transaction finalized
+      // The 3-second balance refresh is when UI shows updated balance, meaning tx is confirmed
+      setTimeout(async () => { await fetchGvaraBalance(true); await refreshAll(); }, 3000);
+      setTimeout(() => fetchGvaraBalance(false), 8000);
+      setTimeout(() => fetchGvaraBalance(false), 15000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Transaction failed';
       if (msg.includes('InsufficientBalance') || msg.includes('Insufficient')) {
@@ -169,7 +182,7 @@ export default function VaultDashboard() {
               const allowanceRes = await api.tokens.allowance(selectedToken.key, account.decodedAddress, PROGRAM_IDS.tokenVault);
               const allowance = BigInt(allowanceRes.allowanceRaw || '0');
               const required = BigInt(baseAmt);
-              
+
               if (allowance < required) {
                 toast.error(`Insufficient allowance. Please approve ${selectedToken.symbol} first and wait 10 seconds before depositing.`);
                 setBusy(false);
@@ -179,7 +192,7 @@ export default function VaultDashboard() {
               toast.warning('Could not verify allowance. Proceeding with deposit...');
             }
           }
-          
+
           await depositTokens(selectedToken.vara, baseAmt);
           toast.success(`Deposited ${amount} ${selectedToken.symbol}`);
         } else {

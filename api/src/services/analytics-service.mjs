@@ -2038,16 +2038,110 @@ export async function getRetentionCohorts({ days = 30 } = {}) {
   };
 }
 
-export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
+/**
+ * Calculate wrap/unwrap volume from gVARA TotalSupply snapshots
+ * Positive delta = wrap volume, negative delta = unwrap volume
+ * Returns total wrap and unwrap volumes in USD for the specified time window
+ * NOTE: This function is always called fresh (no cache) to ensure instant volume updates
+ */
+async function getGvaraWrapUnwrapVolume(days = 30) {
+  const pool = getPool();
+  if (!pool) {
+    return { totalWrapVolume: 0, totalUnwrapVolume: 0, netVolume: 0, available: false };
+  }
+
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  try {
+    const snapshots = await queryAll(
+      `SELECT total_supply_raw, snapped_at
+       FROM gvara_supply_snapshots
+       WHERE snapped_at >= $1
+       ORDER BY snapped_at ASC`,
+      [since]
+    );
+
+    if (snapshots.length < 2) {
+      return { totalWrapVolume: 0, totalUnwrapVolume: 0, netVolume: 0, available: false };
+    }
+
+    let totalWrapVolume = 0n;
+    let totalUnwrapVolume = 0n;
+
+    for (let i = 1; i < snapshots.length; i++) {
+      const prev = BigInt(snapshots[i - 1].total_supply_raw);
+      const curr = BigInt(snapshots[i].total_supply_raw);
+      const delta = curr - prev;
+
+      if (delta > 0n) {
+        totalWrapVolume += delta;
+      } else if (delta < 0n) {
+        totalUnwrapVolume += -delta;
+      }
+    }
+
+    // Get VARA price to convert gVARA volume to USD
+    const priced = await getBatchPricesDetailed(['VARA']);
+    const varaPriceInfo = priced.VARA ?? { price: null, source: 'unpriced' };
+    const varaPrice = varaPriceInfo.price;
+
+    // Convert gVARA token amounts to USD
+    const wrapVolumeGvara = Number(totalWrapVolume) / 1e12;
+    const unwrapVolumeGvara = Number(totalUnwrapVolume) / 1e12;
+    const wrapVolumeUsd = varaPrice != null ? roundNumber(wrapVolumeGvara * varaPrice) : 0;
+    const unwrapVolumeUsd = varaPrice != null ? roundNumber(unwrapVolumeGvara * varaPrice) : 0;
+
+    const result = {
+      totalWrapVolume: wrapVolumeUsd, // USD value
+      totalUnwrapVolume: unwrapVolumeUsd, // USD value
+      netVolume: wrapVolumeUsd + unwrapVolumeUsd, // Total wrap/unwrap volume (USD)
+      available: true,
+    };
+
+    return result;
+  } catch (err) {
+    return { totalWrapVolume: 0, totalUnwrapVolume: 0, netVolume: 0, available: false };
+  }
+}
+
+/**
+ * Take a snapshot of gVARA TotalSupply for wrap/unwrap volume tracking
+ * Should be called periodically (e.g., every 5 minutes via cron)
+ */
+export async function snapshotGvaraSupply() {
+  const pool = getPool();
+  if (!pool) {
+    return { success: false, reason: 'database_not_configured' };
+  }
+
+  try {
+    const totalSupply = await contractQuery('gvaraToken', 'TotalSupply');
+    const totalSupplyRaw = totalSupply.toString();
+    const totalSupplyDisplay = (Number(totalSupply) / 1e12).toFixed(6);
+
+    await pool.query(
+      `INSERT INTO gvara_supply_snapshots (total_supply_raw, total_supply_display)
+       VALUES ($1, $2)`,
+      [totalSupplyRaw, totalSupplyDisplay]
+    );
+
+    return { success: true, totalSupply: totalSupplyDisplay };
+  } catch (err) {
+    return { success: false, reason: err.message };
+  }
+}
+
+export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS, force = false) {
+  console.log(`[analytics] getAnalyticsSummary: days=${days}, force=${force}`);
   const [
     tvl, activity, streamMetrics, contracts, explorerLinks, freshness,
     totalUsers, questMetrics, contributorMetrics, campaignMetrics,
     platformUsers, engagement, catalog, evmStreams, platformDau,
-    protocolFees, retention,
+    protocolFees, retention, wrapUnwrapVolume,
   ] = await Promise.all([
-    getCurrentTvl(),
+    getCurrentTvl({ force }),
     getObservedActivity(days),
-    getOnchainStreamMetrics(),
+    getOnchainStreamMetrics({ force }),
     getAnalyticsContracts(),
     getAnalyticsExplorerLinks(),
     getLatestFreshness(),
@@ -2062,6 +2156,7 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
     getPlatformDau(),
     getProtocolFees(days),
     getRetentionCohorts({ days }),
+    getGvaraWrapUnwrapVolume(days), // Always fresh - no cache for instant volume updates
   ]);
 
   const protocol = {
@@ -2208,6 +2303,14 @@ export async function getAnalyticsSummary(days = DEFAULT_ACTIVITY_WINDOW_DAYS) {
       retentionRate: retention.retentionRate,
       // Streaming volume (live per-stream `streamed`, summed, priced).
       onchainVolumeUsd: streamMetrics.totalVolumeUsd,
+      // Wrap/unwrap volume (from gVARA TotalSupply delta tracking).
+      wrapUnwrapVolumeUsd: wrapUnwrapVolume.available ? wrapUnwrapVolume.netVolume : 0,
+      wrapVolumeUsd: wrapUnwrapVolume.available ? wrapUnwrapVolume.totalWrapVolume : 0,
+      unwrapVolumeUsd: wrapUnwrapVolume.available ? wrapUnwrapVolume.totalUnwrapVolume : 0,
+      // Total volume = streaming + wrap/unwrap.
+      totalVolumeUsd: wrapUnwrapVolume.available
+        ? streamMetrics.totalVolumeUsd + wrapUnwrapVolume.netVolume
+        : streamMetrics.totalVolumeUsd,
       totalStreams: streamMetrics.totalStreams,
       activeStreams: streamMetrics.activeStreams,
       // Strict KPI: wallets that created/received streams.

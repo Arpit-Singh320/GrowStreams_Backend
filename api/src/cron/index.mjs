@@ -11,6 +11,7 @@ import { runLiquidationKeeper } from './liquidation.mjs';
 import { runEvmStreamCheck } from './quest-evm-stream-monitor.mjs';
 import { runAnalyticsSnapshot } from './analytics-snapshots.mjs';
 import { pollStreamState } from '../services/state-indexer.mjs';
+import { snapshotGvaraSupply } from '../services/analytics-service.mjs';
 
 export function initCrons() {
   // Daily XP accumulation — midnight UTC
@@ -145,6 +146,19 @@ export function initCrons() {
     }
   }, { timezone: 'UTC' });
 
+  // gVARA TotalSupply snapshot — every 5 minutes. Tracks wrap/unwrap volume
+  // by monitoring TotalSupply changes over time.
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const r = await snapshotGvaraSupply();
+      if (r.success) {
+        console.log(`[cron] gvara-supply: totalSupply=${r.totalSupply}`);
+      }
+    } catch (err) {
+      console.error(`[cron] gvara-supply failed: ${err.message}`);
+    }
+  }, { timezone: 'UTC' });
+
   // Run one poll shortly after boot so the table is warm.
   setTimeout(() => {
     pollStreamState()
@@ -166,5 +180,6 @@ export function initCrons() {
   console.log('[cron]   voucher-reclaim:  30 */6 * * *   (every 6h, reclaims VARA)');
   console.log('[cron]   analytics:        0 * * * *      (hourly KPI snapshots)');
   console.log('[cron]   state-poll:       */5 * * * *    (every 5m, stream_state indexer)');
+  console.log('[cron]   gvara-supply:     */5 * * * *    (every 5m, wrap/unwrap volume tracking)');
   console.log('[cron] Phase 4 Vara.eth crons active.');
 }

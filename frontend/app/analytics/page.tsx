@@ -231,8 +231,14 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <KpiCard icon={Percent} label="Protocol Fees (USD)" value={formatUsdPrecise(_feeTotal)} sublabel={`${fees.feePercent ?? 2.5}% entry fee · all-time`} />
               <KpiCard icon={DollarSign} label="Fees (30d)" value={formatUsdPrecise(_fee30d)} sublabel={`24h ${formatUsdPrecise(_fee24h)}`} />
-              <KpiCard icon={DollarSign} label="Revenue" value="$1,500" sublabel="Hardcoded" />
+              <KpiCard icon={DollarSign} label="Wrap Volume" value={formatUsdPrecise(kpis.wrapVolumeUsd)} sublabel="gVARA wrapped" />
+              <KpiCard icon={DollarSign} label="Unwrap Volume" value={formatUsdPrecise(kpis.unwrapVolumeUsd)} sublabel="gVARA unwrapped" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <KpiCard icon={BarChart3} label="Total Volume" value={formatUsdPrecise(kpis.totalVolumeUsd)} sublabel="Streaming + Wrap/Unwrap" />
               <KpiCard icon={Activity} label="On-chain DAU" value={formatNumber(kpis.onchainDau)} sublabel={`MAU ${formatNumber(kpis.onchainMau)}`} />
+              <KpiCard icon={Users} label="Platform Users" value={formatNumber(kpis.totalDistinctWallets)} sublabel={`${formatNumber(kpis.questParticipants)} quest participants`} />
+              <KpiCard icon={DollarSign} label="Revenue" value="$1,500" sublabel="Offchain Quest Revenue" />
             </div>
             <Card className="p-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-2">
@@ -276,7 +282,7 @@ export default function AnalyticsPage() {
               <KpiCard label="TVL" value={formatUsd(kpis.tvlUsd)} />
               <KpiCard label="Total Streams" value={formatNumber(kpis.totalStreams)} sublabel={`${formatNumber(kpis.activeStreams)} active`} />
               <KpiCard label="Streaming Volume" value={formatUsd(kpis.onchainVolumeUsd)} />
-              <KpiCard label="Stream Wallets" value={formatNumber(kpis.uniqueStreamWallets)} sublabel="created/received streams" />
+              <KpiCard label="Total Volume" value={formatUsd(kpis.totalVolumeUsd)} sublabel="Streaming + Wrap/Unwrap" />
             </div>
 
             {/* Protocol fee revenue (2.5% entry fee, on-chain FeeCollected events) */}

@@ -1,7 +1,7 @@
 # Analytics Endpoint Audit
 
-- Generated: **2026-06-22T23:19:26.646Z**
-- Base URL: `http://127.0.0.1:1337/api/analytics`
+- Generated: **2026-06-23T00:13:56.290Z**
+- Base URL: `https://www.growstreams.xyz/api/analytics`
 - Endpoint count: **14**
 
 This file captures raw backend `/api/analytics` responses for quality analysis
@@ -12,14 +12,14 @@ and frontend integration. Each section documents what the endpoint provides.
 > Master dashboard payload. Sections: onchain{} (TVL, streams, volume, combined DAU/MAU/wallets), platform{} (users across both registration systems, quests, campaigns, engagement, seasons, evmStreams), kpis{} (flat headline numbers), freshness{}, coverage{}. Flat fields (tvl/activity/users/quests/...) are kept as backward-compatible aliases.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
+curl -sS 'https://www.growstreams.xyz/api/analytics/summary?days=30'
 ```
 
 - Status: **`200`**
 
 ```json
 {
-  "generatedAt": "2026-06-22T23:19:21.388Z",
+  "generatedAt": "2026-06-23T00:13:40.856Z",
   "contracts": {
     "streamCore": "0x8298c2eea5c6bbe55a9cfe72283b5399098fd6a54d9a2a14c2bedba8eea50659",
     "tokenVault": "0x657cf9c4f929aeac97092037826c1117f9e6cd0e3c4edc44e49decc17b840aa9",
@@ -108,7 +108,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
       "pricing": {
         "source": "coingecko_realtime_pricing",
         "coverage": "wrapper_total_supply_plus_native_vara",
-        "varaPriceUsd": 0.0005189,
+        "varaPriceUsd": 0.00053853,
         "varaPriceSource": "coingecko",
         "liveMarketPriced": [
           "wVARA",
@@ -118,7 +118,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
         "placeholderPriced": []
       },
       "totals": {
-        "estimatedUsd": 6.046301,
+        "estimatedUsd": 6.275032,
         "estimatedStablecoinUsd": 0
       },
       "tokens": [
@@ -132,9 +132,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
           "decimals": 12,
           "balanceRaw": "10460000000000000",
           "balanceDisplay": "10460",
-          "estimatedUsd": 5.427694,
+          "estimatedUsd": 5.633024,
           "pricingSource": "coingecko",
-          "price": 0.0005189,
+          "price": 0.00053853,
           "deployed": true,
           "source": "onchain_total_supply"
         },
@@ -148,9 +148,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
           "decimals": 12,
           "balanceRaw": "1191150000000000",
           "balanceDisplay": "1191.15",
-          "estimatedUsd": 0.618088,
+          "estimatedUsd": 0.64147,
           "pricingSource": "coingecko",
-          "price": 0.0005189,
+          "price": 0.00053853,
           "deployed": true,
           "source": "onchain_total_supply"
         },
@@ -164,9 +164,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
           "decimals": 12,
           "balanceRaw": "1000000000000",
           "balanceDisplay": "1",
-          "estimatedUsd": 0.000519,
+          "estimatedUsd": 0.000539,
           "pricingSource": "coingecko",
-          "price": 0.0005189,
+          "price": 0.00053853,
           "deployed": true,
           "source": "onchain_native_balance"
         }
@@ -185,8 +185,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
             "address": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
             "balanceRaw": "10460000000000000",
             "balanceDisplay": "10460",
-            "varaPriceUsd": 0.0005189,
-            "estimatedUsd": 5.427694,
+            "varaPriceUsd": 0.00053853,
+            "estimatedUsd": 5.633024,
             "source": "onchain_total_supply"
           },
           {
@@ -194,8 +194,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
             "address": "0x04314af41b7dbac322e3e66920211d2f799719e1cdc3122a99752f72b6ae84ee",
             "balanceRaw": "1191150000000000",
             "balanceDisplay": "1191.15",
-            "varaPriceUsd": 0.0005189,
-            "estimatedUsd": 0.618088,
+            "varaPriceUsd": 0.00053853,
+            "estimatedUsd": 0.64147,
             "source": "onchain_total_supply"
           },
           {
@@ -203,8 +203,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
             "address": "native",
             "balanceRaw": "1000000000000",
             "balanceDisplay": "1",
-            "varaPriceUsd": 0.0005189,
-            "estimatedUsd": 0.000519,
+            "varaPriceUsd": 0.00053853,
+            "estimatedUsd": 0.000539,
             "source": "onchain_native_balance"
           }
         ],
@@ -213,9 +213,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
         "reconciliation": {
           "source": "indexed_vault_events",
           "note": "Backend-logged deposits minus withdrawals. Non-authoritative; for drift detection only.",
-          "estimatedUsd": 0.000519
+          "estimatedUsd": 0.000539
         },
-        "asOf": "2026-06-22T23:19:20.859Z"
+        "asOf": "2026-06-23T00:13:40.638Z"
       }
     },
     "streams": {
@@ -225,29 +225,29 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
     "activity": {
       "source": "onchain_state_polling",
       "uniqueWallets": 1201,
-      "dau": 55,
+      "dau": 0,
       "mau": 361,
       "totalStreams": 55,
       "activeStreams": 53,
-      "volumeUsd": 0.109556,
+      "volumeUsd": 0.118498,
       "byToken": [
         {
           "symbol": "wVARA",
-          "streamedRaw": "211130485231968",
-          "streamedDisplay": "211.130485231968",
-          "price": 0.0005189,
+          "streamedRaw": "220040653102092",
+          "streamedDisplay": "220.040653102092",
+          "price": 0.00053853,
           "pricingSource": "coingecko",
-          "volumeUsd": 0.109556
+          "volumeUsd": 0.118498
         }
       ],
       "streaming": {
         "wallets": 47,
-        "dau": 43,
+        "dau": 0,
         "mau": 47
       },
       "xpSeeds": {
         "activeWalletsAllTime": 1186,
-        "dau": 31,
+        "dau": 0,
         "mau": 346
       },
       "note": "On-chain activity from two verifiable sources: StreamCore state (streams/volume; contract emits no events so polled) and quest-seeds Mint txs (XP, recorded in seeds_ledger with on-chain tx_hash). Volume = sum of live per-stream `streamed`.",
@@ -266,17 +266,17 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
       "last24hEvents": 45,
       "last7dEvents": 57,
       "last30dEvents": 57,
-      "totalFeesUsd": 0.005217,
-      "last24hUsd": 0.004881,
-      "last7dUsd": 0.005217,
-      "last30dUsd": 0.005217,
+      "totalFeesUsd": 0.005414,
+      "last24hUsd": 0.005065,
+      "last7dUsd": 0.005414,
+      "last30dUsd": 0.005414,
       "byToken": [
         {
           "symbol": "gVARA",
           "amountRaw": "10053525000000",
           "amountDisplay": "10.053525",
-          "price": 0.0005189,
-          "feesUsd": 0.005217
+          "price": 0.00053853,
+          "feesUsd": 0.005414
         }
       ],
       "note": "Protocol fee (2.5%) collected on stream create/deposit across all paths — vault/VFT, native VARA, and gVARA super-token streams. Sourced from on-chain FeeCollected events or explorer fallback when index data is absent."
@@ -342,7 +342,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
       "count": 1,
       "available": true
     },
-    "dau": 31
+    "dau": 0
   },
   "protocol": {
     "totalStreams": 55,
@@ -353,7 +353,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
     "pricing": {
       "source": "coingecko_realtime_pricing",
       "coverage": "wrapper_total_supply_plus_native_vara",
-      "varaPriceUsd": 0.0005189,
+      "varaPriceUsd": 0.00053853,
       "varaPriceSource": "coingecko",
       "liveMarketPriced": [
         "wVARA",
@@ -363,7 +363,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
       "placeholderPriced": []
     },
     "totals": {
-      "estimatedUsd": 6.046301,
+      "estimatedUsd": 6.275032,
       "estimatedStablecoinUsd": 0
     },
     "tokens": [
@@ -377,9 +377,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
         "decimals": 12,
         "balanceRaw": "10460000000000000",
         "balanceDisplay": "10460",
-        "estimatedUsd": 5.427694,
+        "estimatedUsd": 5.633024,
         "pricingSource": "coingecko",
-        "price": 0.0005189,
+        "price": 0.00053853,
         "deployed": true,
         "source": "onchain_total_supply"
       },
@@ -393,9 +393,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
         "decimals": 12,
         "balanceRaw": "1191150000000000",
         "balanceDisplay": "1191.15",
-        "estimatedUsd": 0.618088,
+        "estimatedUsd": 0.64147,
         "pricingSource": "coingecko",
-        "price": 0.0005189,
+        "price": 0.00053853,
         "deployed": true,
         "source": "onchain_total_supply"
       },
@@ -409,9 +409,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
         "decimals": 12,
         "balanceRaw": "1000000000000",
         "balanceDisplay": "1",
-        "estimatedUsd": 0.000519,
+        "estimatedUsd": 0.000539,
         "pricingSource": "coingecko",
-        "price": 0.0005189,
+        "price": 0.00053853,
         "deployed": true,
         "source": "onchain_native_balance"
       }
@@ -430,8 +430,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
           "address": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
           "balanceRaw": "10460000000000000",
           "balanceDisplay": "10460",
-          "varaPriceUsd": 0.0005189,
-          "estimatedUsd": 5.427694,
+          "varaPriceUsd": 0.00053853,
+          "estimatedUsd": 5.633024,
           "source": "onchain_total_supply"
         },
         {
@@ -439,8 +439,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
           "address": "0x04314af41b7dbac322e3e66920211d2f799719e1cdc3122a99752f72b6ae84ee",
           "balanceRaw": "1191150000000000",
           "balanceDisplay": "1191.15",
-          "varaPriceUsd": 0.0005189,
-          "estimatedUsd": 0.618088,
+          "varaPriceUsd": 0.00053853,
+          "estimatedUsd": 0.64147,
           "source": "onchain_total_supply"
         },
         {
@@ -448,8 +448,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
           "address": "native",
           "balanceRaw": "1000000000000",
           "balanceDisplay": "1",
-          "varaPriceUsd": 0.0005189,
-          "estimatedUsd": 0.000519,
+          "varaPriceUsd": 0.00053853,
+          "estimatedUsd": 0.000539,
           "source": "onchain_native_balance"
         }
       ],
@@ -458,9 +458,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
       "reconciliation": {
         "source": "indexed_vault_events",
         "note": "Backend-logged deposits minus withdrawals. Non-authoritative; for drift detection only.",
-        "estimatedUsd": 0.000519
+        "estimatedUsd": 0.000539
       },
-      "asOf": "2026-06-22T23:19:20.859Z"
+      "asOf": "2026-06-23T00:13:40.638Z"
     }
   },
   "activity": {
@@ -475,13 +475,13 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
     "uniqueWallets": 47,
     "activeWalletsAllTime": 47,
     "registeredUsers": 128,
-    "observedWithdrawVolumeUsd": 0.003314,
+    "observedWithdrawVolumeUsd": 0.003439,
     "volumeUsd": {
-      "last24h": 0.00253,
-      "last7d": 0.003314,
-      "last30d": 0.003314
+      "last24h": 0.002625,
+      "last7d": 0.003439,
+      "last30d": 0.003439
     },
-    "dau": 43,
+    "dau": 0,
     "totalTransactions": 83,
     "uniqueWalletsAllTime": 47,
     "lastObservedActivityAt": "2026-06-22T22:11:45.774Z",
@@ -512,19 +512,19 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
     "available": true
   },
   "kpis": {
-    "tvlUsd": 6.046301,
-    "protocolFeesUsd": 0.005217,
-    "protocolFees24hUsd": 0.004881,
-    "protocolFees30dUsd": 0.005217,
+    "tvlUsd": 6.275032,
+    "protocolFeesUsd": 0.005414,
+    "protocolFees24hUsd": 0.005065,
+    "protocolFees30dUsd": 0.005414,
     "retentionRate": 0,
-    "onchainVolumeUsd": 0.109556,
+    "onchainVolumeUsd": 0.118498,
     "totalStreams": 55,
     "activeStreams": 53,
     "uniqueStreamWallets": 47,
     "onchainActiveWallets": 1201,
-    "onchainDau": 55,
+    "onchainDau": 0,
     "onchainMau": 361,
-    "platformDau": 31,
+    "platformDau": 0,
     "totalRegisteredUsers": 1823,
     "totalDistinctWallets": 1825,
     "questParticipants": 1792,
@@ -532,16 +532,16 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
     "questCompletions": 8157,
     "contributorCount": 27,
     "backendLoggedVolumeUsd": {
-      "last24h": 0.00253,
-      "last7d": 0.003314,
-      "last30d": 0.003314
+      "last24h": 0.002625,
+      "last7d": 0.003439,
+      "last30d": 0.003439
     }
   },
   "freshness": {
-    "lastUpdatedAt": "2026-06-22T23:00:01.751Z",
-    "lastSnapshotAt": "2026-06-22T23:00:01.751Z",
+    "lastUpdatedAt": "2026-06-23T00:00:03.132Z",
+    "lastSnapshotAt": "2026-06-23T00:00:03.132Z",
     "lastEventAt": "2026-06-22T22:11:45.774Z",
-    "snapshotAgeSeconds": 1157,
+    "snapshotAgeSeconds": 816,
     "isStale": false,
     "indexerRunning": true
   },
@@ -575,7 +575,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/summary?days=30'
 > Live on-chain TVL. totals.estimatedUsd + per-token rows (balanceDisplay, price, pricingSource, deployed, source). meta.tokensNotDeployedOnChain lists undeployed tokens. wVARA+gVARA+native VARA priced as vara-network.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
+curl -sS 'https://www.growstreams.xyz/api/analytics/tvl'
 ```
 
 - Status: **`200`**
@@ -586,7 +586,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
   "pricing": {
     "source": "coingecko_realtime_pricing",
     "coverage": "wrapper_total_supply_plus_native_vara",
-    "varaPriceUsd": 0.0005189,
+    "varaPriceUsd": 0.00053853,
     "varaPriceSource": "coingecko",
     "liveMarketPriced": [
       "wVARA",
@@ -596,7 +596,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
     "placeholderPriced": []
   },
   "totals": {
-    "estimatedUsd": 6.046301,
+    "estimatedUsd": 6.275032,
     "estimatedStablecoinUsd": 0
   },
   "tokens": [
@@ -610,9 +610,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
       "decimals": 12,
       "balanceRaw": "10460000000000000",
       "balanceDisplay": "10460",
-      "estimatedUsd": 5.427694,
+      "estimatedUsd": 5.633024,
       "pricingSource": "coingecko",
-      "price": 0.0005189,
+      "price": 0.00053853,
       "deployed": true,
       "source": "onchain_total_supply"
     },
@@ -626,9 +626,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
       "decimals": 12,
       "balanceRaw": "1191150000000000",
       "balanceDisplay": "1191.15",
-      "estimatedUsd": 0.618088,
+      "estimatedUsd": 0.64147,
       "pricingSource": "coingecko",
-      "price": 0.0005189,
+      "price": 0.00053853,
       "deployed": true,
       "source": "onchain_total_supply"
     },
@@ -642,9 +642,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
       "decimals": 12,
       "balanceRaw": "1000000000000",
       "balanceDisplay": "1",
-      "estimatedUsd": 0.000519,
+      "estimatedUsd": 0.000539,
       "pricingSource": "coingecko",
-      "price": 0.0005189,
+      "price": 0.00053853,
       "deployed": true,
       "source": "onchain_native_balance"
     }
@@ -663,8 +663,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
         "address": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
         "balanceRaw": "10460000000000000",
         "balanceDisplay": "10460",
-        "varaPriceUsd": 0.0005189,
-        "estimatedUsd": 5.427694,
+        "varaPriceUsd": 0.00053853,
+        "estimatedUsd": 5.633024,
         "source": "onchain_total_supply"
       },
       {
@@ -672,8 +672,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
         "address": "0x04314af41b7dbac322e3e66920211d2f799719e1cdc3122a99752f72b6ae84ee",
         "balanceRaw": "1191150000000000",
         "balanceDisplay": "1191.15",
-        "varaPriceUsd": 0.0005189,
-        "estimatedUsd": 0.618088,
+        "varaPriceUsd": 0.00053853,
+        "estimatedUsd": 0.64147,
         "source": "onchain_total_supply"
       },
       {
@@ -681,8 +681,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
         "address": "native",
         "balanceRaw": "1000000000000",
         "balanceDisplay": "1",
-        "varaPriceUsd": 0.0005189,
-        "estimatedUsd": 0.000519,
+        "varaPriceUsd": 0.00053853,
+        "estimatedUsd": 0.000539,
         "source": "onchain_native_balance"
       }
     ],
@@ -691,9 +691,9 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
     "reconciliation": {
       "source": "indexed_vault_events",
       "note": "Backend-logged deposits minus withdrawals. Non-authoritative; for drift detection only.",
-      "estimatedUsd": 0.000519
+      "estimatedUsd": 0.000539
     },
-    "asOf": "2026-06-22T23:19:20.859Z"
+    "asOf": "2026-06-23T00:13:40.638Z"
   }
 }
 ```
@@ -703,7 +703,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl'
 > DeFiLlama-shaped TVL: balances keyed coingecko:id (raw, decimal-adjusted), excluded[] / unpriced[] arrays, timetravel:false, methodology. Consumed by the DeFiLlama TVL adapter.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/defillama-tvl'
+curl -sS 'https://www.growstreams.xyz/api/analytics/defillama-tvl'
 ```
 
 - Status: **`200`**
@@ -721,8 +721,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/defillama-tvl'
       "address": "0xf5e9cb1d1e46b0cda6578dd1684b30f281a45dfaa390e4945b7bfc8ab3e27f3d",
       "balanceRaw": "10460000000000000",
       "balanceDisplay": "10460",
-      "varaPriceUsd": 0.0005189,
-      "estimatedUsd": 5.427694,
+      "varaPriceUsd": 0.00053853,
+      "estimatedUsd": 5.633024,
       "source": "onchain_total_supply"
     },
     {
@@ -730,8 +730,8 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/defillama-tvl'
       "address": "0x04314af41b7dbac322e3e66920211d2f799719e1cdc3122a99752f72b6ae84ee",
       "balanceRaw": "1191150000000000",
       "balanceDisplay": "1191.15",
-      "varaPriceUsd": 0.0005189,
-      "estimatedUsd": 0.618088,
+      "varaPriceUsd": 0.00053853,
+      "estimatedUsd": 0.64147,
       "source": "onchain_total_supply"
     },
     {
@@ -739,16 +739,16 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/defillama-tvl'
       "address": "native",
       "balanceRaw": "1000000000000",
       "balanceDisplay": "1",
-      "varaPriceUsd": 0.0005189,
-      "estimatedUsd": 0.000519,
+      "varaPriceUsd": 0.00053853,
+      "estimatedUsd": 0.000539,
       "source": "onchain_native_balance"
     }
   ],
-  "varaPriceUsd": 0.0005189,
+  "varaPriceUsd": 0.00053853,
   "excluded": [],
   "methodology": "TVL is the live on-chain total supply of the VARA wrapper contracts (gVARA and wVARA) plus native VARA held by the configured TokenVault account. GROW token is excluded as it is a platform/utility token with no public market. TVL reflects only VARA, wVARA, and gVARA (the actual streaming value). Balances are read from current chain state and keyed by CoinGecko asset id for DeFiLlama pricing.",
   "timetravel": false,
-  "asOf": "2026-06-22T23:19:20.859Z"
+  "asOf": "2026-06-23T00:13:40.638Z"
 }
 ```
 
@@ -757,7 +757,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/defillama-tvl'
 > On-chain stream activity reconstructed from StreamCore state polling (contract emits no events). Streaming-specific (totalStreams, streamWallets, streamDau/Mau, totalVolumeUsd, byToken[]) PLUS on-chain XP/seeds activity (seedsActiveWalletsAllTime, seedsDau/Mau) PLUS combined exact-union (uniqueWallets, dau, mau). streamDataSource = stream_state_db | live_rpc_enumeration.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/onchain-streams'
+curl -sS 'https://www.growstreams.xyz/api/analytics/onchain-streams'
 ```
 
 - Status: **`200`**
@@ -773,26 +773,26 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/onchain-streams'
   "scannedStreams": 55,
   "scanErrors": 0,
   "streamWallets": 47,
-  "streamDau": 43,
+  "streamDau": 0,
   "streamMau": 47,
-  "totalVolumeUsd": 0.109556,
+  "totalVolumeUsd": 0.118547,
   "byToken": [
     {
       "symbol": "wVARA",
-      "streamedRaw": "211130485231968",
-      "streamedDisplay": "211.130485231968",
-      "price": 0.0005189,
+      "streamedRaw": "220130138288736",
+      "streamedDisplay": "220.130138288736",
+      "price": 0.00053853,
       "pricingSource": "coingecko",
-      "volumeUsd": 0.109556
+      "volumeUsd": 0.118547
     }
   ],
   "seedsActiveWalletsAllTime": 1186,
-  "seedsDau": 31,
+  "seedsDau": 0,
   "seedsMau": 346,
-  "dau": 55,
+  "dau": 0,
   "mau": 361,
   "uniqueWallets": 1201,
-  "asOf": "2026-06-22T23:19:20.641Z"
+  "asOf": "2026-06-23T00:13:44.581Z"
 }
 ```
 
@@ -801,7 +801,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/onchain-streams'
 > DeFiLlama-shaped streaming volume: cumulative volume keyed coingecko:id (raw token units), totalVolumeUsd, timetravel:false, methodology. Consumed by the DeFiLlama volume (dimension) adapter.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/defillama-volume'
+curl -sS 'https://www.growstreams.xyz/api/analytics/defillama-volume'
 ```
 
 - Status: **`200`**
@@ -810,14 +810,14 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/defillama-volume'
 {
   "chain": "vara",
   "totalVolume": {
-    "coingecko:vara-network": "211.130485231968"
+    "coingecko:vara-network": "220.130138288736"
   },
-  "totalVolumeUsd": 0.109556,
+  "totalVolumeUsd": 0.118547,
   "unpriced": [],
   "streamCount": 55,
   "methodology": "Streaming volume is the cumulative value streamed through the GrowStreams protocol on Vara, computed as the sum of each stream's live `streamed` amount (settled + accrued) read from StreamCore state, keyed by CoinGecko asset id (gVARA/wVARA priced as VARA). The contract emits no events, so values are reconstructed from on-chain contract state.",
   "timetravel": false,
-  "asOf": "2026-06-22T23:19:20.641Z"
+  "asOf": "2026-06-23T00:13:44.581Z"
 }
 ```
 
@@ -826,7 +826,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/defillama-volume'
 > Backend-logged + state-derived activity window. transactionCount, uniqueWallets (window), activeWalletsAllTime, registeredUsers, dau, volumeUsd{last24h/7d/30d}. Source label indicates on_chain vs backend fallback.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/activity?days=30'
+curl -sS 'https://www.growstreams.xyz/api/analytics/activity?days=30'
 ```
 
 - Status: **`200`**
@@ -844,13 +844,13 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/activity?days=30'
   "uniqueWallets": 47,
   "activeWalletsAllTime": 47,
   "registeredUsers": 128,
-  "observedWithdrawVolumeUsd": 0.003314,
+  "observedWithdrawVolumeUsd": 0.003439,
   "volumeUsd": {
-    "last24h": 0.00253,
-    "last7d": 0.003314,
-    "last30d": 0.003314
+    "last24h": 0.002625,
+    "last7d": 0.003439,
+    "last30d": 0.003439
   },
-  "dau": 43,
+  "dau": 0,
   "totalTransactions": 83,
   "uniqueWalletsAllTime": 47,
   "lastObservedActivityAt": "2026-06-22T22:11:45.774Z",
@@ -864,7 +864,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/activity?days=30'
 > Hourly protocol snapshots time-series (TVL, streams, observed activity) from analytics_protocol_snapshots.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/history?hours=168'
+curl -sS 'https://www.growstreams.xyz/api/analytics/history?hours=168'
 ```
 
 - Status: **`200`**
@@ -876,7 +876,29 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/history?hours=168'
   "source": "analytics_protocol_snapshots",
   "snapshotVersion": "2026-06-wrapper-supply-current-contracts-v1",
   "note": "Only snapshots matching the current methodology and current contract set are returned. Older persisted rows remain stored but are excluded until they are backfilled or replaced.",
-  "snapshots": []
+  "snapshots": [
+    {
+      "snapped_at": "2026-06-23T00:00:03.132Z",
+      "estimated_tvl_usd": "5.937120",
+      "estimated_stablecoin_tvl_usd": "0.000000",
+      "total_streams": 55,
+      "active_streams": 53,
+      "observed_stream_event_count": 83,
+      "observed_vault_event_count": 0,
+      "observed_unique_wallets": 47,
+      "observed_withdraw_volume_usd": "0.003254",
+      "observed_window_days": 30,
+      "observed_volume_source": "on_chain_event_indexer",
+      "volume_24h_usd": "0.002484",
+      "volume_7d_usd": "0.003254",
+      "volume_30d_usd": "0.003254",
+      "dau": 0,
+      "total_transactions": 83,
+      "unique_wallets_all_time": 47,
+      "last_activity_at": "2026-06-22T22:11:45.774Z",
+      "last_updated_at": "2026-06-22T23:00:01.751Z"
+    }
+  ]
 }
 ```
 
@@ -885,7 +907,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/history?hours=168'
 > Daily TVL series for the dashboard chart (tvl_usd, stablecoin_tvl_usd, snapped_at).
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/tvl-history?days=30'
+curl -sS 'https://www.growstreams.xyz/api/analytics/tvl-history?days=30'
 ```
 
 - Status: **`200`**
@@ -897,7 +919,14 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl-history?days=30'
   "source": "analytics_protocol_snapshots",
   "snapshotVersion": "2026-06-wrapper-supply-current-contracts-v1",
   "methodology": "Only snapshots matching the current live TVL methodology are returned. Current live TVL methodology is wrapper total supply (wVARA + gVARA) plus native VARA in the configured TokenVault account.",
-  "points": []
+  "points": [
+    {
+      "date": "2026-06-23T00:00:00.000Z",
+      "tvl_usd": "5.937120",
+      "stablecoin_tvl_usd": "0.000000",
+      "snapped_at": "2026-06-23T00:00:03.132Z"
+    }
+  ]
 }
 ```
 
@@ -906,7 +935,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/tvl-history?days=30'
 > Daily on-chain activity series for dashboard graphs: onchain_volume_usd, onchain_unique_wallets, onchain_dau, onchain_mau, seeds_active_wallets, stream_wallets, total_streams. From analytics_protocol_snapshots.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/activity-history?days=30'
+curl -sS 'https://www.growstreams.xyz/api/analytics/activity-history?days=30'
 ```
 
 - Status: **`200`**
@@ -918,7 +947,21 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/activity-history?days=30'
   "source": "analytics_protocol_snapshots",
   "snapshotVersion": "2026-06-wrapper-supply-current-contracts-v1",
   "note": "Daily points are taken from persisted hourly snapshots, but only rows matching the current on-chain activity methodology and current contract set are returned.",
-  "points": []
+  "points": [
+    {
+      "date": "2026-06-23T00:00:00.000Z",
+      "snapped_at": "2026-06-23T00:00:03.132Z",
+      "tvl_usd": "5.937120",
+      "onchain_volume_usd": "0.110916",
+      "onchain_unique_wallets": 1201,
+      "onchain_dau": 0,
+      "onchain_mau": 361,
+      "seeds_active_wallets": 1186,
+      "stream_wallets": 47,
+      "total_streams": 55,
+      "active_streams": 53
+    }
+  ]
 }
 ```
 
@@ -927,7 +970,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/activity-history?days=30'
 > Daily volume series (points[] of date + volumeUsd) with source/coverage labels.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/volume-history?days=30'
+curl -sS 'https://www.growstreams.xyz/api/analytics/volume-history?days=30'
 ```
 
 - Status: **`200`**
@@ -956,7 +999,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/volume-history?days=30'
 > Resolved program IDs for the core contracts (streamCore, tokenVault, growToken, ...).
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/contracts'
+curl -sS 'https://www.growstreams.xyz/api/analytics/contracts'
 ```
 
 - Status: **`200`**
@@ -986,7 +1029,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/contracts'
 > Explorer URLs per contract (idea.gear-tech.io) for the dashboard contract links section.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/explorer-links'
+curl -sS 'https://www.growstreams.xyz/api/analytics/explorer-links'
 ```
 
 - Status: **`200`**
@@ -1067,7 +1110,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/explorer-links'
 > Recent transactions feed across stream/vault/bridge/XP-mint sources, each with on-chain explorerUrl (idea.gear-tech.io). On-chain XP mints (seeds_ledger, source:xp_mint) are included with verifiable tx hashes. Server-side pagination: limit + offset + total + hasMore.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/transactions?limit=10&offset=0'
+curl -sS 'https://www.growstreams.xyz/api/analytics/transactions?limit=10&offset=0'
 ```
 
 - Status: **`200`**
@@ -1249,7 +1292,7 @@ curl -sS 'http://127.0.0.1:1337/api/analytics/transactions?limit=10&offset=0'
 > Active wallets list (wallet, handles, stream/vault/bridge counts, lastActivity), test/QA accounts excluded. Server-side pagination: limit + offset + total + hasMore.
 
 ```bash
-curl -sS 'http://127.0.0.1:1337/api/analytics/wallets?limit=10&offset=0'
+curl -sS 'https://www.growstreams.xyz/api/analytics/wallets?limit=10&offset=0'
 ```
 
 - Status: **`200`**

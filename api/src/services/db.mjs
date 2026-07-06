@@ -408,6 +408,14 @@ export async function migrate() {
       is_stablecoin  BOOLEAN NOT NULL DEFAULT FALSE
     );
 
+    -- gVARA TotalSupply snapshots for wrap/unwrap volume tracking
+    CREATE TABLE IF NOT EXISTS gvara_supply_snapshots (
+      id                SERIAL PRIMARY KEY,
+      total_supply_raw  TEXT NOT NULL,
+      total_supply_display TEXT NOT NULL,
+      snapped_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     -- Per-stream on-chain state, persisted by the state-polling indexer so
     -- analytics can aggregate from the DB instead of enumerating every stream
     -- via RPC on each request. The streamed column holds the LIVE value at
